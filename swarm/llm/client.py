@@ -25,9 +25,16 @@ from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
-API_KEY_ENV = "AEROSWARM_ANTHROPIC_API_KEY"  # the SDK's own ANTHROPIC_API_KEY is deliberately not read
+API_KEY_ENV = "AEROSWARM_ANTHROPIC_API_KEY"
+API_KEY_FALLBACK_ENV = "ANTHROPIC_API_KEY"  # the SDK's own name; used only when API_KEY_ENV is unset or empty
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_EFFORT = "medium"
+
+
+def resolve_api_key() -> str | None:
+    """AEROSWARM_ANTHROPIC_API_KEY first, then ANTHROPIC_API_KEY; empty counts as unset."""
+    return os.environ.get(API_KEY_ENV) or os.environ.get(API_KEY_FALLBACK_ENV) or None
+
 
 # USD per million tokens: (input, output, cache_read, cache_write_5m).
 PRICES: dict[str, tuple[float, float, float, float]] = {
@@ -189,9 +196,11 @@ class AnthropicClient:
         if sdk_client is None:
             import anthropic
 
-            api_key = os.environ.get(API_KEY_ENV)
+            api_key = resolve_api_key()
             if not api_key:
-                raise RuntimeError(f"{API_KEY_ENV} is not set; export it or use --llm mock")
+                raise RuntimeError(
+                    f"{API_KEY_ENV} (or {API_KEY_FALLBACK_ENV}) is not set; export one or use --llm mock"
+                )
             sdk_client = anthropic.Anthropic(api_key=api_key)
         self._sdk = sdk_client
         self.label = f"anthropic:{self.model}"
@@ -271,9 +280,9 @@ class ScriptedClient:
 
 
 def make_client(trace: TraceLogger, which: str = "auto", inject_faults: bool = False) -> LLMClient:
-    """auto → Anthropic when AEROSWARM_ANTHROPIC_API_KEY is set, else the labelled mock."""
+    """auto → Anthropic when AEROSWARM_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) is set, else the labelled mock."""
     which = os.environ.get("AEROSWARM_LLM", which)
-    if which == "anthropic" or (which == "auto" and os.environ.get(API_KEY_ENV)):
+    if which == "anthropic" or (which == "auto" and resolve_api_key()):
         return AnthropicClient(trace)
     from swarm.llm.mock import MockClient
 

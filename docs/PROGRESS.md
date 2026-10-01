@@ -1,16 +1,15 @@
 # Progress
 
-## Session 4 (2026-10-01): API key env var renamed
+## Session 4 (2026-10-01): API key env var renamed, old name kept as a fallback
 
-- The key is now read from `AEROSWARM_ANTHROPIC_API_KEY` (constant `API_KEY_ENV` in
-  `swarm/llm/client.py`). The SDK's own `ANTHROPIC_API_KEY` is **no longer read**: `AnthropicClient`
-  passes the key to `anthropic.Anthropic(api_key=...)` explicitly, and raises `RuntimeError` when it is
-  missing (before, the SDK would have fallen back to the old variable). `make_client("auto")` picks the
-  real client only when the new variable is set.
-- Anything that exported the old name (shell profile, environment secrets, CI secrets) must be renamed.
-  CI keeps the variable blank so the suite stays keyless.
-- `tests/test_llm.py` covers: mock without the key, old name ignored, real client with the new name,
-  and the missing-key error.
+- The key is read from `AEROSWARM_ANTHROPIC_API_KEY` first, then `ANTHROPIC_API_KEY`; an empty value
+  counts as unset (`resolve_api_key()` in `swarm/llm/client.py`). `AnthropicClient` passes the result to
+  `anthropic.Anthropic(api_key=...)` explicitly, and raises `RuntimeError` naming both variables when
+  neither is set. `make_client("auto")` uses the same helper, so it picks the real client exactly when
+  `AnthropicClient` would accept a key. Before, the SDK silently read `ANTHROPIC_API_KEY` itself.
+- CI blanks both variables so the suite stays keyless.
+- `tests/test_llm.py` covers: mock with no key, new name, new name beating the fallback, fallback alone,
+  empty new name falling back, and both empty (mock, plus the missing-key error).
 - Known issue: `tests/test_llm.py::test_anthropic_client_logs_tokens_and_cost` asserts the default model,
   so it fails in any shell that exports `AEROSWARM_MODEL` (this cloud env sets `claude-sonnet-5`).
   Not caused by this change; run with `env -u AEROSWARM_MODEL` or monkeypatch the variable.

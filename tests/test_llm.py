@@ -90,30 +90,47 @@ def test_mock_trace_marks_mock(tmp_path):
     assert rec["client"] == "mock" and rec["mock"] is True and rec["cost_usd"] == 0.0
 
 
+def _set_keys(monkeypatch, aeroswarm=None, fallback=None):
+    """Set (or clear) both key variables; also clears AEROSWARM_LLM so 'auto' is in force."""
+    monkeypatch.delenv("AEROSWARM_LLM", raising=False)
+    for name, value in (("AEROSWARM_ANTHROPIC_API_KEY", aeroswarm), ("ANTHROPIC_API_KEY", fallback)):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+
+
 def test_make_client_without_key_is_mock(monkeypatch):
-    monkeypatch.delenv("AEROSWARM_ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("AEROSWARM_LLM", raising=False)
+    _set_keys(monkeypatch)
     assert make_client(TraceLogger(None)).is_mock
 
 
-def test_make_client_ignores_sdk_default_key(monkeypatch):
-    monkeypatch.delenv("AEROSWARM_ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("AEROSWARM_LLM", raising=False)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-ours")
-    assert make_client(TraceLogger(None)).is_mock
-
-
-def test_make_client_with_key_is_anthropic(monkeypatch):
-    monkeypatch.delenv("AEROSWARM_LLM", raising=False)
-    monkeypatch.setenv("AEROSWARM_ANTHROPIC_API_KEY", "sk-ant-test")
+def test_make_client_with_aeroswarm_key_is_anthropic(monkeypatch):
+    _set_keys(monkeypatch, aeroswarm="sk-ant-mine")
     c = make_client(TraceLogger(None))
     assert c.kind == "anthropic" and not c.is_mock
-    assert c._sdk.api_key == "sk-ant-test"
+    assert c._sdk.api_key == "sk-ant-mine"
 
 
-def test_anthropic_client_requires_the_key(monkeypatch):
-    monkeypatch.delenv("AEROSWARM_ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-ours")
+def test_aeroswarm_key_wins_over_fallback(monkeypatch):
+    _set_keys(monkeypatch, aeroswarm="sk-ant-mine", fallback="sk-ant-sdk")
+    assert AnthropicClient(TraceLogger(None))._sdk.api_key == "sk-ant-mine"
+
+
+def test_falls_back_to_sdk_key(monkeypatch):
+    _set_keys(monkeypatch, fallback="sk-ant-sdk")
+    assert AnthropicClient(TraceLogger(None))._sdk.api_key == "sk-ant-sdk"
+    assert make_client(TraceLogger(None)).kind == "anthropic"
+
+
+def test_empty_aeroswarm_key_falls_back(monkeypatch):
+    _set_keys(monkeypatch, aeroswarm="", fallback="sk-ant-sdk")
+    assert AnthropicClient(TraceLogger(None))._sdk.api_key == "sk-ant-sdk"
+
+
+def test_both_keys_empty_is_mock_and_client_raises(monkeypatch):
+    _set_keys(monkeypatch, aeroswarm="", fallback="")
+    assert make_client(TraceLogger(None)).is_mock
     with pytest.raises(RuntimeError, match="AEROSWARM_ANTHROPIC_API_KEY"):
         AnthropicClient(TraceLogger(None))
 

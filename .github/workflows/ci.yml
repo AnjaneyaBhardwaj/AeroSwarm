@@ -34,6 +34,7 @@ jobs:
         python-version: ["3.11", "3.12"]
     env:
       AEROSWARM_ANTHROPIC_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
       MPLBACKEND: Agg
     steps:
       - uses: actions/checkout@v4
