@@ -4,6 +4,7 @@ python -m swarm.run                      # demo spec; real LLM if an Anthropic k
 python -m swarm.run --llm mock           # force the labelled mock (not an LLM)
 python -m swarm.run --preset hard        # 85% of attached Cl,max: TE separation + stall-margin rejections
 python -m swarm.run --max-evals 10 --budget-usd 2.00   # live-run caps
+python -m swarm.run --llm anthropic ...  # needs ANTHROPIC_API_KEY (startup error without); exit 3 = INVALID run
 python -m swarm.run --resume <run_id>    # resume from runs/<run_id>/ckpt.db
 """
 
@@ -18,7 +19,7 @@ from pathlib import Path
 
 from swarm.graph import build_graph, checkpointer
 from swarm.ledger import RunFiles
-from swarm.llm.client import LLMClient, TraceLogger, make_client
+from swarm.llm.client import LLMClient, MissingAPIKey, TraceLogger, make_client, preflight_llm
 from swarm.solvers.xfoil import xfoil_available
 from swarm.state import PLACEHOLDER_CAR, DesignSpec, WingParams, speed_for_reynolds
 
@@ -73,6 +74,8 @@ def run(
     resume: bool = False,
     preset: str | None = None,
 ) -> dict:
+    if llm is None:
+        preflight_llm(which)  # MissingAPIKey before any run directory exists
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
     files = RunFiles(Path(runs_root) / run_id)
     if llm is None:
@@ -155,6 +158,10 @@ def main(argv: list[str] | None = None) -> None:
     if a.resume and (upd or a.preset != "default"):
         ap.error("--resume continues the checkpointed spec; --preset/--max-evals/--budget-usd are fixed at run start")
     spec = spec.model_copy(update=upd)
+    try:
+        preflight_llm(a.llm)
+    except MissingAPIKey as e:
+        ap.error(str(e))
     final = run(
         spec,
         start,
@@ -166,16 +173,32 @@ def main(argv: list[str] | None = None) -> None:
         preset=None if a.resume else a.preset,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
+    health = meta.get("llm_health") or {}
     print(
         json.dumps(
             {
-                k: meta.get(k)
-                for k in ("run_id", "preset", "llm_client", "termination", "evals", "best_cid", "best_xfoil_cid", "viz")
+                **{
+                    k: meta.get(k)
+                    for k in (
+                        "run_id",
+                        "preset",
+                        "llm_client",
+                        "termination",
+                        "evals",
+                        "best_cid",
+                        "best_xfoil_cid",
+                        "viz",
+                    )
+                },
+                "llm_valid": health.get("valid"),
             },
             indent=1,
         )
     )
     print(f"report: {final['run_dir']}/report.md")
+    if health.get("enforced") and not health.get("valid"):
+        print("INVALID RUN: " + "; ".join(health["invalid_reasons"]), file=sys.stderr)
+        sys.exit(3)
 
 
 if __name__ == "__main__":
