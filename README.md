@@ -9,7 +9,7 @@ Design: [docs/BLUEPRINT.md](docs/BLUEPRINT.md). Status: [docs/PROGRESS.md](docs/
 make install   # uv sync
 make xfoil     # build headless-safe XFoil 6.99 (the apt package aborts with SIGFPE)
 make test      # offline; XFoil-binary tests skip if it is missing
-make demo      # smoke test: real LLM if ANTHROPIC_API_KEY is set, else the labelled mock (NOT an LLM)
+make demo      # smoke test: real LLM if AEROSWARM_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) is set, else the labelled mock (NOT an LLM)
 make demo-hard # mock, near Cl,max at Re 3e5: XFoil ladder recovery + TE separation (needs make xfoil)
 ```
 
