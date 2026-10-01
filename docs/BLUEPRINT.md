@@ -22,6 +22,7 @@ An agentic AI system where autonomous LLM agents (orchestrated with LangGraph) c
   - [The Mission](#the-mission)
   - [Round-by-Round Walkthrough](#round-0-the-starting-point)
   - [What This Run Showed](#what-this-run-showed)
+- [Appendix: where every number comes from](#appendix-where-every-number-comes-from)
 
 ---
 
@@ -204,8 +205,8 @@ class WingParams(BaseModel, frozen=True):
     alpha_deg: float = Field(ge=-2.0, le=14.0)
     flap_chord_ratio: float = Field(ge=0.0, le=0.45)  # 0 = single element
     flap_deflection_deg: float = Field(ge=0.0, le=45.0)
-    slot_gap: float = Field(ge=0.005, le=0.03)        # fraction of main chord
-    slot_overlap: float = Field(ge=-0.01, le=0.03)
+    slot_gap: float = Field(ge=0.005, le=0.06)        # fraction of chord; NASA 2-element tests used 3.1–6% [S6]
+    slot_overlap: float = Field(ge=-0.01, le=0.07)    # same tests used 3.5–6.6% [S6]; optimizer finds the optimum
     gurney_h: float = Field(ge=0.0, le=0.02)
 
     @model_validator(mode="after")
@@ -307,7 +308,7 @@ builder = StateGraph(SwarmState)
 with SqliteSaver.from_conn_string(f"runs/{run_id}/ckpt.db") as cp:
     app = builder.compile(checkpointer=cp)
     app.invoke(init_state, config={"configurable": {"thread_id": run_id},
-                                   "recursion_limit": 1000})   # default 25 will kill long runs
+                                   "recursion_limit": 1000})   # explicit cap; LangGraph 1.x defaults to 10007 [S10]
 ```
 
 ---
@@ -358,7 +359,7 @@ This is a three-layer pipeline. The LLM only operates in the middle layer.
 HEURISTICS = {
   "TE_SEPARATION_FLAP": [
     ("flap_deflection_deg", -1, "reduce adverse pressure gradient on flap"),
-    ("slot_gap", +1, "stronger slot jet re-energizes flap boundary layer (optimum ~1–2% c)"),
+    ("slot_gap", +1, "stronger slot flow helps the flap boundary layer; optimum is geometry-specific"),
     ("slot_overlap", 0, "tune toward slightly positive overlap for slot effect"),
   ],
   "TE_SEPARATION_MAIN": [
@@ -500,7 +501,7 @@ class SolverOverrides(BaseModel):
 | `setup_case(cid, fidelity, overrides)` | Copies `templates/<fidelity>/` and renders Jinja2 for `blockMeshDict`, `snappyHexMeshDict`, `controlDict` (with the `forceCoeffs` function object, `liftDir`/`dragDir` rotated for α, `lRef`/`Aref` set), `fvSchemes`, `fvSolution`, and `0/{U,p,k,omega,nut}` with kOmegaSST inlet values from turbulence intensity and length scale. Copies the STLs into `constant/triSurface/`. |
 | `run_mesh(case)` | Runs `blockMesh → surfaceFeatureExtract → snappyHexMesh -overwrite → extrudeMesh (2D) → checkMesh`, then parses cell count, max non-orthogonality, max skewness, and "Mesh OK". |
 | `run_solver(case, max_iter)` | Streams the `simpleFoam` log through the divergence monitor. |
-| `parse_forces(case)` | Reads `postProcessing/forceCoeffs*/0/coefficient.dat` (older versions write `forceCoeffs.dat`, so glob for both), then computes window means and relative standard deviations. |
+| `parse_forces(case)` | Reads the forceCoeffs output under `postProcessing/` (file name differs between OpenFOAM versions, e.g. `coefficient.dat` or `forceCoeffs.dat`: glob, and confirm against your pinned version), then computes window means and relative standard deviations. |
 | `apply_recovery(case, level)` | Applies the recovery ladder (Section 3). |
 | `render_fields(case)` | Uses PyVista or `foamToVTK` to produce standardized PNGs with fixed colormaps and axes. |
 
@@ -512,7 +513,7 @@ import subprocess, shlex, os, signal, uuid
 
 ALLOWED = {"blockMesh", "surfaceFeatureExtract", "snappyHexMesh", "extrudeMesh",
            "checkMesh", "potentialFoam", "simpleFoam", "foamToVTK", "postProcess"}
-IMAGE = "opencfd/openfoam-default:2406"   # pin a version; the bashrc path below depends on it
+IMAGE = "opencfd/openfoam-default:2406"   # UNVERIFIED tag/path: confirm both against the image you pull
 FOAM_RC = "/usr/lib/openfoam/openfoam2406/etc/bashrc"
 
 def foam(case_dir: str, app: str, args: tuple[str, ...] = (), timeout=3600):
@@ -573,6 +574,8 @@ def _kill(name, sig):
 
 - Initial residuals dropped at least 4 orders for `p` and at least 5 for `U`.
 - The relative standard deviation of Cl and Cd over the last 300 iterations is below 0.5%.
+
+These thresholds are project conventions (common practice, not a standard). Confirm them in the mesh-independence study.
 - `checkMesh` reports OK.
 
 If residuals plateau while the coefficients oscillate periodically, classify the run as **UNSTEADY**, not diverged. Steady RANS oscillating on a high-lift wing usually means large-scale separation. That is a *design* signal to route to CAD, not a numerics problem to solve with more relaxation. Encoding that distinction is the kind of detail CFD reviewers look for.
@@ -588,13 +591,13 @@ The vision model is a second opinion, never the primary judge.
 | Check | Rule (2D, Re ~1e6) | Catches |
 |---|---|---|
 | Convergence | See criteria above | Unconverged "results" |
-| Drag floor | Cd ≥ ~0.005 (skin-friction floor at this Re) | Mesh leaks, wrong reference values |
-| Lift ceiling | \|Cl\| ≤ ~2.2 single element, ≤ ~4 two-element | Non-physical lift, broken BCs |
-| L/D sanity | L/D ≤ ~200 | Integration errors |
+| Drag floor | Cd ≥ ~0.005 (flat-plate friction: 0.0029 all-laminar, 0.0097 all-turbulent, two sides; NACA 4412 min Cd ≈ 0.006 at Re 1e6 [S1]) | Mesh leaks, wrong reference values |
+| Lift ceiling | \|Cl\| ≤ ~2.2 single element, ≤ ~4 two-element (loose margins above NACA 4412 Cl,max ≈ 1.67 [S1] and NASA two-element 2.82–3.32 [S6]) | Non-physical lift, broken BCs |
+| L/D sanity | L/D ≤ ~200 (NACA 4412 max ≈ 130 at Re 1e6 [S1]) | Integration errors |
 | Sign | Cl sign matches the geometry orientation | Flipped normals or `liftDir` |
-| Mesh | maxNonOrtho < 70, skewness < 4, "Mesh OK" | Bad cells that corrupt results |
-| y+ | Mean y+ ~1 for low-Re SST; if 30–300, wall functions must be set | Inconsistent wall treatment |
-| Fidelity gap | \|ΔCl\| between tiers < 0.1 | Model-form error (e.g., XFoil optimism near stall) |
+| Mesh | maxNonOrtho < 70, skewness < 4, "Mesh OK" (checkMesh defaults [S7]) | Bad cells that corrupt results |
+| y+ | Mean y+ ~1 for low-Re SST; if 30–300, wall functions must be set [S8] | Inconsistent wall treatment |
+| Fidelity gap | \|ΔCl\| between tiers < 0.1 (project convention; calibrate on validation cases) | Model-form error (e.g., XFoil optimism near stall) |
 | Surrogate confidence | NeuralFoil `analysis_confidence` above threshold | Out-of-distribution geometry |
 
 The thresholds are engineering bands to tune against your validation cases, not universal constants. Say so in the README.
@@ -1078,9 +1081,52 @@ That last part is what makes the project impressive. Hitting the target is the e
 
 ---
 
-## References for the regulation and dual-mode sections
+## Appendix: where every number comes from
 
-- [Formula Student Rules 2026 v1.1 (Formula Student Germany)](https://www.formulastudent.de/fileadmin/user_upload/all/2026/rules/FS-Rules_2026_v1.1.pdf)
+Each number in this document falls into one of five classes. Treat anything marked **Estimate** or **Convention** as a starting point to replace with your own validation data.
+
+| Value | Class | Basis |
+|---|---|---|
+| q = 1,531 Pa, Re = 8.3×10⁵, M = 0.15 | Calculated | ½ρV², Vc/ν, V/a with ρ = 1.225, ν = 1.5×10⁻⁵, a = 343, V = 50 m/s, c = 0.25 m |
+| Flat-plate Cf: 0.0015 laminar, 0.0048 turbulent (one side) | Calculated | 1.328/√Re and 0.074/Re^0.2 at Re = 8.3×10⁵ |
+| First cell ≈ 6 μm (2.4×10⁻⁵ c) for y+ = 1 | Calculated | Turbulent Cf → τw ≈ 7.4 Pa → uτ ≈ 2.46 m/s |
+| Lift slope 2π/rad ≈ 0.110/deg | Theory | Thin-airfoil theory; real sections are slightly lower |
+| C_D,i ≈ 0.20 at C_L 1.5, AR 4, e 0.9 | Calculated | C_L²/(π e AR); e = 0.9 is an assumed value |
+| LE radius ≈ 1.1019 t²c | Sourced | NACA 4-digit definition [S5]; ⇒ t ≥ 9.5% for 3 mm on a 300 mm chord |
+| Density change ≈ M²/2 at low Mach | Theory | Isentropic relation (1.05% at M 0.15) |
+| NACA 4412 at Re 1e6: Cl,max 1.67 at 16.5°, min Cd 0.0060, max L/D 130 | Sourced (computed) | NeuralFoil polar [S1]; not wind-tunnel data |
+| Two-element Cl,max 2.82 (3.32 with tabs + vortex generators) | Sourced (experiment) | NASA two-element study [S6] |
+| Gap 3.1–6%, overlap 3.5–6.6%, flap 22–43° | Sourced (experiment) | Configurations tested in [S6]; not universal optima |
+| Gurney flap height 1–2% chord | Sourced | Typical sizing [S9] |
+| Five slot effects | Sourced | A.M.O. Smith, High-Lift Aerodynamics [S4] |
+| checkMesh non-orthogonality 70°, skewness 4 | Sourced | OpenFOAM source defaults [S7] |
+| y+ ≈ 1 resolved (< 4–5 acceptable); 30–300 wall functions | Sourced | CFD-Wiki near-wall treatment [S8] |
+| Relaxation U 0.7, p 0.3 | Sourced | OpenFOAM `airFoil2D` simpleFoam tutorial |
+| XFoil Ncrit = 9 is an "average wind tunnel" | Sourced | XFoil documentation [S3] |
+| RANS (SST) drag above XFoil and experiment | Sourced (direction only) | [S2]; magnitude depends on setup, so calibrate it |
+| Formula Student limits (heights, overhangs, radii, clearance) | Sourced | FS Rules 2026 v1.1 |
+| F1 2026 wing layout and modes | Sourced | F1 sources below |
+| Target Cl 1.5 ± 0.03, Cd ≤ 0.018 | Convention | Chosen for the demo; derive yours from a NeuralFoil/XFoil sweep (≈85% of Cl,max) |
+| Validator ceilings (Cl 2.2 / 4, L/D 200, Cd floor 0.005, fidelity gap 0.1) | Convention | Loose margins around the sourced values above |
+| Convergence: 4–5 orders, < 0.5% std over 300 it. | Convention | Common practice; confirm with mesh-independence study |
+| Recovery-ladder relaxation steps, iteration counts, trust radius | Convention | Starting values to tune |
+| ~100–200k cells for 2D OpenFOAM, run times per tier | Estimate | Measure on your machine |
+| Sample-run numbers (Part II) | Illustrative | Not simulation results |
+| Docker image tag and bashrc path | Unverified | Check against the image you pull |
+
+### Sources
+
+- [S1] [NACA 4412 polars (foil.tools, NeuralFoil)](https://foil.tools/foil/naca4412)
+- [S2] [Comparison between XFoil and RANS CFD predictions (Daniel CFD)](https://www.danielcfd.com/comparison-between-xfoil-rans-cfd-aerodynamic-predictions-2d-airfoil/)
+- [S3] [XFoil documentation: analysis (Ncrit)](https://v0xnihili.github.io/xfoil-docs/analysis/)
+- [S4] [A.M.O. Smith, High-Lift Aerodynamics](https://charles-oneill.com/aem614/ReferenceMaterial/A+M+O+Smith+HIGH+LIFT+AERODYNAMICS.pdf)
+- [S5] [NACA 4-digit (modified) thickness calculation, PDAS](https://www.pdas.com/naca456thick4mcalc.html)
+- [S6] [Experimental Study of Lift-Enhancing Tabs on a Two-Element Airfoil (NASA)](https://ntrs.nasa.gov/api/citations/19980019443/downloads/19980019443.pdf)
+- [S7] [OpenFOAM primitiveMeshCheck.C defaults](https://cpp.openfoam.org/v7/primitiveMeshCheck_8C_source.html)
+- [S8] [Near-wall treatment for k-omega models (CFD-Wiki)](https://www.cfd-online.com/Wiki/Near-wall_treatment_for_k-omega_models)
+- [S9] [Gurney flap (Wikipedia)](https://en.wikipedia.org/wiki/Gurney_flap)
+- [S10] LangGraph 1.2.12 source: `DEFAULT_RECURSION_LIMIT = 10007`
+- [Formula Student Rules 2026 v1.1](https://www.formulastudent.de/fileadmin/user_upload/all/2026/rules/FS-Rules_2026_v1.1.pdf)
 - [Formula SAE Rules 2027 draft](https://spark.docs.iitmotorsports.org/assets/resources/rulebooks/FSAE_Rules_2027_V0_DRAFT_public_comments.pdf)
 - [Red Bull Racing: Guide to the 2026 technical regulations](https://www.redbullracing.com/int-en/projects/bulls-guide-to-the-f1-2026-regulations/technical-regulations)
 - [F1 Briefing: F1 rear wing rules and downforce](https://f1briefing.com/rear-wing-rules-impact-on-f1-downforce/)
