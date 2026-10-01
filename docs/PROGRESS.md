@@ -56,7 +56,61 @@ logged), so the pipeline's gate is the gate the target was derived with. `failin
 - Prompts updated (chief.md: directions, history, screen_override; cad.md: directions, override_reason).
 - Tests 201 → 212.
 
+### Live run 2: `--llm anthropic --preset hard --max-evals 40 --budget-usd 2` → **target_met**
+Run `20261001-201455-faf6a3` (runs/ is gitignored; this is the record). 23 of 40 evals, 69 LLM calls
+(0 failed, 0 fallbacks), 264k/94k tokens, **est. $1.47**, 0.28 h. Termination `target_met`.
+**Passing design `abb9803ead` (gen 22, XFoil): m 0.09, p 0.36, t 0.13, alpha 8.349 — Cl −1.8526,
+Cd 0.02222, stall margin 0.068/deg, no TE separation at alpha+0..+2.** It is on the camber bound.
+
+| gen | fid | status / symptom | m | p | t | α | focus (Chief direction) | CAD change(s): heuristic / Chief |
+|---|---|---|---|---|---|---|---|---|
+| 0 | NF | MISS / EARLY_STALL | 0.060 | 0.40 | 0.100 | 8.00 | camber +, thick −, alpha + | baseline |
+| 1 | NF | MISS / EARLY_STALL | 0.0762 | 0.40 | 0.0953 | 7.00 | camber +, thick −, alpha − | camber + (follows), thick − (follows; against "thicker"), alpha − (follows both) |
+| 2 | NF | MISS / INSUFF_LOADING | 0.0897 | 0.38 | 0.0953 | 6.00 | camber +, **pos −**, alpha − | camber +, **pos 0.40→0.38 (fwd)**, alpha − — all follow |
+| 3 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.0953 | 7.78 | camber +, alpha +, pos − | camber + (to bound), alpha + — follow |
+| 4 | NF | MISS / INSUFF_LOADING | 0.090 | 0.38 | 0.1073 | 7.58 | camber +, thick +, alpha − | alpha −, thick + — follow (EARLY_STALL heuristic) |
+| 5 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.1073 | 7.97 | camber +, alpha +, thick free | alpha + — follows |
+| 6 | NF | MISS / INSUFF_LOADING | 0.090 | 0.38 | 0.1153 | 6.30 | camber +, thick +, alpha − | thick +, alpha − — follow (alpha against heuristic) |
+| 7 | NF | PASS | 0.090 | 0.38 | 0.1153 | 8.00 | camber +, thick +, alpha free | thick +, alpha + — follow |
+| 8 | XF | MISS / EARLY_STALL (margin 0.034) | ↑ | | | | promote gen 7 | — |
+| 9 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.1073 | 7.971 | thick +, camber +, alpha − | **alpha + overrides Chief −** |
+| 10 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.1073 | 7.969 | alpha −, camber +, thick + | **alpha + overrides Chief −** |
+| 11 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.1073 | 7.974 | camber +, thick +, alpha − | **alpha + overrides Chief −** |
+| 12 | XF | MISS / EARLY_STALL (margin 0.029) | 0.090 | 0.38 | 0.1073 | 7.58 | promote gen 4 | — |
+| 13 | NF | MISS / INSUFF_LOADING | 0.090 | 0.38 | 0.1273 | 7.67 | camber +, alpha −, thick + | alpha −, thick + — follow |
+| 14 | NF | PASS | 0.090 | 0.38 | 0.1123 | 7.67 | thick +, camber +, alpha − | thick +, alpha − — follow |
+| 15 | XF | MISS / EARLY_STALL (margin 0.047) | ↑ | | | | promote gen 14 | — |
+| 16 | NF | MISS / EARLY_STALL | 0.090 | **0.44** | 0.1123 | 7.47 | **pos +**, thick +, alpha − | alpha −, thick +, **pos 0.38→0.44 (aft)** — follow |
+| 17 | NF | MISS / INSUFF_LOADING | 0.090 | 0.38 | 0.1223 | 7.67 | alpha −, camber +, thick + | alpha −, thick + — follow |
+| 18 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.0953 | 7.67 | thick −, camber +, alpha free | thick − (against "thicker"), alpha − — follow Chief |
+| 19 | NF | MISS / EARLY_STALL | 0.090 | 0.38 | 0.0973 | 7.67 | camber +, alpha −, thick − | alpha −, thick − — follow Chief |
+| 20 | NF | MISS / INSUFF_LOADING | 0.090 | **0.36** | 0.130 | 7.97 | **pos −**, thick −, camber + | **thick + overrides Chief −** (cites EARLY_STALL heuristic), **pos 0.38→0.36 (fwd)** |
+| 21 | NF | PASS | 0.090 | 0.36 | 0.130 | 8.35 | camber +, alpha +, thick free | alpha + — follows |
+| 22 | XF | **PASS** (margin 0.068) | ↑ | | | | promote gen 21 | — |
+
+- **Sensitivities**: of 34 CAD changes, 1 predicted a sign against the NeuralFoil sensitivity (gen 1,
+  thickness); the other 33 match.
+- **Chief directions**: 4 logged `chief_cad_disagreement`s (gens 9, 10, 11: alpha; gen 20: thickness).
+  Gens 9–11 repeat the same override on the same parent; the Chief kept asking alpha − for three
+  generations. Gen 20's override (thicker, per the EARLY_STALL heuristic) produced the parent of the
+  passing design.
+- **Near-duplicates**: gens 9–11 are gen 5 again with alpha moved by ≤ 0.004°. The CAD hit 3
+  exact-duplicate rejections first; the duplicate check is exact-cid only.
+- **camber_pos**: moved three times — forward (gen 2, 0.40→0.38), aft (gen 16, 0.38→0.44), forward
+  (gen 20, 0.38→0.36); the passing design has p 0.36. The Chief chose camber_pos in gens 2, 3, 16, 20.
+- **TE_SEPARATION_MAIN → move camber forward** was never offered: no verdict was TE_SEPARATION_MAIN
+  (symptoms: EARLY_STALL 13, INSUFFICIENT_LOADING 6, NONE 4).
+- **Parent selection**: no design passed until gen 22, so every parent came from least violation;
+  after XFoil rejected gen 4's design (gen 12) the parent moved off it.
+- **Screen vs XFoil**: all 4 promotions passed the screen; XFoil rejected 3 on margin (screen 0.052,
+  0.055, 0.056 vs XFoil 0.034, 0.029, 0.047) and passed the 4th (0.059 vs 0.068). No screen blocks,
+  no direct-to-XFoil steps, no screen overrides in this run.
+
 ### Known issues / limits
+- The screen passes designs whose NeuralFoil slope is just above 0.05 and whose XFoil slope is
+  not (3 of 4 promotions in live run 2). A margin on the screen threshold would block those; not
+  changed (calibration said 0.05 blocks 0 of 25 near-target XFoil passes).
+- Duplicate detection is exact-cid; alpha nudges of ~0.002° pass as new designs.
 - A NeuralFoil result with low surrogate confidence still escalates to XFoil through `cfd_recover`
   without the screen (unchanged path).
 - The mock hard demo is unchanged in outcome: its alpha-led path stays near Cl,max; 25 NeuralFoil
