@@ -6,6 +6,7 @@ Numbers in reports come only from here (the ledger), never from agent text.
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 
@@ -15,7 +16,7 @@ CD_PENALTY = 20.0  # 0.001 of Cd over budget costs as much as 0.02 of Cl error
 
 
 def objective(result: CFDResult, spec: DesignSpec) -> float:
-    if result.cl is None or result.cd is None:
+    if result.cl is None or result.cd is None or not math.isfinite(result.cl) or not math.isfinite(result.cd):
         return float("inf")
     return abs(result.cl - spec.target_cl) + CD_PENALTY * max(0.0, result.cd - spec.cd_max)
 
@@ -23,6 +24,8 @@ def objective(result: CFDResult, spec: DesignSpec) -> float:
 def usable(rec: EvalRecord) -> bool:
     """Eligible for best-so-far: physical, numerically sound, with coefficients."""
     if rec.quarantined or rec.result.cl is None or rec.result.cd is None:
+        return False
+    if not (math.isfinite(rec.result.cl) and math.isfinite(rec.result.cd)):
         return False
     return rec.verdict is None or rec.verdict.status in ("PASS", "TARGET_MISS")
 

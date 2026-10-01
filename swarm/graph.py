@@ -10,6 +10,12 @@ critic → route_after_critic → report | cad_propose | chief_plan
 
 LLM nodes: chief_plan, cad_propose, critic. In milestone 1 cfd_recover is
 deterministic (next untried XFoil ladder level, then NeuralFoil fallback).
+
+Cost cap (`DesignSpec.max_cost_usd`): checked at every routing boundary. Once
+the estimated LLM spend reaches the cap, no further LLM call is made: an
+in-flight candidate is still solved and recorded with the deterministic
+numeric verdict, then the run goes to `report` with termination "cost_cap".
+The overshoot is therefore at most the one call that crossed the cap.
 """
 
 from __future__ import annotations
@@ -116,9 +122,26 @@ def _base(ledger: list[EvalRecord], spec: DesignSpec, initial: WingParams, fidel
 def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     run_dir = str(files.dir)
 
+    def capped(s: SwarmState) -> bool:
+        trace = getattr(llm, "trace", None)
+        return trace is not None and trace.over_budget(s["spec"].max_cost_usd)
+
+    def cap_event(node: str, s: SwarmState) -> dict:
+        t = llm.trace.totals
+        return {
+            "node": node,
+            "gen": s.get("generation", 0),
+            "event": "cost_cap_reached",
+            "cost_usd": round(t["cost_usd"], 6),
+            "cost_unknown_calls": t["cost_unknown_calls"],
+            "cap_usd": s["spec"].max_cost_usd,
+        }
+
     # ------------------------------------------------------------ chief
     @node_boundary("chief_plan", files)
     def chief_plan(s: SwarmState) -> dict:
+        if capped(s):  # e.g. resumed after the cap was reached: plan nothing
+            return {"events": [cap_event("chief_plan", s)]}
         spec, ledger = s["spec"], s.get("ledger", [])
         gen = s.get("generation", 0) + (1 if ledger else 0)
         sbase, _ = _base(ledger, spec, initial)
@@ -164,7 +187,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
 
     def route_after_chief(s: SwarmState) -> str:
         ledger, memo = s.get("ledger", []), s.get("strategy")
-        if s.get("termination") == "fatal" or _budget_spent(s):
+        if s.get("termination") == "fatal" or _budget_spent(s) or capped(s):
             return "report"
         if memo and memo.declare_plateau and ledger:
             return "report"
@@ -175,6 +198,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     # ------------------------------------------------------------ cad
     @node_boundary("cad_propose", files)
     def cad_propose(s: SwarmState) -> dict:
+        if capped(s):
+            return {"params": None, "events": [cap_event("cad_propose", s)]}
         spec, ledger, memo = s["spec"], s.get("ledger", []), s["strategy"]
         retries = dict(s.get("retries", {}))
         gen = s.get("generation", 0)
@@ -232,7 +257,9 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     def route_after_cad(s: SwarmState) -> str:
         if s.get("termination") == "fatal":
             return "report"
-        return "geometry_build" if s.get("params") is not None and not s.get("pending_violation") else "cad_propose"
+        if s.get("params") is not None and not s.get("pending_violation"):
+            return "geometry_build"  # a proposal already paid for is still evaluated
+        return "report" if capped(s) else "cad_propose"
 
     # ------------------------------------------------------------ geometry
     @node_boundary("geometry_build", files)
@@ -268,7 +295,9 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     def route_after_geometry(s: SwarmState) -> str:
         if s.get("termination") == "fatal":
             return "report"
-        return "cad_propose" if s.get("pending_violation") else "cfd_solve"
+        if s.get("pending_violation"):
+            return "report" if capped(s) else "cad_propose"
+        return "cfd_solve"
 
     # ------------------------------------------------------------ cfd
     @node_boundary("cfd_solve", files, on_error={"result": None})
@@ -356,12 +385,18 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         parent_rec = _record_for(ledger, parent.cid) if parent else None
         gen = s.get("generation", 0)
         events = []
-        try:
-            v = critic_agent.review(llm, s, parent_rec)
-        except Exception as e:
-            rep: NumericReport = s["numeric"]
+        rep: NumericReport = s["numeric"]
+        if capped(s):
             v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
-            events.append({"node": "critic", "gen": gen, "event": "llm_error_numeric_verdict", "error": repr(e)[:300]})
+            events.append({**cap_event("critic", s), "action": "numeric verdict, no LLM call"})
+        else:
+            try:
+                v = critic_agent.review(llm, s, parent_rec)
+            except Exception as e:
+                v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+                events.append(
+                    {"node": "critic", "gen": gen, "event": "llm_error_numeric_verdict", "error": repr(e)[:300]}
+                )
         delta = s.get("delta")
         memo = s["strategy"]
         if delta is not None:
@@ -405,14 +440,15 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         return {"verdict": v, "ledger": [rec], "events": events, "retries": retries}
 
     def route_after_critic(s: SwarmState) -> str:
-        return route_after_critic_fn(s)
+        return route_after_critic_fn(s, cost_capped=capped(s))
 
     # ------------------------------------------------------------ report
     @node_boundary("report", files)
     def report(s: SwarmState) -> dict:
-        term = termination_reason(s)
+        term = termination_reason(s, cost_capped=capped(s))
         write_report(s, files, term, llm)
-        return {"termination": term, "events": [{"node": "report", "event": "terminated", "reason": term}]}
+        events = [cap_event("report", s)] if term == "cost_cap" else []
+        return {"termination": term, "events": events + [{"node": "report", "event": "terminated", "reason": term}]}
 
     g = StateGraph(SwarmState)
     for name, fn in [
@@ -452,9 +488,9 @@ def target_met(s: SwarmState) -> bool:
     return bool(v and r and rep and v.status == "PASS" and rep.terminal and not r.lower_fidelity)
 
 
-def route_after_critic_fn(s: SwarmState) -> str:
+def route_after_critic_fn(s: SwarmState, cost_capped: bool = False) -> str:
     v = s["verdict"]
-    if s.get("termination") == "fatal" or target_met(s) or _budget_spent(s):
+    if s.get("termination") == "fatal" or target_met(s) or _budget_spent(s) or cost_capped:
         return "report"
     # NUMERICAL_FAILURE reaches the critic only after the ladder (and fallback) is
     # exhausted: escalate to the Chief with the failure record (Scenario B step 4).
@@ -467,11 +503,13 @@ def route_after_critic_fn(s: SwarmState) -> str:
     }[v.status]
 
 
-def termination_reason(s: SwarmState) -> str:
+def termination_reason(s: SwarmState, cost_capped: bool = False) -> str:
     if s.get("termination") == "fatal":
         return "fatal"
     if s.get("verdict") and target_met(s):
         return "target_met"
+    if cost_capped:
+        return "cost_cap"
     memo = s.get("strategy")
     if memo and memo.declare_plateau:
         return "plateau"
@@ -496,7 +534,8 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         f"- Evaluations: {len(ledger)} / {spec.max_evals}",
         f"- Target: Cl = {spec.target_cl} ± {spec.cl_tol}, Cd ≤ {spec.cd_max}, Re = {spec.reynolds:.3e}",
         f"- LLM calls: {summary.get('calls', 0)}, tokens in/out: {summary.get('input_tokens', 0)}/"
-        f"{summary.get('output_tokens', 0)}, est. cost ${summary.get('cost_usd', 0.0):.4f}",
+        f"{summary.get('output_tokens', 0)}, est. cost ${summary.get('cost_usd', 0.0):.4f}"
+        + (f" (cap ${spec.max_cost_usd:.2f})" if spec.max_cost_usd is not None else " (no cost cap)"),
         "",
     ]
     for label, rec in (("Best overall", best), ("Best at XFoil", best_x)):

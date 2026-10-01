@@ -1,4 +1,4 @@
-.PHONY: install xfoil test lint format demo clean-runs
+.PHONY: install xfoil test lint format demo demo-hard clean-runs
 
 install:
 	uv sync
@@ -21,6 +21,12 @@ format:
 # Full optimization: real LLM when ANTHROPIC_API_KEY is set, labelled mock otherwise.
 demo:
 	uv run python -m swarm.run
+
+# Smoke test above; this one is near Cl,max at Re 3e5 and, with the mock, always
+# hits an XFoil ladder recovery (L0 -> L1) and a TE-separation diagnosis.
+# Needs the xfoil binary (make xfoil). Pinned to the mock so the path is reproducible.
+demo-hard:
+	uv run python -m swarm.run --preset hard --llm mock
 
 clean-runs:
 	rm -rf runs/
