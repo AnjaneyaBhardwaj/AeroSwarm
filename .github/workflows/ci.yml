@@ -33,7 +33,7 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
     env:
-      ANTHROPIC_API_KEY: ""
+      AEROSWARM_ANTHROPIC_API_KEY: ""
       MPLBACKEND: Agg
     steps:
       - uses: actions/checkout@v4

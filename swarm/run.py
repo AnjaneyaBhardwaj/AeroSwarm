@@ -1,6 +1,6 @@
 """CLI: run an optimization.
 
-python -m swarm.run                      # demo spec; real LLM if ANTHROPIC_API_KEY is set
+python -m swarm.run                      # demo spec; real LLM if AEROSWARM_ANTHROPIC_API_KEY is set
 python -m swarm.run --llm mock           # force the labelled mock (not an LLM)
 python -m swarm.run --preset hard        # 85% of attached Cl,max: TE separation + stall-margin rejections
 python -m swarm.run --max-evals 10 --budget-usd 2.00   # live-run caps

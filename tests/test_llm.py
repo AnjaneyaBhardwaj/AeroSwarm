@@ -91,9 +91,31 @@ def test_mock_trace_marks_mock(tmp_path):
 
 
 def test_make_client_without_key_is_mock(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("AEROSWARM_ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("AEROSWARM_LLM", raising=False)
     assert make_client(TraceLogger(None)).is_mock
+
+
+def test_make_client_ignores_sdk_default_key(monkeypatch):
+    monkeypatch.delenv("AEROSWARM_ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("AEROSWARM_LLM", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-ours")
+    assert make_client(TraceLogger(None)).is_mock
+
+
+def test_make_client_with_key_is_anthropic(monkeypatch):
+    monkeypatch.delenv("AEROSWARM_LLM", raising=False)
+    monkeypatch.setenv("AEROSWARM_ANTHROPIC_API_KEY", "sk-ant-test")
+    c = make_client(TraceLogger(None))
+    assert c.kind == "anthropic" and not c.is_mock
+    assert c._sdk.api_key == "sk-ant-test"
+
+
+def test_anthropic_client_requires_the_key(monkeypatch):
+    monkeypatch.delenv("AEROSWARM_ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-ours")
+    with pytest.raises(RuntimeError, match="AEROSWARM_ANTHROPIC_API_KEY"):
+        AnthropicClient(TraceLogger(None))
 
 
 def test_scripted_client_checks_schema():

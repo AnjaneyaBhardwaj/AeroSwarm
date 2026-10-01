@@ -18,7 +18,7 @@ format:
 	uv run ruff format swarm tests
 	uv run ruff check --fix swarm tests
 
-# Full optimization: real LLM when ANTHROPIC_API_KEY is set, labelled mock otherwise.
+# Full optimization: real LLM when AEROSWARM_ANTHROPIC_API_KEY is set, labelled mock otherwise.
 demo:
 	uv run python -m swarm.run
 

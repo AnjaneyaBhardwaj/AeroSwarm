@@ -1,5 +1,20 @@
 # Progress
 
+## Session 4 (2026-10-01): API key env var renamed
+
+- The key is now read from `AEROSWARM_ANTHROPIC_API_KEY` (constant `API_KEY_ENV` in
+  `swarm/llm/client.py`). The SDK's own `ANTHROPIC_API_KEY` is **no longer read**: `AnthropicClient`
+  passes the key to `anthropic.Anthropic(api_key=...)` explicitly, and raises `RuntimeError` when it is
+  missing (before, the SDK would have fallen back to the old variable). `make_client("auto")` picks the
+  real client only when the new variable is set.
+- Anything that exported the old name (shell profile, environment secrets, CI secrets) must be renamed.
+  CI keeps the variable blank so the suite stays keyless.
+- `tests/test_llm.py` covers: mock without the key, old name ignored, real client with the new name,
+  and the missing-key error.
+- Known issue: `tests/test_llm.py::test_anthropic_client_logs_tokens_and_cost` asserts the default model,
+  so it fails in any shell that exports `AEROSWARM_MODEL` (this cloud env sets `claude-sonnet-5`).
+  Not caused by this change; run with `env -u AEROSWARM_MODEL` or monkeypatch the variable.
+
 ## Session 3 (2026-10-01): near-stall PASS fix, before the first live run
 
 Session 2's hard demo ended on `3df51198b3`, a PASS at Cl −1.976 / Cd 0.0287 with
@@ -131,7 +146,7 @@ target_met in 4 evaluations (m 0.07 also works, m 0.05 plateaus). The spec is un
 - **CI** (`.github/workflows/ci.yml`): runs on every push and PR.
   - Lint job: `ruff check` + `ruff format --check`.
   - Test job: Python 3.11 and 3.12, `uv sync --locked`, `pytest -m "not xfoil"`,
-    empty `ANTHROPIC_API_KEY`. No XFoil in CI; the 4 binary tests are deselected.
+    empty `AEROSWARM_ANTHROPIC_API_KEY`. No XFoil in CI; the 4 binary tests are deselected.
 - **Live-run caps**
   - `--max-evals` now overrides whichever preset is selected (it was already there for
     the default spec).
@@ -237,4 +252,4 @@ target_met in 4 evaluations (m 0.07 also works, m 0.05 plateaus). The spec is un
 ### Next
 - Milestone 2: failure zoo for the XFoil ladder (stall, high camber, thin sections),
   recovery-rate metrics, sign-prediction scoring.
-- First live run with `ANTHROPIC_API_KEY`; compare its traces with the mock's.
+- First live run with `AEROSWARM_ANTHROPIC_API_KEY`; compare its traces with the mock's.
