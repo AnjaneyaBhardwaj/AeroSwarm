@@ -43,7 +43,8 @@ def test_cost_estimate():
     assert estimate_cost("unknown-model", {"input_tokens": 5}) is None
 
 
-def test_anthropic_client_logs_tokens_and_cost(tmp_path):
+def test_anthropic_client_logs_tokens_and_cost(tmp_path, monkeypatch):
+    monkeypatch.delenv("AEROSWARM_MODEL", raising=False)  # the default model is under test
     trace = TraceLogger(tmp_path / "traces.jsonl")
     sdk = FakeSDK(MEMO)
     c = AnthropicClient(trace, sdk_client=sdk)
