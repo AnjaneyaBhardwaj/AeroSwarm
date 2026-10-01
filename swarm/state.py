@@ -64,6 +64,7 @@ class DesignSpec(BaseModel, frozen=True):
     ncrit: float = Field(9.0, gt=0)  # e^N transition; 9 = XFoil's "average wind tunnel" [S3]
     max_evals: int = 80
     max_wall_hours: float = 4.0
+    max_cost_usd: float | None = Field(None, gt=0)  # estimated LLM spend cap; None = uncapped
     rulebook: Literal["FS2026_v1.1", "none"] = "FS2026_v1.1"
     car: ReferenceCar = PLACEHOLDER_CAR
 
@@ -164,6 +165,7 @@ class BoundaryLayerSummary(BaseModel):
     """Suction-side boundary-layer facts parsed from solver output."""
 
     suction_side: Literal["upper", "lower"] = "upper"  # in the upright solver frame
+    cf_te: float | None = None  # suction-side Cf at the last surface station (TE)
     te_separation_xc: float | None = None  # Cf<0 from here persists to the TE
     bubbles: list[tuple[float, float]] = []  # reversed regions that reattach
     transition_xc: float | None = None
@@ -284,5 +286,5 @@ class SwarmState(TypedDict, total=False):
     events: Annotated[list[dict], operator.add]  # audit trail
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
-    termination: Literal["target_met", "budget", "plateau", "fatal"] | None
+    termination: Literal["target_met", "budget", "cost_cap", "plateau", "fatal"] | None
     started_at: float

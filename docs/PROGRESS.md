@@ -1,5 +1,74 @@
 # Progress
 
+## Session 2 (2026-10-01): pre-milestone-2 hardening
+
+### Done
+- **Non-finite guard.** Our XFoil build has FP traps off, so a blown-up solve can
+  print `NaN`, `Infinity` or Fortran `****` instead of aborting.
+  - `parse_polar` drops any row with a non-finite value (`finite_only=False` returns
+    the raw rows); `parse_dump` raises `NonFiniteDump` on NaN/inf surface x or Cf.
+  - The wrapper labels these `nonfinite_coeffs@L<k>` / `nonfinite_cf@L<k>` (status
+    `not_converged`), so the ladder moves to the next level.
+  - The numeric Critic has a new `finite` check, run right after convergence. It covers
+    Cl, Cd, Cm, and the Cf-derived BL facts: the new `BoundaryLayerSummary.cf_te`
+    (suction-side Cf at the TE), separation and transition x/c, and bubble extents.
+    A failure is NUMERICAL_FAILURE (→ `cfd_recover`), not NON_PHYSICAL, and no
+    later check runs on the bad values. `usable()`, `objective()`, the fidelity-gap
+    check and `suggest_diagnosis` also ignore non-finite rows.
+  - `tests/test_nonfinite.py` (33 tests), including a graph run where L0 returns NaN
+    and the run recovers at L1.
+- **`make demo-hard`** (`--preset hard`, mock pinned): target Cl −2.00 ± 0.03,
+  Cd ≤ 0.030, Re 3e5 (15 m/s on 300 mm). Start: m 0.06, p 0.40, t 0.10, α 8°.
+  The run is deterministic with the mock and this XFoil build. **What it actually did:**
+  - gens 0–3, NeuralFoil: Cl −1.539 → −1.731 → −1.865 → −1.969. Gen 2 includes the
+    injected bounds violation, which is rejected.
+  - gen 4: promotes `596488f588` to XFoil. L0 fails (100 iterations, rms 0.51);
+    `xfoil_recovery` L0 → L1, which converges at iteration 117. Result: Cl −1.944,
+    Cd 0.0268, suction-side Cf < 0 from x/c 0.93 to the TE.
+    **TARGET_MISS, TE_SEPARATION_MAIN.** This is the strip's middle frame.
+  - gen 5: `3df51198b3` (m 0.09, p 0.371, t 0.1085, α 11.62°). L0 fails again and L1
+    converges at iteration 142. Result: Cl −1.976, Cd 0.0287 → **PASS, target_met**
+    after 6 evaluations.
+  - The final design is still mildly TE-separated (x/c 0.91, Cf_TE ≈ −2.5e-5). It is
+    in the target box, but it is a near-stall design, and the Critic's diagnosis says so.
+  - `make demo` is unchanged and stays the smoke test.
+  - `tests/test_demo_hard.py` checks the recovery, the separated TARGET_MISS round as
+    the middle frame, and target_met. It needs the binary (marked `xfoil`).
+- **CI** (`.github/workflows/ci.yml`): runs on every push and PR.
+  - Lint job: `ruff check` + `ruff format --check`.
+  - Test job: Python 3.11 and 3.12, `uv sync --locked`, `pytest -m "not xfoil"`,
+    empty `ANTHROPIC_API_KEY`. No XFoil in CI; the 4 binary tests are deselected.
+- **Live-run caps**
+  - `--max-evals` now overrides whichever preset is selected (it was already there for
+    the default spec).
+  - New `--budget-usd` sets `DesignSpec.max_cost_usd`. The cap is checked at every
+    routing boundary (after chief, CAD, geometry and critic). Once the estimated spend
+    reaches the cap, no further LLM call is made. A candidate that is already proposed
+    is still solved and recorded, with the numeric verdict and no Critic LLM call. The
+    run then writes its report with termination **`cost_cap`** (event
+    `cost_cap_reached`). Overshoot is at most the one call that crossed the cap.
+  - A call priced as unknown (model not in `PRICES`) counts as over the cap.
+  - A real-LLM run without a cap prints a warning.
+  - `TraceLogger` reloads totals from an existing `traces.jsonl`, so a resumed run
+    counts its earlier spend. `--resume` refuses `--preset/--max-evals/--budget-usd`,
+    because the spec is fixed at run start. Previously, resume overwrote meta.json's
+    spec with the demo spec; that is fixed.
+  - Tests: `tests/test_budget.py`.
+- 125 tests: 121 offline + 4 that need the XFoil binary.
+
+### Known issues / limits
+- Hard-demo determinism is for the mock + this XFoil 6.99 build + the pinned
+  NeuralFoil. A different XFoil build/compiler may converge at L0 and skip the recovery;
+  the `xfoil` test would catch that. A real LLM takes its own path.
+- The hard demo hits L0 → L1 only. L2/L3 and fallback are still covered only by the fake ladder.
+- Cost is an *estimate* from `PRICES` (hand-maintained, USD/MTok); it is not billing data.
+- Still no live API call made (no key in this environment).
+
+### Next
+- Milestone 2 (not started): failure zoo for the XFoil ladder, recovery-rate metrics,
+  sign-prediction scoring.
+- First live run: `python -m swarm.run --llm anthropic --max-evals 10 --budget-usd 2`.
+
 ## Session 1 (2026-10-01): milestone 1 — T0 + T1 graph, NACA 4-digit, numeric Critic
 
 ### Done

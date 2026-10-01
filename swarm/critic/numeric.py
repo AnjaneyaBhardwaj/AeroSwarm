@@ -5,6 +5,7 @@ Every threshold lives in `ValidatorConfig`; see that class for provenance.
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel
@@ -87,6 +88,22 @@ def in_target(result: CFDResult, spec: DesignSpec) -> bool:
     )
 
 
+def nonfinite_fields(result: CFDResult) -> list[str]:
+    """Names of solver outputs that are NaN/inf.
+
+    Covers Cl, Cd, Cm and the Cf-derived boundary-layer facts (TE Cf,
+    separation/transition x/c, bubble extents). XFoil runs with FP traps off,
+    so a blown-up solve can print NaN instead of aborting; the parser drops
+    those rows, and this check is the second line of defence for every tier.
+    """
+    vals: list[tuple[str, float | None]] = [("cl", result.cl), ("cd", result.cd), ("cm", result.cm)]
+    bl = result.bl
+    if bl is not None:
+        vals += [("cf_te", bl.cf_te), ("te_separation_xc", bl.te_separation_xc), ("transition_xc", bl.transition_xc)]
+        vals += [(f"bubble[{i}]", v) for i, b in enumerate(bl.bubbles) for v in b]
+    return [n for n, v in vals if v is not None and not math.isfinite(v)]
+
+
 def expected_lift_sign(params: WingParams, cfg: ValidatorConfig = VALIDATION) -> int:
     """Thin-airfoil estimate of the upright lift sign (α_L0 ≈ -100·m degrees)."""
     eff = params.alpha_deg + 100.0 * params.main_camber
@@ -120,6 +137,20 @@ def validate(
     )
     if not conv:
         return NumericReport(checks=checks, failure_class=checks[0].failure_class)
+
+    bad = nonfinite_fields(result)
+    checks.append(
+        Check(
+            name="finite",
+            ok=not bad,
+            value=", ".join(bad) or None,
+            threshold="Cl, Cd, Cm, Cf finite",
+            message="solver produced NaN/inf (FP traps are off in our XFoil build)",
+            failure_class="NUMERICAL_FAILURE",
+        )
+    )
+    if bad:
+        return NumericReport(checks=checks, failure_class="NUMERICAL_FAILURE")
 
     cl, cd = result.cl, result.cd
     two_el = params.flap_chord_ratio > 0
@@ -192,7 +223,10 @@ def validate(
     others = [
         r.result
         for r in ledger
-        if r.params.cid == params.cid and r.result.fidelity != result.fidelity and r.result.cl is not None
+        if r.params.cid == params.cid
+        and r.result.fidelity != result.fidelity
+        and r.result.cl is not None
+        and math.isfinite(r.result.cl)
     ]
     if others:
         gap = max(abs(o.cl - cl) for o in others)
@@ -240,6 +274,8 @@ def suggest_diagnosis(result: CFDResult | None, spec: DesignSpec, parent: CFDRes
     """Deterministic physical diagnosis from solver facts. A starting point for the Critic."""
     if result is None or result.cl is None or result.cd is None:
         return Diagnosis(symptom="NONE", evidence=["no converged coefficients"])
+    if bad := nonfinite_fields(result):
+        return Diagnosis(symptom="NONE", evidence=[f"non-finite solver output: {', '.join(bad)}"])
     ev = []
     bl = result.bl
     if bl and bl.te_separation_xc is not None:

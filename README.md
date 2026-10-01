@@ -9,8 +9,13 @@ Design: [docs/BLUEPRINT.md](docs/BLUEPRINT.md). Status: [docs/PROGRESS.md](docs/
 make install   # uv sync
 make xfoil     # build headless-safe XFoil 6.99 (the apt package aborts with SIGFPE)
 make test      # offline; XFoil-binary tests skip if it is missing
-make demo      # real LLM if ANTHROPIC_API_KEY is set, else the labelled mock (NOT an LLM)
+make demo      # smoke test: real LLM if ANTHROPIC_API_KEY is set, else the labelled mock (NOT an LLM)
+make demo-hard # mock, near Cl,max at Re 3e5: XFoil ladder recovery + TE separation (needs make xfoil)
 ```
+
+Live runs: cap them. `python -m swarm.run --llm anthropic --max-evals 10 --budget-usd 2`
+stops cleanly (termination `cost_cap`) once the estimated LLM spend reaches the cap;
+calls whose model has no entry in `PRICES` count as over the cap.
 
 Each run writes `runs/<id>/`: `ledger.jsonl`, `events.jsonl`, `traces.jsonl`
 (tokens + estimated cost), `report.md`, `evolution_strip.png`, `evolution_morph.gif`,

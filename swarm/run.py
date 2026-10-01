@@ -2,6 +2,8 @@
 
 python -m swarm.run                      # demo spec; real LLM if ANTHROPIC_API_KEY is set
 python -m swarm.run --llm mock           # force the labelled mock (not an LLM)
+python -m swarm.run --preset hard        # near-Cl,max target: XFoil ladder + TE separation
+python -m swarm.run --max-evals 10 --budget-usd 2.00   # live-run caps
 python -m swarm.run --resume <run_id>    # resume from runs/<run_id>/ckpt.db
 """
 
@@ -9,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -32,6 +35,30 @@ DEMO_SPEC = DesignSpec(
 )
 DEMO_START = WingParams(main_camber=0.02, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
 
+# "Hard" preset: a near-Cl,max target at a low-speed-corner Re (3e5 ≈ 15 m/s on
+# the 300 mm chord). With the mock and the headless XFoil build, the run is
+# deterministic: screening climbs to |Cl| ≈ 1.97 at NeuralFoil, the promotion
+# to XFoil fails at L0 and converges at L1 with suction-side TE separation
+# (TARGET_MISS, TE_SEPARATION_MAIN), and the next step passes after another
+# L0 → L1 recovery. That separated round becomes the strip's middle frame.
+# Verified by tests/test_demo_hard.py (needs the xfoil binary). A real LLM
+# takes its own path, so these events are expected, not guaranteed, there.
+HARD_SPEC = DesignSpec(
+    component="wing_1el",
+    target_cl=-2.00,
+    cl_tol=0.03,
+    cd_max=0.030,
+    speed_mps=round(speed_for_reynolds(3.0e5, PLACEHOLDER_CAR.chord_mm), 2),
+    max_evals=30,
+    max_wall_hours=0.5,
+)
+HARD_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.10, alpha_deg=8.0)
+
+PRESETS: dict[str, tuple[DesignSpec, WingParams]] = {
+    "default": (DEMO_SPEC, DEMO_START),
+    "hard": (HARD_SPEC, HARD_START),
+}
+
 
 def run(
     spec: DesignSpec,
@@ -42,16 +69,20 @@ def run(
     which: str = "auto",
     inject_faults: bool = False,
     resume: bool = False,
+    preset: str | None = None,
 ) -> dict:
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
     files = RunFiles(Path(runs_root) / run_id)
     if llm is None:
         llm = make_client(TraceLogger(files.traces), which, inject_faults=inject_faults)
+    if not llm.is_mock and spec.max_cost_usd is None and not resume:
+        print("warning: real LLM run without a cost cap; pass --budget-usd to bound spend", file=sys.stderr)
+    meta = (
+        {} if resume else {"run_id": run_id, "preset": preset, "spec": spec.model_dump(), "start": start.model_dump()}
+    )
     files.write_meta(
         {
-            "run_id": run_id,
-            "spec": spec.model_dump(),
-            "start": start.model_dump(),
+            **meta,
             "llm_client": llm.label,
             "llm_kind": llm.kind,
             "is_mock": llm.is_mock,
@@ -99,26 +130,45 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--llm", choices=["auto", "anthropic", "mock"], default="auto")
     ap.add_argument("--run-id")
     ap.add_argument("--runs-root", default="runs")
-    ap.add_argument("--max-evals", type=int, default=DEMO_SPEC.max_evals)
+    ap.add_argument("--preset", choices=sorted(PRESETS), default="default")
+    ap.add_argument("--max-evals", type=int, help="evaluation budget (default: the preset's)")
+    ap.add_argument(
+        "--budget-usd",
+        type=float,
+        help="stop cleanly once the estimated LLM cost reaches this (USD); calls with unknown pricing count as over",
+    )
     ap.add_argument("--resume", metavar="RUN_ID")
     ap.add_argument("--no-faults", action="store_true", help="mock: skip the injected demo fault")
     a = ap.parse_args(argv)
-    spec = DEMO_SPEC.model_copy(update={"max_evals": a.max_evals})
+    if a.max_evals is not None and a.max_evals < 1:
+        ap.error("--max-evals must be >= 1")
+    if a.budget_usd is not None and a.budget_usd <= 0:
+        ap.error("--budget-usd must be > 0")
+    spec, start = PRESETS[a.preset]
+    upd: dict = {}
+    if a.max_evals is not None:
+        upd["max_evals"] = a.max_evals
+    if a.budget_usd is not None:
+        upd["max_cost_usd"] = a.budget_usd
+    if a.resume and (upd or a.preset != "default"):
+        ap.error("--resume continues the checkpointed spec; --preset/--max-evals/--budget-usd are fixed at run start")
+    spec = spec.model_copy(update=upd)
     final = run(
         spec,
-        DEMO_START,
+        start,
         run_id=a.resume or a.run_id,
         runs_root=a.runs_root,
         which=a.llm,
         inject_faults=not a.no_faults,
         resume=bool(a.resume),
+        preset=None if a.resume else a.preset,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     print(
         json.dumps(
             {
                 k: meta.get(k)
-                for k in ("run_id", "llm_client", "termination", "evals", "best_cid", "best_xfoil_cid", "viz")
+                for k in ("run_id", "preset", "llm_client", "termination", "evals", "best_cid", "best_xfoil_cid", "viz")
             },
             indent=1,
         )

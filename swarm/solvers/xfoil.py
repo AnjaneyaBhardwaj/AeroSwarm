@@ -14,6 +14,7 @@ After L3 the graph falls back to NeuralFoil with `fallback_from="xfoil"`.
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import subprocess
@@ -90,8 +91,28 @@ def _exec(argv: list[str], script: str, cwd: Path, timeout: float) -> subprocess
 # ---------------------------------------------------------------- parsing
 
 
-def parse_polar(text: str) -> list[dict[str, float]]:
-    """Rows after the dashed header line. Tolerates build-specific header length."""
+def _num(tok: str) -> float:
+    """Float, with Fortran overflow fields (`*******`) read as NaN.
+
+    Our XFoil build has FP traps off (scripts/install_xfoil.sh), so a blown-up
+    solve prints NaN / Infinity / asterisks instead of aborting.
+    """
+    if tok and set(tok.lstrip("+-")) == {"*"}:
+        return math.nan
+    return float(tok)
+
+
+def all_finite(*vals: float | None) -> bool:
+    """True when every non-None value is a finite float."""
+    return all(v is None or math.isfinite(v) for v in vals)
+
+
+def parse_polar(text: str, finite_only: bool = True) -> list[dict[str, float]]:
+    """Rows after the dashed header line. Tolerates build-specific header length.
+
+    Rows with a non-finite value (NaN, ±inf, Fortran `****`) are dropped unless
+    `finite_only=False`; the wrapper uses the raw rows only to label the failure.
+    """
     lines = text.splitlines()
     start = next((i + 1 for i, line in enumerate(lines) if line.strip().startswith("---")), None)
     if start is None:
@@ -103,8 +124,10 @@ def parse_polar(text: str) -> list[dict[str, float]]:
         if len(parts) < 5:
             continue
         try:
-            vals = [float(p) for p in parts[:7]]
+            vals = [_num(p) for p in parts[:7]]
         except ValueError:
+            continue
+        if finite_only and not all_finite(*vals):
             continue
         rows.append(dict(zip(keys, vals, strict=False)))
     return rows
@@ -114,6 +137,10 @@ def parse_polar(text: str) -> list[dict[str, float]]:
 class Surface:
     x: np.ndarray  # LE → TE
     cf: np.ndarray
+
+
+class NonFiniteDump(ValueError):
+    """The BL dump has NaN/inf on the airfoil surface (x or Cf)."""
 
 
 @dataclass
@@ -129,6 +156,9 @@ def parse_dump(text: str) -> BLDump | None:
     Surface rows run TE(upper) → LE → TE(lower). Wake rows follow; they have
     fewer columns in 6.99 and always Cf = 0, so we cut at the first wake row
     (x beyond the lower TE after the LE).
+
+    Raises `NonFiniteDump` if any surface x or Cf is NaN/inf: a separation
+    verdict must never rest on a blown-up boundary layer.
     """
     rows = []
     for line in text.splitlines():
@@ -136,7 +166,7 @@ def parse_dump(text: str) -> BLDump | None:
             continue
         parts = line.split()
         try:
-            rows.append([float(p) for p in parts[:8]] + [len(parts)])
+            rows.append([_num(p) for p in parts[:8]] + [len(parts)])
         except ValueError:
             continue
     if len(rows) < 10:
@@ -147,6 +177,8 @@ def parse_dump(text: str) -> BLDump | None:
     # surface = leading block with the full column count
     n_surf = int(np.argmax(ncols != surf_cols)) if np.any(ncols != surf_cols) else len(a)
     s = a[:n_surf]
+    if not np.all(np.isfinite(s[:, [1, 6]])):
+        raise NonFiniteDump(f"{int(np.sum(~np.isfinite(s[:, [1, 6]])))} non-finite x/Cf values on the surface")
     x = s[:, 1]
     ile = int(np.argmin(x))
     # guard: if the column-count heuristic failed, cut where x exceeds 1 after the LE
@@ -201,6 +233,7 @@ def summarize_bl(dump: BLDump, upright_cl: float, transition: dict[str, float]) 
     te_sep, bubbles = classify_separation(surf.x, surf.cf)
     return BoundaryLayerSummary(
         suction_side=side,
+        cf_te=float(surf.cf[-1]),
         te_separation_xc=te_sep,
         bubbles=bubbles,
         transition_xc=transition.get("top_xtr" if side == "upper" else "bot_xtr"),
@@ -241,15 +274,24 @@ def run_xfoil(
         return {"status": "timeout", "level": level, "signature": f"timeout@L{level}"}
     (work / STDOUT).write_text((proc.stdout or "") + (proc.stderr or ""))
     polar = work / POLAR
-    rows = parse_polar(polar.read_text()) if polar.exists() else []
+    text = polar.read_text() if polar.exists() else ""
+    rows = parse_polar(text)
     hit = [r for r in rows if abs(r["alpha"] - alpha) < 1e-3]
     if not hit:
-        sig = f"crash_rc{proc.returncode}@L{level}" if proc.returncode else f"not_converged@L{level}"
+        raw = [r for r in parse_polar(text, finite_only=False) if abs(r["alpha"] - alpha) < 1e-3]
+        if raw:
+            sig = f"nonfinite_coeffs@L{level}"
+        elif proc.returncode:
+            sig = f"crash_rc{proc.returncode}@L{level}"
+        else:
+            sig = f"not_converged@L{level}"
         return {"status": "not_converged", "level": level, "signature": sig}
     out = {"status": "converged", "level": level, **hit[-1]}
     dump = work / DUMP
-    parsed = parse_dump(dump.read_text()) if dump.exists() else None
-    out["dump"] = parsed
+    try:
+        out["dump"] = parse_dump(dump.read_text()) if dump.exists() else None
+    except NonFiniteDump:
+        return {"status": "not_converged", "level": level, "signature": f"nonfinite_cf@L{level}"}
     return out
 
 

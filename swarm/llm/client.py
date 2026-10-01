@@ -55,7 +55,11 @@ class LLMRefusal(RuntimeError):
 
 
 class TraceLogger:
-    """Appends one JSON line per LLM call; keeps running token/cost totals."""
+    """Appends one JSON line per LLM call; keeps running token/cost totals.
+
+    Opening an existing traces.jsonl (a resumed run) reloads the totals from its
+    `llm_call` lines, so a cost cap counts spend from before the resume.
+    """
 
     def __init__(self, path: str | Path | None):
         self.path = Path(path) if path else None
@@ -71,6 +75,26 @@ class TraceLogger:
         self._lock = threading.Lock()
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
+            if self.path.exists():
+                self._reload()
+
+    def _add(self, usage: dict[str, int], cost: float | None) -> None:
+        self.totals["calls"] += 1
+        for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
+            self.totals[k] += int(usage.get(k, 0) or 0)
+        if cost is None:
+            self.totals["cost_unknown_calls"] += 1
+        else:
+            self.totals["cost_usd"] += cost
+
+    def _reload(self) -> None:
+        for line in self.path.read_text().splitlines():
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # a torn last line from a crash
+            if rec.get("type") == "llm_call":
+                self._add(rec.get("usage") or {}, rec.get("cost_usd"))
 
     def _write(self, rec: dict) -> None:
         if self.path:
@@ -93,13 +117,7 @@ class TraceLogger:
     ) -> None:
         cost = estimate_cost(model, usage) if usage else 0.0
         with self._lock:
-            self.totals["calls"] += 1
-            for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
-                self.totals[k] += int(usage.get(k, 0) or 0)
-            if cost is None:
-                self.totals["cost_unknown_calls"] += 1
-            else:
-                self.totals["cost_usd"] += cost
+            self._add(usage, cost)
         self._write(
             {
                 "type": "llm_call",
@@ -117,6 +135,16 @@ class TraceLogger:
                 **(extra or {}),
             }
         )
+
+    def over_budget(self, cap_usd: float | None) -> bool:
+        """True once estimated spend reaches `cap_usd`.
+
+        A call whose cost cannot be estimated (model missing from PRICES) counts
+        as over budget: with a cap set, unknown spend is never assumed to be zero.
+        """
+        if cap_usd is None:
+            return False
+        return self.totals["cost_unknown_calls"] > 0 or self.totals["cost_usd"] >= cap_usd
 
     def summary(self) -> dict:
         return {"type": "run_summary", "ts": time.time(), **self.totals, "cost_usd": round(self.totals["cost_usd"], 6)}
