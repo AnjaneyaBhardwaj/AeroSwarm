@@ -1,6 +1,68 @@
 # Progress
 
-## Session 7 (2026-10-01): gated sweep, re-derived hard target (proposed, not applied)
+## Session 8 (2026-10-01): hard target applied, gate aligned, search-loop fixes
+
+### Hard target: Cl −1.83 ± 0.03, Cd ≤ 0.025 (`HARD_SPEC`)
+- **Derivation rule** (`scripts/gated_sweep.py`, session 7's sweep: 10,045 XFoil points at Re 3e5,
+  ncrit 9). A grid point passes the gate if it converges at alpha, +1, +2, has no TE separation at
+  any of the three, keeps d|Cl|/dalpha ≥ 0.05/deg over alpha..alpha+2, and clears the FS2026 geometry
+  checks. With the Cd cap fixed at 0.025, the target is the hardest |Cl| (0.01 steps, tol ±0.03 kept)
+  whose box holds ≥ 10 passing points away from the binding bounds (camber < 0.09, thickness > 0.0955).
+  Chosen by the user over −1.89 / Cd 0.0325 (session 7) to keep the drag cap meaningful.
+- **Region size**: 28 passing grid points in the box (p 0.25–0.55 grid; the p 0.20 slice adds none):
+  13 interior (m 0.075–0.085, p 0.25–0.35, t 0.11–0.135, alpha 8.5–9.75) and 15 on the camber bound
+  (m 0.09). Cold through the real pipeline (ladder, screen, probe, validator): **27/28 pass — 12/13
+  interior, 15/15 on the bound.** The failure (m 0.085 p 0.25 t 0.11 α 9.75) converges cold to a
+  different XFoil solution (Cl −1.8615, Cd 0.0279 vs continuation's −1.8033 / 0.0199), outside the Cd cap.
+- **Witness** (`tests/test_hard_target.py`): m 0.085, p 0.30, t 0.12, alpha 9.0. Cold: NeuralFoil
+  screen ok (slope 0.063, TE H 3.07); XFoil L0 Cl −1.8261, Cd 0.02412, margin 0.070/deg, no separation
+  at alpha+0..+2, validator PASS terminal. NeuralFoil reads Cl −1.806 (in the box, promotable).
+  Its alpha (±0.25) and thickness (0.11, 0.135) neighbours pass and are in the box; its camber
+  neighbours pass the gate but fall just outside the box (m 0.08: Cl −1.790; m 0.09: Cd 0.02505); in
+  position, p 0.25 passes the gate with Cd 0.0266 (over the cap) and p 0.35 fails it (margin 0.009).
+- **The camber bound (0.09) is active for the best gated designs**: gated Cl_max rises with camber
+  (0.06 → 1.690 … 0.09 → 1.979) and the best is on the bound; 15 of the 28 box points sit on it. The
+  target does not depend on it (12 interior points pass cold). Bound unchanged.
+- **The target is XFoil-derived** (2D, panel + integral BL, ncrit 9, Re 3e5). Re-check the gated
+  Cl_max, the box and the witness when the OpenFOAM tiers arrive; RANS will move the stall margin.
+- The old box (−1.78 / 0.020) held 8 passing points, 4 on the camber bound.
+
+### Gate aligned with the sweep
+`measure_stall_margin`: TE separation at alpha+1 or alpha+2 now fails the margin (it was only
+logged), so the pipeline's gate is the gate the target was derived with. `failing_checks` says
+"TE separation within the probe range" when the slope passes but a probe separates.
+
+### Search-loop fixes (last round's items 1–5; `tests/test_loop_fixes.py`)
+1. **CAD diagnosis = base design.** `cad_brief` takes the diagnosis from the base's own
+   (highest-fidelity) record, never the latest verdict; facts carry `base_cid` / `diagnosis_cid`.
+   The graph test fails if they differ (checked by reverting the fix: both tests fail).
+2. **Directional focus.** `StrategyMemo.focus_params` are `{name, direction: + | - | free}` (bare names
+   still read as free). A CAD change against a direction is rejected (`ToolError` "direction") unless
+   it carries `override_reason`; accepted overrides are logged as `chief_cad_disagreement`. The Chief
+   brief lists its last 8 hypotheses with their ledger outcomes (cid, fidelity, status, Cl/Cd, first
+   failing check), the next CAD base and why, and a "failing" column in its tables.
+3. **Parent selection** (`ledger.select_parent`): the best design that passed all checks at its own
+   fidelity, judged on each cid's highest-fidelity record (an XFoil rejection overrides a NeuralFoil
+   pass); if none passed, the least constraint violation: stall-margin shortfall / threshold +
+   separation (0/1) + distance outside the box / cl_tol (Cd at the objective's rate); objective only
+   breaks ties. A `parent_selected` event records the cid and why.
+4. **EARLY_STALL** from a failed XFoil stall margin, or (NeuralFoil results only) a failed screen,
+   with the slopes, margin vs threshold and shortfall, and the first separated alpha as evidence. The
+   Critic cannot relabel it (same rule as TE separation); an LLM EARLY_STALL keeps its wording and gets
+   the numbers prepended.
+5. **Direct-to-XFoil screening.** A fresh design (no `promote_cid`) sent to XFoil is screened in
+   `geometry_build`; a failure evaluates it at NeuralFoil instead (`direct_xfoil_screened_out`), unless
+   the Chief sets `screen_override` to a reason (`screen_override` event).
+- Prompts updated (chief.md: directions, history, screen_override; cad.md: directions, override_reason).
+- Tests 201 → 212.
+
+### Known issues / limits
+- A NeuralFoil result with low surrogate confidence still escalates to XFoil through `cfd_recover`
+  without the screen (unchanged path).
+- The mock hard demo is unchanged in outcome: its alpha-led path stays near Cl,max; 25 NeuralFoil
+  evals, plateau, nothing promoted.
+
+## Session 7 (2026-10-01): gated sweep, re-derived hard target (proposal; session 8 applied −1.83 instead)
 
 ### The session 3/5 "m 0.09, p 0.5, alpha ~6.5" claim was wrong
 Session 3 wrote that the sweep has "attached, high-camber designs (m 0.09, p 0.5, alpha ~6.5 gives
@@ -29,7 +91,7 @@ gate. The NeuralFoil screen rejects all of them too. Only one point of the old 1
 - **Current box (Cl −1.78 ± 0.03, Cd ≤ 0.020): 8 passing points**, all at m ≥ 0.085, 4 of them at the
   camber bound.
 
-### Proposed hard target (NOT applied; HARD_SPEC unchanged until reviewed)
+### Proposed hard target (not applied; session 8 chose −1.83 / Cd 0.025 from the alternatives)
 **Cl −1.89 ± 0.03, Cd ≤ 0.0325** (95.5% of gated Cl_max). Rule (`gated_sweep.py propose`): the highest
 target, in 0.01 steps, whose ±0.03 band holds ≥ 10 passing points away from the binding bounds
 (camber < 0.09, thickness > 0.0955 LE floor); Cd cap = worst Cd among those + 5%, rounded up to 0.0005.
