@@ -36,7 +36,8 @@ from swarm.agents import chief as chief_agent
 from swarm.agents import critic as critic_agent
 from swarm.cad.apply import apply_delta, fallback_params
 from swarm.cad.build import build
-from swarm.critic.numeric import NumericReport, suggest_diagnosis, validate
+from swarm.critic.numeric import NumericReport, stall_check_required, suggest_diagnosis, validate
+from swarm.critic.stall import measure_stall_margin
 from swarm.ledger import RunFiles, best_record, objective, usable
 from swarm.llm.client import LLMClient
 from swarm.solvers import neuralfoil, xfoil
@@ -69,6 +70,7 @@ CHECKPOINT_TYPES = [
         "Verdict",
         "Diagnosis",
         "Finding",
+        "StallMargin",
         "EvalRecord",
         "ParamDelta",
         "ParamChange",
@@ -289,6 +291,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             "geometry": geo,
             "pending_violation": None,
             "solver": {"fidelity": memo.fidelity, "level": 0, "tried": [], "fallback_from": None},
+            "stall": None,
             "events": [{"node": "geometry_build", "gen": gen, "event": "geometry_ok", "cid": p.cid}],
         }
 
@@ -328,18 +331,29 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
 
     @node_boundary("numeric_validate", files)
     def numeric_validate(s: SwarmState) -> dict:
-        rep = validate(s.get("result"), s["params"], s["spec"], s.get("ledger", []))
-        return {
-            "numeric": rep,
-            "events": [
-                {
-                    "node": "numeric_validate",
-                    "gen": s.get("generation", 0),
-                    "status": rep.status,
-                    "failed": [c.name for c in rep.checks if not c.ok],
-                }
-            ],
-        }
+        res, p, spec, ledger = s.get("result"), s["params"], s["spec"], s.get("ledger", [])
+        rep = validate(res, p, spec, ledger)
+        stall, events = None, []
+        if stall_check_required(res, rep):
+            # Only a candidate that clears every other check pays for the two extra solves.
+            coords = s["geometry"].coords_path
+            stall = measure_stall_margin(
+                res, p.alpha_deg, lambda a, lvl: xfoil.evaluate(p, spec, coords, run_dir, lvl, alpha_deg=a)
+            )
+            rep = validate(res, p, spec, ledger, stall=stall)
+            events.append(
+                {"node": "numeric_validate", "gen": s.get("generation", 0), "event": "stall_margin", "cid": p.cid}
+                | stall.model_dump()
+            )
+        events.append(
+            {
+                "node": "numeric_validate",
+                "gen": s.get("generation", 0),
+                "status": rep.status,
+                "failed": [c.name for c in rep.checks if not c.ok],
+            }
+        )
+        return {"numeric": rep, "stall": stall, "events": events}
 
     def recoverable(s: SwarmState) -> bool:
         rep: NumericReport | None = s.get("numeric")
@@ -423,6 +437,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             quarantined=v.status == "NON_PHYSICAL",
             predicted_signs=signs,
             parent_cid=parent.cid if parent else None,
+            stall_margin=s.get("stall"),
         )
         files.append_record(rec)
         events.append(
@@ -552,16 +567,18 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     lines += [
         "## Ledger",
         "",
-        "| gen | cid | fidelity | status | Cl | Cd | quarantined |",
-        "|---|---|---|---|---|---|---|",
+        "| gen | cid | fidelity | status | Cl | Cd | stall d\\|Cl\\|/dα | quarantined |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for rec in ledger:
         r = rec.result
         cl = "" if r.cl is None else f"{r.cl:.4f}"
         cd = "" if r.cd is None else f"{r.cd:.5f}"
+        sm = rec.stall_margin
+        stall = "" if sm is None else ("n/a" if sm.dcl_dalpha is None else f"{sm.dcl_dalpha:.3f}")
         lines.append(
             f"| {rec.generation} | {rec.params.cid} | {r.fidelity}{'*' if r.lower_fidelity else ''} "
-            f"| {rec.verdict.status if rec.verdict else r.status} | {cl} | {cd} | {rec.quarantined} |"
+            f"| {rec.verdict.status if rec.verdict else r.status} | {cl} | {cd} | {stall} | {rec.quarantined} |"
         )
     lines += ["", "`*` = lower-fidelity fallback. All numbers above come from ledger.jsonl.", ""]
     if viz:

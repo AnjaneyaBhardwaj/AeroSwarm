@@ -1,5 +1,99 @@
 # Progress
 
+## Session 3 (2026-10-01): near-stall PASS fix, before the first live run
+
+Session 2's hard demo ended on `3df51198b3`, a PASS at Cl −1.976 / Cd 0.0287 with
+suction-side Cf < 0 from x/c 0.91 to the TE. That design is now rejected (regression test).
+
+### Done
+- **TE separation can never be target_met.** New numeric check `te_separation`
+  (severity `suspect`, any fidelity): suction-side Cf < 0 persisting to the TE makes the
+  status TARGET_MISS and the result non-terminal, even inside the target box and even with a
+  good stall margin. The diagnosis is `TE_SEPARATION_MAIN` (`EARLY_STALL` if it starts before
+  x/c 0.5, unchanged); `review()` overwrites an LLM diagnosis that says otherwise with the
+  deterministic one. Reattaching bubbles are still not TE separation.
+- **Stall-margin check before target_met** (`swarm/critic/stall.py`).
+  - A candidate that clears every other check at a terminal fidelity (XFoil, not a fallback,
+    in the box, attached) is re-solved at alpha+1 and alpha+2 deg: same geometry, same
+    fidelity, same ladder per probe (L0→L3, each level once). It runs in `numeric_validate`,
+    so a non-candidate never pays for the two extra solves.
+  - Margin = the smaller of the two forward secants of d|Cl|/dalpha (1/deg, downforce growth).
+    `ValidatorConfig.stall_min_dcl_dalpha = 0.05` and `stall_probe_deg = (1, 2)`. This is a
+    **project convention, not a published limit**: thin-airfoil slope is 0.110; in the sweep
+    below, points with slope < 0.05 have a median 2.0° to the first TE-separated alpha and
+    those at 0.08–0.10 have 4.8°. The relation is noisy, so 0.05 is a round number between
+    "flattening" and "healthy", not a fit. Calibrate it when there are more validation cases.
+  - A probe that cannot be solved (ladder exhausted, NaN) gives no margin and blocks target_met.
+    `validate()` also blocks a terminal result when no probe was supplied.
+  - Logged: `EvalRecord.stall_margin` (`StallMargin`: alphas, Cl, ladder level, TE separation
+    at each probe, slopes, `dcl_dalpha`, threshold, ok, failure) in `ledger.jsonl`, a
+    `stall_margin` event, and a column in `report.md`. Rows that never reached the probe
+    (not in the box, separated, NeuralFoil) have `stall_margin = null`.
+  - `xfoil.evaluate(..., alpha_deg=)` re-solves at another alpha in its own work dir.
+- **Hard preset retuned** (`swarm/run.py`). Sweep: `scripts/clmax_sweep.py`, XFoil 6.99 at
+  Re 3.0e5, ncrit 9, the wrapper's own ladder. Grid over the *feasible* single-element box:
+  camber {0.06, 0.075, 0.09}, position {0.2, 0.3, 0.4, 0.5}, thickness {0.0955, 0.12, 0.15, 0.18},
+  alpha 4–14° in 0.5° steps = 1008 points, all converged (998 at L0).
+  - Thickness starts at 0.0955 because the FS2026 LE-radius rule rejects anything thinner in
+    `build()`. My first sweep used t = 0.08 and gave a wrong "attached Cl_max 2.03"; discarded.
+  - **Attached Cl_max = 2.092** (m 0.09, p 0.3, t 0.12, alpha 12.0, Cd 0.0312; TE separates at
+    alpha 12.5). Next best 2.03 (m 0.09, p 0.2, t 0.0955). Highest Cl of any converged point,
+    separated or not: 2.148. "Attached" = unbroken alpha run from 4° with no Cf < 0 to the TE.
+    The grid is coarse (camber 0.015, position 0.1), so 2.092 is a lower bound on the true max.
+  - **New target: Cl −1.78 ± 0.03 (85% of 2.092), Cd ≤ 0.020** (was −2.00, Cd ≤ 0.030).
+    Attached designs in the Cl box have Cd 0.015–0.019; 0.020 leaves about 5% over the worst.
+    Start point unchanged (m 0.06, p 0.40, t 0.10, alpha 8°).
+- **Regression** (`tests/test_stall_margin.py`): `3df51198b3` is m 0.09, p 0.3709, t 0.1085,
+  alpha 11.6191 (the 4-decimal values PROGRESS.md rounded away; checked against the cid).
+  Under the old spec, real XFoil gives L0 not converged, L1 Cl −1.9758, Cd 0.02869, TE
+  separation from x/c 0.912: in the box, now TARGET_MISS / TE_SEPARATION_MAIN, not terminal.
+  There is an offline copy using the recorded numbers, so CI covers it. A second real-XFoil
+  test: an in-box, attached design that separates one degree later and whose Cl peaks before
+  alpha+2 (slope −0.029) is rejected by the probe.
+- 147 tests: 141 offline + 6 needing the XFoil binary.
+
+### What the hard demo does now (mock, this XFoil build) — it does NOT reach target_met
+`make demo-hard`: 21 evals, termination `plateau`. NeuralFoil gens 0–2 climb to Cl −1.755, then
+XFoil gens 3–4 are **TE-separated TARGET_MISS** (x/c 0.993; still the strip's middle frame).
+From gen 5 the mock sits on in-box designs (Cl −1.77…−1.78, Cd 0.0195–0.0198) whose probes show
+slope +0.03 then ≈ −0.03: each is TARGET_MISS with the margin logged. The mock's greedy
+gradient steps reach Cl through alpha, not camber, so it never finds the attached, high-camber
+designs the sweep says exist (m 0.09, p 0.5, alpha ~6.5 gives Cl −1.78 at Cd 0.016).
+I tried Cd caps 0.016–0.018 and targets −1.70/−1.74 with the same start: none ended in target_met.
+I did not lower the threshold to make the mock pass (its designs sit at 0.03–0.033).
+- **The L0 → L1 recovery no longer happens in the hard demo**: every solve in the committed
+  preset's run converged at L0 (an L1 solve showed up only in one experiment with a different target). Session 2's recovery came from
+  designs deep in stall, which the gate now rejects. The ladder is still covered by fake-ladder
+  tests; the hard-demo test dropped its recovery assertion and now checks the separation and
+  no-margin gates and the PASS invariant (an XFoil PASS is attached and has a passing margin).
+  Keeping the start point did not keep the recovery; a start/target that does both would need
+  a different optimizer path.
+
+### Side effect on the default demo (changed, please check)
+With the gate the default `make demo` (Cl −1.50, Cd ≤ 0.018, Re 8.3e5) also ended in `plateau`:
+its low-camber start (m 0.02) reaches −1.5 at alpha ≈ 9.5° with slope 0.042–0.047. I moved
+`DEMO_START` and the test `start` fixture to camber 0.06; with real XFoil it now reaches
+target_met in 4 evaluations (m 0.07 also works, m 0.05 plateaus). The spec is untouched.
+
+### Known issues / limits
+- `AEROSWARM_MODEL` is set to `claude-sonnet-5` in this sandbox's environment, which fails
+  `tests/test_llm.py::test_anthropic_client_logs_tokens_and_cost` (it expects the default
+  model). With `env -u AEROSWARM_MODEL` all 147 pass (CI runs 141 offline). Not touched; CI is unaffected.
+- `te_separation` follows the existing definition (≥ 2 stations to the TE). A single
+  reversed TE station (`cf_te < 0` only) is not flagged.
+- The probe adds two XFoil solves (plus ladder retries) for each would-be-final candidate.
+  A NeuralFoil-only fallback result can never pass, so it is not probed.
+- Everything in session 2's list still holds (no live API call yet; costs are estimates).
+
+### Next
+- Stopped before any live run, as asked. First live run:
+  `python -m swarm.run --llm anthropic --preset hard --max-evals 10 --budget-usd 2`. Expect a real
+  LLM to take its own path; whether it finds a camber-led design is the open question.
+- Decide whether the hard demo should be able to finish (e.g. a start with more camber) or
+  stay a rejection demo.
+- Milestone 2 (not started): failure zoo for the XFoil ladder, recovery-rate metrics,
+  sign-prediction scoring.
+
 ## Session 2 (2026-10-01): pre-milestone-2 hardening
 
 ### Done

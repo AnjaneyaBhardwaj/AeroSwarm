@@ -28,4 +28,10 @@ def review(llm: LLMClient, state: SwarmState, parent_rec: EvalRecord | None) -> 
     suggested = suggest_diagnosis(state["result"], state["spec"], parent_rec.result if parent_rec else None)
     b = critic_brief(state, suggested, parent_rec)
     raw = llm.structured("critic", b.system, b.user, Verdict, facts=b.facts)
-    return merge_verdict(numeric, raw)
+    v = merge_verdict(numeric, raw)
+    # TE separation is TARGET_MISS with a separation diagnosis, whatever the LLM labelled it.
+    if any(c.name == "te_separation" and not c.ok for c in numeric.checks) and not v.diagnosis.symptom.startswith(
+        ("TE_SEPARATION", "EARLY_STALL")
+    ):
+        v = v.model_copy(update={"diagnosis": suggested})
+    return v

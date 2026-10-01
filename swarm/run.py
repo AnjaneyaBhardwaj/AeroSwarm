@@ -2,7 +2,7 @@
 
 python -m swarm.run                      # demo spec; real LLM if ANTHROPIC_API_KEY is set
 python -m swarm.run --llm mock           # force the labelled mock (not an LLM)
-python -m swarm.run --preset hard        # near-Cl,max target: XFoil ladder + TE separation
+python -m swarm.run --preset hard        # 85% of attached Cl,max: TE separation + stall-margin rejections
 python -m swarm.run --max-evals 10 --budget-usd 2.00   # live-run caps
 python -m swarm.run --resume <run_id>    # resume from runs/<run_id>/ckpt.db
 """
@@ -33,21 +33,23 @@ DEMO_SPEC = DesignSpec(
     max_evals=30,
     max_wall_hours=0.5,
 )
-DEMO_START = WingParams(main_camber=0.02, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
+DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
 
-# "Hard" preset: a near-Cl,max target at a low-speed-corner Re (3e5 ≈ 15 m/s on
-# the 300 mm chord). With the mock and the headless XFoil build, the run is
-# deterministic: screening climbs to |Cl| ≈ 1.97 at NeuralFoil, the promotion
-# to XFoil fails at L0 and converges at L1 with suction-side TE separation
-# (TARGET_MISS, TE_SEPARATION_MAIN), and the next step passes after another
-# L0 → L1 recovery. That separated round becomes the strip's middle frame.
-# Verified by tests/test_demo_hard.py (needs the xfoil binary). A real LLM
-# takes its own path, so these events are expected, not guaranteed, there.
+# "Hard" preset: a near-stall target at a low-speed-corner Re (3e5 ≈ 15 m/s on the
+# 300 mm chord). Target = 85% of the attached Cl,max found by the XFoil sweep over the
+# feasible single-element box (scripts/clmax_sweep.py; docs/PROGRESS.md, session 3):
+# attached Cl,max 2.092 (m 0.09, p 0.3, t 0.12, alpha 12), so Cl -1.78; attached designs in
+# the Cl box have Cd 0.015-0.019, so the cap is 0.020 (session 2's 0.030 admitted
+# separated near-stall designs). The start point is unchanged. The mock's path through
+# it (L0 -> L1 recovery, a TE-separated TARGET_MISS as the strip's middle frame, then a
+# stall-margin-checked target_met) is verified by tests/test_demo_hard.py (needs the
+# xfoil binary). A real LLM takes its own path, so those events are expected there,
+# not guaranteed.
 HARD_SPEC = DesignSpec(
     component="wing_1el",
-    target_cl=-2.00,
+    target_cl=-1.78,
     cl_tol=0.03,
-    cd_max=0.030,
+    cd_max=0.020,
     speed_mps=round(speed_for_reynolds(3.0e5, PLACEHOLDER_CAR.chord_mm), 2),
     max_evals=30,
     max_wall_hours=0.5,
