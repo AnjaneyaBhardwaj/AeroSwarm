@@ -5,8 +5,9 @@
     uv run python scripts/gated_sweep.py propose gated.json
 
 Grid: camber 0.06-0.09 step 0.005, position 0.25-0.55 step 0.05, thickness
-{0.0955, 0.11, 0.12, 0.135, 0.15}, alpha 4-12 step 0.25 (alpha+1 and +2 are on the grid, so
-designs up to alpha 10 can be gated; with 4-10 every best gated design sat at the alpha 8 edge).
+{0.0955, 0.11, 0.12, 0.135, 0.15}, alpha 4-14 step 0.25 (alpha+1 and +2 are on the grid, so
+designs up to alpha 12 can be gated; with 4-10 and 4-12 the best gated designs sat on the alpha 8
+and alpha 10 edges).
 One XFoil session per geometry: warm up from 0 deg in 0.5 deg steps, then step alpha through
 the grid with a BL dump after every point (continuation; the wrapper's L2 level does the same
 from 0 deg). An alpha that does not converge in continuation is re-solved cold through the
@@ -41,7 +42,7 @@ from swarm.state import WingParams
 CAMBER = tuple(round(x, 3) for x in np.arange(0.06, 0.0901, 0.005))
 POS = tuple(round(x, 2) for x in np.arange(0.25, 0.5501, 0.05))
 THICK = (0.0955, 0.11, 0.12, 0.135, 0.15)
-ALPHAS = tuple(round(x, 2) for x in np.arange(4.0, 12.001, 0.25))
+ALPHAS = tuple(round(x, 2) for x in np.arange(4.0, 14.001, 0.25))
 WARMUP = tuple(round(x, 1) for x in np.arange(0.0, 4.0, 0.5))
 N_ITER, NPANEL = 300, 160  # the wrapper's continuation level (L2)
 
