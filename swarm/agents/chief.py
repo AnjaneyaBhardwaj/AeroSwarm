@@ -68,4 +68,16 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
                 }
             )
             upd["promote_cid"] = None
+        elif rec.screen is not None and not rec.screen.ok and rec.result.fidelity == "neuralfoil":
+            # The NeuralFoil screen gates promotion; the generation explores at NeuralFoil instead.
+            events.append(
+                {
+                    "node": "chief_plan",
+                    "gen": gen,
+                    "event": "promotion_blocked_by_screen",
+                    "cid": memo.promote_cid,
+                    "reasons": rec.screen.reasons(),
+                }
+            )
+            upd["promote_cid"], upd["fidelity"] = None, "neuralfoil"
     return (memo.model_copy(update=upd) if upd else memo), events

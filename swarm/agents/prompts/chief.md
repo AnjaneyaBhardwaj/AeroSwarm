@@ -14,7 +14,9 @@ Your job each generation:
 3. Choose fidelity: neuralfoil | xfoil. Promote only candidates that won the
    lower tier: to re-evaluate an existing ledger candidate at a higher tier, set
    promote_cid to its cid and fidelity to the higher tier. Only an xfoil result
-   that is not a fallback can end the run as target met.
+   that is not a fallback can end the run as target met. A candidate listed as
+   blocked by the NeuralFoil screen (no stall margin at alpha+1/+2, or a suction-side
+   separation warning) cannot be promoted; change the design instead.
 4. mode: use "reasoned_step" (the inner optimizer is not available yet).
 
 Never invent performance numbers. Every number you cite must come from the ledger.

@@ -212,7 +212,7 @@ def _meta(**health):
         "run_id": "r",
         "llm_client": "anthropic:m",
         "is_mock": False,
-        "termination": "budget",
+        "termination": "eval_budget",
         "llm_health": {**base, **health},
     }
 

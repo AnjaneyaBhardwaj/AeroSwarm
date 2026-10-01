@@ -22,8 +22,9 @@ format:
 demo:
 	uv run python -m swarm.run
 
-# Smoke test above; this one targets 85% of attached Cl,max at Re 3e5 and, with the mock,
-# meets TE-separation and no-stall-margin rejections (it does not reach target_met).
+# Smoke test above; this one targets 85% of attached Cl,max at Re 3e5. With the mock the
+# NeuralFoil screen blocks every near-target candidate (no stall margin), so nothing is
+# promoted to XFoil and it does not reach target_met.
 # Needs the xfoil binary (make xfoil). Pinned to the mock so the path is reproducible.
 demo-hard:
 	uv run python -m swarm.run --preset hard --llm mock

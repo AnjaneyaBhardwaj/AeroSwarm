@@ -134,7 +134,7 @@ def test_scenario_a_violations_fed_back_then_fallback(spec, start, tmp_path):
     assert geo and geo[0]["violations"][0].startswith("T2.4.1")
     assert any(e.get("event") == "cad_fallback" for e in events)
     assert final["ledger"][-1].rationale.startswith("deterministic fallback")
-    assert final["termination"] == "budget" and not llm.responses
+    assert final["termination"] == "eval_budget" and not llm.responses
 
 
 def test_checkpoint_resume(spec, start, fake_xfoil, tmp_path):

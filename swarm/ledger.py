@@ -10,7 +10,7 @@ import math
 import time
 from pathlib import Path
 
-from swarm.state import FIDELITY_RANK, CFDResult, DesignSpec, EvalRecord
+from swarm.state import FIDELITY_RANK, TERMINAL_FIDELITIES, CFDResult, DesignSpec, EvalRecord
 
 CD_PENALTY = 20.0  # 0.001 of Cd over budget costs as much as 0.02 of Cl error
 
@@ -35,6 +35,75 @@ def best_record(ledger: list[EvalRecord], spec: DesignSpec, fidelity: str | None
     if not rows:
         return None
     return min(rows, key=lambda r: (objective(r.result, spec), -FIDELITY_RANK[r.result.fidelity]))
+
+
+def passing(rec: EvalRecord) -> bool:
+    """A full PASS: the run could end on it (PASS verdict at a terminal fidelity, not a fallback).
+
+    The numeric validator only gives PASS at XFoil with a passing stall margin and no TE
+    separation, and the Critic can downgrade but never upgrade, so this is `target_met`.
+    """
+    return (
+        usable(rec)
+        and rec.verdict is not None
+        and rec.verdict.status == "PASS"
+        and rec.result.fidelity in TERMINAL_FIDELITIES
+        and not rec.result.lower_fidelity
+    )
+
+
+def best_passing(ledger: list[EvalRecord], spec: DesignSpec) -> EvalRecord | None:
+    rows = [r for r in ledger if passing(r)]
+    return min(rows, key=lambda r: objective(r.result, spec)) if rows else None
+
+
+def closest_candidate(ledger: list[EvalRecord], spec: DesignSpec) -> EvalRecord | None:
+    """The best objective among designs that did not pass; terminal-fidelity results first,
+    because a NeuralFoil-only design has not been checked where it counts."""
+    rows = [r for r in ledger if usable(r) and not passing(r)]
+    if not rows:
+        return None
+    return min(rows, key=lambda r: (r.result.fidelity not in TERMINAL_FIDELITIES, objective(r.result, spec)))
+
+
+def failing_checks(rec: EvalRecord, spec: DesignSpec) -> list[str]:
+    """Why `rec` is not a full PASS, one line per reason, from ledger facts only."""
+    if passing(rec):
+        return []
+    r, out = rec.result, []
+    named = set(rec.failed_checks)
+    if r.cl is not None and r.cd is not None:
+        if abs(r.cl - spec.target_cl) > spec.cl_tol:
+            off = abs(r.cl - spec.target_cl)
+            out.append(f"target box: Cl {r.cl:.4f} is {off:.4f} from {spec.target_cl} (tol {spec.cl_tol})")
+        if r.cd > spec.cd_max:
+            out.append(f"target box: Cd {r.cd:.5f} > cd_max {spec.cd_max}")
+    sep = r.bl.te_separation_xc if r.bl is not None else None
+    if sep is not None:
+        out.append(f"te_separation: suction-side Cf < 0 from x/c {sep:.2f} to the TE")
+    sm = rec.stall_margin
+    if sm is not None and not sm.ok:
+        if sm.dcl_dalpha is None:
+            out.append(f"stall_margin: probe failed ({sm.failure})")
+        else:
+            seps = [f"x/c {x:.2f} at {a:g}°" for a, x in zip(sm.alphas_deg, sm.te_separation_xc, strict=False) if x]
+            out.append(
+                f"stall_margin: d|Cl|/dα {sm.dcl_dalpha:.3f}/deg < {sm.threshold}"
+                + (f" (TE separation {', '.join(seps)})" if seps else "")
+            )
+    elif "stall_margin" in named and sm is None:
+        out.append("stall_margin: probe not run")
+    if "neuralfoil_screen" in named and rec.screen is not None:
+        out += rec.screen.reasons()
+    known = {"te_separation", "stall_margin", "neuralfoil_screen"}
+    out += [f"{n}: failed" for n in rec.failed_checks if n not in known]
+    if r.fidelity not in TERMINAL_FIDELITIES:
+        out.append(f"fidelity: {r.fidelity} only; only a terminal fidelity (XFoil) can pass")
+    elif r.lower_fidelity:
+        out.append(f"fidelity: fallback result (requested {r.fallback_from})")
+    if not out and rec.verdict is not None and rec.verdict.status != "PASS":
+        out.append(f"verdict: {rec.verdict.status} ({rec.verdict.diagnosis.symptom})")
+    return out
 
 
 def no_improve_streak(ledger: list[EvalRecord], spec: DesignSpec) -> int:

@@ -17,6 +17,7 @@ from swarm.state import (
     Diagnosis,
     EvalRecord,
     StallMargin,
+    SurrogateScreen,
     VerdictStatus,
     WingParams,
 )
@@ -54,6 +55,17 @@ class ValidatorConfig(BaseModel, frozen=True):
     # round number between "flattening" and "healthy", not a fitted limit.
     stall_probe_deg: tuple[float, ...] = (1.0, 2.0)
     stall_min_dcl_dalpha: float = 0.05
+    # NeuralFoil screen before promotion to XFoil (project convention). Calibrated against the
+    # same Re 3e5 XFoil sweep (scripts/clmax_sweep.py, then scripts/calibrate_screen.py).
+    # Stall: XFoil's 0.05 reused on NeuralFoil's Cl at alpha..alpha+2. Over the 816 sweep points
+    # with all three alphas converged it blocks 345 of 390 XFoil margin failures and 7 of 426
+    # passes; near the hard target (63 attached points, |Cl| 1.72-1.84) 27 of 38 and 0 of 25.
+    screen_min_dcl_dalpha: float = 0.05
+    # Separation: suction-side H at NeuralFoil's last station (x/c 0.984) at or above this flags
+    # XFoil TE separation (Cf < 0 to the TE) with recall 0.90 and specificity 0.94 over all 1008
+    # points, the best balanced accuracy of thresholds 2.0-8.0 in 0.25 steps; near the target
+    # (169 points) it flags 94 of 104 separated and 7 of 65 attached points. Re 3e5 only.
+    screen_h_sep: float = 4.25
 
 
 VALIDATION = ValidatorConfig()
@@ -142,6 +154,7 @@ def validate(
     ledger: list[EvalRecord],
     cfg: ValidatorConfig = VALIDATION,
     stall: StallMargin | None = None,
+    screen: SurrogateScreen | None = None,
 ) -> NumericReport:
     if result is None:
         c = Check(name="result_present", ok=False, message="no solver result", failure_class="NUMERICAL_FAILURE")
@@ -251,6 +264,19 @@ def validate(
                 failure_class="NUMERICAL_FAILURE",
             )
         )
+        if screen is not None:
+            # NeuralFoil tier only: it blocks promotion to XFoil. XFoil results keep their own gates.
+            checks.append(
+                Check(
+                    name="neuralfoil_screen",
+                    ok=screen.ok,
+                    value=screen.dcl_dalpha,
+                    threshold=f"d|Cl|/dalpha >= {screen.stall_threshold} over alpha+0..+{cfg.stall_probe_deg[-1]:g} deg"
+                    f" and suction-side TE H < {screen.h_sep}",
+                    severity="suspect",
+                    message="; ".join(screen.reasons()) or "passes the NeuralFoil stall and separation screen",
+                )
+            )
     for name in ("residuals", "mesh", "yplus"):
         checks.append(Check(name=name, ok=True, severity="skipped", message=f"not applicable at {result.fidelity}"))
 

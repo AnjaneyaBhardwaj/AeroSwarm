@@ -56,7 +56,13 @@ def _spec_block(spec: DesignSpec) -> str:
     return "## DesignSpec (immutable)\n```json\n" + spec.model_dump_json(indent=1) + "\n```"
 
 
-def promotable(ledger: list[EvalRecord], spec: DesignSpec, to: str = "xfoil") -> list[EvalRecord]:
+def screen_blocked(rec: EvalRecord) -> bool:
+    """A NeuralFoil result whose screen failed may not be promoted to XFoil."""
+    return rec.result.fidelity == "neuralfoil" and rec.screen is not None and not rec.screen.ok
+
+
+def near_target(ledger: list[EvalRecord], spec: DesignSpec, to: str = "xfoil") -> list[EvalRecord]:
+    """Lower-tier candidates within NEAR_TARGET_FACTOR·tol and under cd_max, not yet run at `to`."""
     done = {(r.params.cid, r.result.fidelity) for r in ledger}
     # a fallback record means the higher tier was already attempted and failed
     done |= {(r.params.cid, r.result.fallback_from) for r in ledger if r.result.fallback_from}
@@ -68,6 +74,10 @@ def promotable(ledger: list[EvalRecord], spec: DesignSpec, to: str = "xfoil") ->
         if abs(res.cl - spec.target_cl) <= NEAR_TARGET_FACTOR * spec.cl_tol and res.cd <= spec.cd_max:
             out.append(r)
     return sorted(out, key=lambda r: objective(r.result, spec))
+
+
+def promotable(ledger: list[EvalRecord], spec: DesignSpec, to: str = "xfoil") -> list[EvalRecord]:
+    return [r for r in near_target(ledger, spec, to) if not screen_blocked(r)]
 
 
 def chief_brief(state: SwarmState, sens: dict) -> Brief:
@@ -85,6 +95,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
     v = state.get("verdict")
     cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective")
     promo = [r.params.cid for r in promotable(ledger, spec)]
+    blocked = {r.params.cid: r.screen.reasons() for r in near_target(ledger, spec) if screen_blocked(r)}
     streak = no_improve_streak(ledger, spec)
     facts = {
         "spec": spec.model_dump(),
@@ -98,6 +109,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "sensitivities": sens,
         "verdict": v.model_dump() if v else None,
         "promotable": promo,
+        "screen_blocked": blocked,
         "no_improve_streak": streak,
         "last_strategy": state["strategy"].model_dump() if state.get("strategy") else None,
     }
@@ -115,6 +127,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             "## Critic's latest verdict\n" + (v.model_dump_json(indent=1) if v else "(none)"),
             f"## Promotion candidates (within {NEAR_TARGET_FACTOR}·tol at neuralfoil, not yet run at xfoil)\n"
             + (", ".join(promo) or "(none)"),
+            "## Blocked from promotion by the NeuralFoil screen (alpha+1/+2 slope, suction-side TE H)\n"
+            + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
             f"Generations without improvement: {streak}.",
         ]
     )

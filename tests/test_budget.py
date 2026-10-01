@@ -142,7 +142,7 @@ def test_cli_budget_flag(tmp_path, fake_xfoil):
     main(["--llm", "mock", "--budget-usd", "1.5", "--max-evals", "3", "--runs-root", str(tmp_path), "--run-id", "b"])
     meta = json.loads((tmp_path / "b" / "meta.json").read_text())
     assert meta["spec"]["max_cost_usd"] == 1.5 and meta["spec"]["max_evals"] == 3
-    assert meta["termination"] in ("budget", "target_met") and meta["evals"] <= 3
+    assert meta["termination"] in ("eval_budget", "target_met") and meta["evals"] <= 3
 
 
 @pytest.mark.parametrize(

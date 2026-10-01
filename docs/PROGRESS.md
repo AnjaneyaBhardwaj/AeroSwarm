@@ -1,5 +1,117 @@
 # Progress
 
+## Session 6 (2026-10-01): report honesty, NeuralFoil screen, analysis of the first live run
+
+### Done
+- **Report** (`write_report`, `swarm/ledger.py`): "Best passing design" (a full PASS: XFoil, not a
+  fallback, PASS verdict; `ledger.passing`) is separate from "Closest candidate (did not pass)", which
+  lists its failing checks (`ledger.failing_checks`, built only from ledger facts). "Best overall" /
+  "Best at XFoil" are gone, as are `best_cid` / `best_xfoil_cid` in meta.json; meta now has
+  `best_passing_cid`, `closest_candidate_cid`, `closest_candidate_failing` and `limits`.
+  `EvalRecord.failed_checks` stores the failed numeric check names.
+- **Termination**: `budget` is split into `eval_budget` (max_evals) and `wall_clock` (max_wall_hours);
+  `cost_cap` was already separate. `unknown` is returned if no rule explains the stop (should not
+  happen). The report prints a one-line reason plus evals / est. cost / wall clock against each limit.
+- **NeuralFoil screen** (`swarm/critic/screen.py`, `SurrogateScreen` on every record with a physical
+  result, any fidelity): one surrogate call at alpha, +1, +2.
+  - Stall: d|Cl|/dα on NeuralFoil's Cl, same definition as the XFoil probe, ≥ 0.05/deg.
+  - Separation warning: suction-side H at NeuralFoil's last BL station (x/c 0.984) ≥ 4.25.
+  - Calibrated on the Re 3e5 XFoil sweep (rerun this session: 1008 points, 0 failed, 27 s;
+    `scripts/calibrate_screen.py` reproduces every number). Separation: recall 0.90, specificity 0.94
+    over all points (best balanced accuracy of 2.0–8.0 in 0.25 steps); near the target 94/104 and 7/65.
+    Stall: blocks 345 of 390 XFoil margin failures and 7 of 426 passes; near the target (63 attached
+    points) 27 of 38 and 0 of 25. 0.05 needed no change.
+  - At NeuralFoil it is a `neuralfoil_screen` check (suspect → TARGET_MISS). `promotable()` drops
+    screen failures, the chief brief lists them under "Blocked from promotion", and `chief.sanitize`
+    turns a promotion of one into a NeuralFoil step (`promotion_blocked_by_screen` event).
+  - At XFoil it is not a check (XFoil's gates stay authoritative); `compare_with_xfoil` runs and a
+    `screen_xfoil_disagreement` event is logged when stall or separation verdicts differ. The report
+    has a screen-vs-XFoil table.
+  - **Retroactively on the live run** (scratch re-render, run dir untouched): the screen fails stall for
+    every one of the 15 designs and agrees with XFoil on all 4 probed ones (NeuralFoil vs XFoil slope
+    0.030/0.026, 0.014/0.015, 0.039/0.031, 0.038/0.036). It would have blocked all 4 promotions
+    (gens 5, 7, 10, 12), which XFoil rejected.
+- **Evolution strip**: "after" = best passing design, or "no passing design — closest candidate" with
+  its failing check. "middle" = most instructive failure, never the after cid: worst measured stall
+  margin, else first TE separation, else worst NeuralFoil screen, else biggest drag jump. Every recorded
+  frame (strip and GIF) shows its status; green only for a full PASS.
+- **Stall-margin plots**: `stall_<cid>.png` per XFoil candidate with a probe: |Cl| at α, +1, +2, each
+  secant against the threshold slope, TE separation points, NeuralFoil screen overlaid. Linked from
+  report.md; XFoil rows without a probe say why.
+- Tests: 174 → 197 (`tests/test_screen.py`, `tests/test_report.py`, more in `tests/test_viz.py`).
+
+### Hard demo changed (mock)
+`make demo-hard` now never reaches XFoil: 25 NeuralFoil evals, termination `plateau`. The mock's
+alpha-led path sits at alpha 9.1–9.5° on 6–8% camber, where NeuralFoil and XFoil both see no margin
+(sweep: m 0.06 / p 0.4 / t 0.0955 peaks at 8.5° and separates from 9°), so every near-target candidate
+is blocked. `tests/test_demo_hard.py` now checks that. The TE-separation and stall-margin paths at
+XFoil are still covered by `tests/test_stall_margin.py`. `make demo` (default preset) is unchanged:
+target_met in 4 evals with real XFoil, no disagreement.
+
+### Analysis of the first live run (no code change; heuristics table untouched)
+Per generation (ledger + traces): params, the Chief's focus_params, and each CAD change against the
+heuristics offered in its brief and the NeuralFoil sensitivities.
+
+| gen | m | p | t | α | focus_params | CAD change(s) vs heuristic |
+|---|---|---|---|---|---|---|
+| 0 | 0.060 | 0.400 | 0.100 | 8.000 | camber, alpha, thickness | baseline |
+| 1 | 0.0735 | 0.400 | 0.100 | 9.631 | camber, alpha, thickness | INSUFFICIENT_LOADING: camber +, alpha + (both follow) |
+| 2 | 0.0709 | 0.400 | 0.110 | 9.631 | camber, thickness, alpha | EXCESS_PRESSURE_DRAG: thickness + (**against** "thinner"), camber − |
+| 3 | 0.0715 | 0.400 | 0.125 | 9.631 | thickness, alpha, camber | EXCESS_PRESSURE_DRAG: thickness + (**against**), camber + |
+| 4 | 0.0745 | 0.400 | 0.117 | 9.031 | thickness, camber, alpha | EXCESS_PRESSURE_DRAG: thickness −, alpha − (follow), camber + |
+| 5 | (promotion of gen 4 to XFoil) | | | | alpha, camber | none |
+| 6 | 0.078 | 0.400 | 0.117 | 9.031 | camber, alpha, thickness | INSUFFICIENT_LOADING: camber + (follows) |
+| 7 | (promotion of gen 6 to XFoil) | | | | camber, alpha | none |
+| 8 | 0.082 | **0.368** | 0.117 | 8.531 | alpha, camber, **camber_pos** | EARLY_STALL: alpha − (follows), camber +, camber_pos − (none offered) |
+| 9 | 0.078 | 0.400 | 0.112 | 9.075 | camber, alpha, thickness | EXCESS_PRESSURE_DRAG: thickness − (follows), alpha + (**against**) |
+| 10 | (promotion of gen 9 to XFoil) | | | | camber, alpha | none |
+| 11 | 0.0806 | 0.400 | 0.117 | 8.531 | camber, **camber_pos**, alpha | EARLY_STALL: alpha − (follows), camber +; camber_pos unchanged |
+| 12 | (promotion of gen 11 to XFoil) | | | | alpha, camber, thickness | none |
+| 13 | 0.0809 | 0.400 | 0.125 | 8.531 | camber, alpha, thickness | EARLY_STALL: alpha −, thickness + (both follow), camber + |
+| 14 | 0.0773 | 0.400 | 0.117 | 8.551 | camber, alpha | NONE (no heuristics): alpha −, camber − |
+
+- **Sensitivities: never overridden.** In all 22 changes the CAD's predicted (dCl, dCd) signs equal
+  the signs implied by the NeuralFoil sensitivities in its brief. It went **against the heuristic 3
+  times** (gens 2, 3: thicker despite "thinner cuts drag"; gen 9: alpha up despite "lower incidence"),
+  and in gens 2–3 its note says it followed the sensitivities over the heuristic.
+- **camber_pos moved once, forward** (gen 8, 0.40 → 0.368). The Chief's hypothesis that generation said
+  "nudging camber_pos **aft**"; the CAD moved it forward, citing the separation-bubble location, with no
+  heuristic offered for it. Gen 9 did not reverse it: it branched from the best record (`01ee6bd07c`,
+  p 0.4). In gen 11 the Chief asked for camber_pos "forward" and put it in focus; the CAD left it alone.
+- **"TE_SEPARATION_MAIN → move camber forward" was never used.** No verdict in the run was
+  TE_SEPARATION_MAIN: XFoil never separated at a design alpha, only at the stall probes (+1/+2), and
+  those failures were diagnosed EARLY_STALL, whose heuristics are alpha − and thickness +. The other
+  rule with camber_pos − (EXCESS_PRESSURE_DRAG) was offered only when camber_pos was not in focus,
+  so it was filtered out.
+- **focus_params** (Chief traces, no coercions logged): main_camber_pos chosen only in gens 8 and 11.
+  Flap/gurney/slot are not free for `wing_1el`.
+- Two more things the traces show: the CAD brief pairs the *latest* verdict with the *base* design
+  (the best record), which can be a different candidate. The gen 9 CAD note says the diagnosis
+  "appears to be a different candidate"; gen 14's acts on gen 13's overshoot. And because the base is
+  the best record by objective, gens 8, 9, 11, 13 and 14 all branched from the stall-failed `01ee6bd07c`.
+
+### Known issues / limits
+- The screen is calibrated at Re 3e5 only (the default preset runs at 8.3e5; it agreed with XFoil there
+  in the demo, but that is one run).
+- It gates **promotion** only. A Chief that sets fidelity=xfoil without promote_cid (gens 13 and 14 of
+  the live run) evaluates a fresh CAD proposal straight at XFoil; the screen is computed and compared
+  there, but does not block.
+- `suggest_diagnosis` does not use the screen or the XFoil stall margin, so an in-box design failing
+  either gets symptom NONE from the deterministic suggestion (the LLM Critic chose EARLY_STALL itself in
+  the live run; the mock does not). Changing that would change which heuristics are offered.
+- The CAD's base is still `best_record` by objective, so a stall-failed design can keep being the
+  parent (above). Not changed: it is a search-behaviour change, not a reporting one.
+- Session 5's chief-brief gap (stall slope not shown in its tables) is unchanged, except that blocked
+  promotions are now listed with their reasons.
+
+### Next
+- Rerun the live command: `python -m swarm.run --llm anthropic --preset hard --max-evals 15 --budget-usd 2`.
+  Expect blocked promotions instead of XFoil stall-margin rejections; check `screen_xfoil_disagreement`
+  events and whether the CAD now moves camber_pos or lowers alpha further.
+- Decide on the three behaviour questions above (screen on direct XFoil steps, diagnosis from the screen,
+  CAD base selection) before or after that run.
+- Milestone 2 is still not started.
+
 ## Session 5 (2026-10-01): first live LLM run (hard preset) — no design passes the stall gate
 
 No code changed. `python -m swarm.run --llm anthropic --preset hard --max-evals 15 --budget-usd 2`
@@ -39,8 +151,9 @@ Spec: Cl −1.78 ± 0.03, Cd ≤ 0.02, Re 3e5; start camber 0.06 / p 0.4 / t 0.1
   its hypotheses citing the sensitivities (e.g. dCl/dcamber ≈ −11.6). The mock's greedy steps reach Cl
   through alpha. This is the direction session 3 said the open question was about.
 - It did not get far enough. The free set for `wing_1el` is only camber, camber_pos, thickness and
-  alpha (`SINGLE_ELEMENT_PARAMS`). camber_pos stayed 0.4 in 14 of 15 designs (gen 8 tried 0.368, then
-  went back), thickness stayed 0.10–0.125, and camber topped out at 0.082. The sweep in session 3 says
+  alpha (`SINGLE_ELEMENT_PARAMS`). camber_pos stayed 0.4 in 14 of 15 designs (gen 8 tried 0.368;
+  gen 9 restarted from the best record, which had 0.4; see session 6), thickness stayed 0.10–0.125,
+  and camber topped out at 0.082. The sweep in session 3 says
   attached designs exist at higher camber and a more aft camber position (m 0.09, p 0.5, alpha ~6.5:
   Cl −1.78, Cd 0.016); 15 evals from this start did not reach that region.
 - NeuralFoil passed four designs (gens 4, 6, 9, 11); XFoil rejected all four when promoted

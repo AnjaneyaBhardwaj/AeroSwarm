@@ -41,11 +41,9 @@ DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0
 # feasible single-element box (scripts/clmax_sweep.py; docs/PROGRESS.md, session 3):
 # attached Cl,max 2.092 (m 0.09, p 0.3, t 0.12, alpha 12), so Cl -1.78; attached designs in
 # the Cl box have Cd 0.015-0.019, so the cap is 0.020 (session 2's 0.030 admitted
-# separated near-stall designs). The start point is unchanged. The mock's path through
-# it (L0 -> L1 recovery, a TE-separated TARGET_MISS as the strip's middle frame, then a
-# stall-margin-checked target_met) is verified by tests/test_demo_hard.py (needs the
-# xfoil binary). A real LLM takes its own path, so those events are expected there,
-# not guaranteed.
+# separated near-stall designs). The start point is unchanged. The mock's alpha-led path
+# stays near Cl,max, so the NeuralFoil screen blocks every near-target promotion
+# (tests/test_demo_hard.py; docs/PROGRESS.md, session 6). A real LLM takes its own path.
 HARD_SPEC = DesignSpec(
     component="wing_1el",
     target_cl=-1.78,
@@ -185,8 +183,9 @@ def main(argv: list[str] | None = None) -> None:
                         "llm_client",
                         "termination",
                         "evals",
-                        "best_cid",
-                        "best_xfoil_cid",
+                        "best_passing_cid",
+                        "closest_candidate_cid",
+                        "closest_candidate_failing",
                         "viz",
                     )
                 },

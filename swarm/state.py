@@ -277,6 +277,40 @@ class StallMargin(BaseModel):
     failure: str | None = None  # e.g. "alpha+2: ladder exhausted (not_converged@L3)"
 
 
+class SurrogateScreen(BaseModel):
+    """NeuralFoil-tier screen of one geometry: alpha, alpha+1, alpha+2 deg in one surrogate call.
+
+    Stall: the same d|Cl|/dalpha definition as `StallMargin` (smallest forward secant,
+    1/deg), on NeuralFoil's Cl. Separation: NeuralFoil's suction-side (upright upper surface)
+    boundary-layer shape factor H at its last station (x/c 0.984); a warning when H there is
+    at or above `h_sep`. `sep_xc` is where the run of H >= h_sep that reaches the TE starts.
+    It gates promotion to XFoil; it never overrides an XFoil result (XFoil's gates stay
+    authoritative). Thresholds: `ValidatorConfig.screen_*`.
+    """
+
+    alphas_deg: list[float]
+    cls: list[float]  # race-car Cl (negative = downforce)
+    slopes: list[float] = []  # d|Cl|/dalpha between successive points
+    dcl_dalpha: float | None = None  # min(slopes)
+    stall_threshold: float
+    stall_ok: bool
+    te_shape_factor: list[float] = []  # suction-side H at x/c 0.984, per alpha
+    sep_xc: float | None = None  # at the design alpha
+    h_sep: float
+    sep_warning: bool  # at the design alpha
+    ok: bool  # stall_ok and not sep_warning
+
+    def reasons(self) -> list[str]:
+        out = []
+        if not self.stall_ok:
+            v = "n/a" if self.dcl_dalpha is None else f"{self.dcl_dalpha:.3f}"
+            out.append(f"NeuralFoil stall screen: d|Cl|/dalpha {v}/deg < {self.stall_threshold}")
+        if self.sep_warning:
+            h = self.te_shape_factor[0] if self.te_shape_factor else float("nan")
+            out.append(f"NeuralFoil separation warning: suction-side H {h:.2f} >= {self.h_sep} at the TE")
+        return out
+
+
 class EvalRecord(BaseModel):
     generation: int
     params: WingParams
@@ -287,6 +321,8 @@ class EvalRecord(BaseModel):
     predicted_signs: dict[str, tuple[int, int]] = {}  # param -> (dCl sign, dCd sign)
     parent_cid: str | None = None
     stall_margin: StallMargin | None = None  # measured only for a candidate that would otherwise be target_met
+    screen: SurrogateScreen | None = None  # NeuralFoil screen of this geometry (any fidelity)
+    failed_checks: list[str] = []  # names of the numeric checks that failed (not skipped ones)
 
 
 class SwarmState(TypedDict, total=False):
@@ -301,6 +337,7 @@ class SwarmState(TypedDict, total=False):
     result: CFDResult | None
     numeric: Any  # critic.numeric.NumericReport
     stall: StallMargin | None  # stall-margin probe for the current candidate, when one was run
+    screen: SurrogateScreen | None  # NeuralFoil screen of the current candidate
     sens: dict  # NeuralFoil sensitivities at the generation's base design
     solver: dict  # {"fidelity", "level", "tried", "fallback_from"} for the current candidate
     verdict: Verdict | None
@@ -308,5 +345,8 @@ class SwarmState(TypedDict, total=False):
     events: Annotated[list[dict], operator.add]  # audit trail
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
-    termination: Literal["target_met", "budget", "cost_cap", "plateau", "fatal", "invalid_llm"] | None
+    termination: (
+        Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]
+        | None
+    )
     started_at: float
