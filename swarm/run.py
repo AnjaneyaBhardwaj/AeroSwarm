@@ -37,18 +37,18 @@ DEMO_SPEC = DesignSpec(
 DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
 
 # "Hard" preset: a near-stall target at a low-speed-corner Re (3e5 ≈ 15 m/s on the
-# 300 mm chord). Target = 85% of the attached Cl,max found by the XFoil sweep over the
-# feasible single-element box (scripts/clmax_sweep.py; docs/PROGRESS.md, session 3):
-# attached Cl,max 2.092 (m 0.09, p 0.3, t 0.12, alpha 12), so Cl -1.78; attached designs in
-# the Cl box have Cd 0.015-0.019, so the cap is 0.020 (session 2's 0.030 admitted
-# separated near-stall designs). The start point is unchanged. The mock's alpha-led path
-# stays near Cl,max, so the NeuralFoil screen blocks every near-target promotion
-# (tests/test_demo_hard.py; docs/PROGRESS.md, session 6). A real LLM takes its own path.
+# 300 mm chord), derived from the GATED XFoil sweep (scripts/gated_sweep.py; docs/PROGRESS.md,
+# session 7): a design counts only if it is attached at alpha, alpha+1 and alpha+2 and keeps
+# d|Cl|/dalpha >= 0.05/deg there (the pipeline's full gate). Gated Cl_max is 1.979. With
+# Cd <= 0.025, -1.83 ± 0.03 is the hardest target (0.01 steps) whose box holds >= 10 passing
+# grid points off the binding bounds (camber < 0.09, thickness > 0.0955): 13 interior,
+# 28 in total. The old -1.78 / Cd 0.020 box held 8 passing points, 4 on the camber bound.
+# XFoil-derived: re-check when the OpenFOAM tiers arrive. The start point is unchanged.
 HARD_SPEC = DesignSpec(
     component="wing_1el",
-    target_cl=-1.78,
+    target_cl=-1.83,
     cl_tol=0.03,
-    cd_max=0.020,
+    cd_max=0.025,
     speed_mps=round(speed_for_reynolds(3.0e5, PLACEHOLDER_CAR.chord_mm), 2),
     max_evals=30,
     max_wall_hours=0.5,

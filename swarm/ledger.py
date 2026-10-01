@@ -87,10 +87,13 @@ def failing_checks(rec: EvalRecord, spec: DesignSpec) -> list[str]:
             out.append(f"stall_margin: probe failed ({sm.failure})")
         else:
             seps = [f"x/c {x:.2f} at {a:g}°" for a, x in zip(sm.alphas_deg, sm.te_separation_xc, strict=False) if x]
-            out.append(
-                f"stall_margin: d|Cl|/dα {sm.dcl_dalpha:.3f}/deg < {sm.threshold}"
-                + (f" (TE separation {', '.join(seps)})" if seps else "")
-            )
+            if sm.dcl_dalpha < sm.threshold:
+                out.append(
+                    f"stall_margin: d|Cl|/dα {sm.dcl_dalpha:.3f}/deg < {sm.threshold}"
+                    + (f" (TE separation {', '.join(seps)})" if seps else "")
+                )
+            else:
+                out.append(f"stall_margin: TE separation within the probe range ({', '.join(seps)})")
     elif "stall_margin" in named and sm is None:
         out.append("stall_margin: probe not run")
     if "neuralfoil_screen" in named and rec.screen is not None:

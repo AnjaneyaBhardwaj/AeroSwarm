@@ -18,7 +18,7 @@ from swarm.viz.evolution import pick_frames
 
 def test_hard_preset_is_registered():
     assert PRESETS["hard"] == (HARD_SPEC, HARD_START)
-    assert HARD_SPEC.reynolds == pytest.approx(3.0e5, rel=1e-3) and HARD_SPEC.target_cl == -1.78
+    assert HARD_SPEC.reynolds == pytest.approx(3.0e5, rel=1e-3) and HARD_SPEC.target_cl == -1.83
 
 
 @pytest.mark.xfoil
@@ -48,6 +48,6 @@ def test_cli_preset_and_max_evals(tmp_path, fake_xfoil, capsys):
     fake_xfoil()
     main(["--llm", "mock", "--preset", "hard", "--max-evals", "2", "--runs-root", str(tmp_path), "--run-id", "c"])
     meta = json.loads((tmp_path / "c" / "meta.json").read_text())
-    assert meta["preset"] == "hard" and meta["spec"]["max_evals"] == 2 and meta["spec"]["target_cl"] == -1.78
+    assert meta["preset"] == "hard" and meta["spec"]["max_evals"] == 2 and meta["spec"]["target_cl"] == -1.83
     assert meta["evals"] == 2 and meta["termination"] == "eval_budget"
     assert '"preset": "hard"' in capsys.readouterr().out

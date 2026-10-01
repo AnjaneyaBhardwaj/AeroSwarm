@@ -112,6 +112,20 @@ def test_slope_at_threshold_passes_just_below_fails():
     assert ok.ok and not bad.ok
 
 
+def test_te_separation_at_a_probe_fails_even_with_a_healthy_slope():
+    seps = {10.5: 0.97}
+
+    def solve(alpha, level):
+        r = res(cl=-1.49 - 0.09 * (alpha - 9.5), solver_level=level)
+        return r.model_copy(update={"bl": sep_bl(seps[alpha]) if alpha in seps else None})
+
+    sm = measure_stall_margin(res(), 9.5, solve)
+    assert sm.dcl_dalpha == pytest.approx(0.09) and not sm.ok
+    assert sm.te_separation_xc == [None, 0.97, None] and sm.failure == "alpha+1: TE separation from x/c 0.97"
+    seps.clear()
+    assert measure_stall_margin(res(), 9.5, solve).ok
+
+
 def test_probe_uses_the_ladder_each_level_once_then_gives_up():
     log = []
     sm = measure_stall_margin(res(cl=-1.5), 9.5, probe_solver({}, fail=(0, 1, 2, 3), log=log))
@@ -259,10 +273,12 @@ def test_session2_final_design_is_rejected_by_real_xfoil(tmp_path):
 @pytest.mark.xfoil
 @pytest.mark.skipif(not xfoil.xfoil_available(), reason="xfoil binary not installed")
 def test_real_xfoil_probe_rejects_a_design_that_rolls_over_one_degree_later(tmp_path):
-    """In the hard box and attached at its design alpha, but at alpha+1 the TE separates
-    and Cl peaks before alpha+2 (found by the mock on the retuned hard preset)."""
+    """In the session-3 hard box (Cl -1.78 ± 0.03, Cd <= 0.020) and attached at its design alpha,
+    but at alpha+1 the TE separates and Cl peaks before alpha+2 (found by the mock then)."""
     from swarm.cad.build import build
-    from swarm.run import HARD_SPEC
+    from swarm.run import HARD_SPEC as CURRENT
+
+    HARD_SPEC = CURRENT.model_copy(update={"target_cl": -1.78, "cd_max": 0.020})
 
     p = WingParams(main_camber=0.0774, main_camber_pos=0.3892, main_thickness=0.1041, alpha_deg=9.1553)
     geo = build(p, HARD_SPEC, tmp_path)
