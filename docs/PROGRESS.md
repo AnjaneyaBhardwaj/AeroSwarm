@@ -1,5 +1,68 @@
 # Progress
 
+## Session 7 (2026-10-01): gated sweep, re-derived hard target (proposed, not applied)
+
+### The session 3/5 "m 0.09, p 0.5, alpha ~6.5" claim was wrong
+Session 3 wrote that the sweep has "attached, high-camber designs (m 0.09, p 0.5, alpha ~6.5 gives
+Cl −1.78 at Cd 0.016)", and session 5 repeated it as evidence that passing designs exist. That point
+is attached **at its design alpha only**; it has no stall margin. Through the real pipeline (cold
+ladder, probe at alpha+1/+2): t 0.0955 → margin −0.003/deg, TE separation from x/c 0.98 at alpha+1;
+t 0.12 → 0.026/deg, separated at alpha+1; alpha 6.0 → 0.010–0.016/deg. The claim predates the
+stall-margin gate (session 3 checked attachment, not margin) and nobody re-checked it against the
+gate. The NeuralFoil screen rejects all of them too. Only one point of the old 1008-point grid
+(m 0.09, p 0.4, t 0.12, alpha 7.0) passed the full gate for Cl −1.78.
+
+### Gated sweep (`scripts/gated_sweep.py`)
+- Grid: camber 0.06–0.09 step 0.005, position 0.25–0.55 step 0.05, thickness {0.0955, 0.11, 0.12,
+  0.135, 0.15}, alpha 4–14 step 0.25: 245 geometries, 10,045 points, Re 3e5, ncrit 9. One XFoil session
+  per geometry with alpha continuation (warm-up from 0°, the wrapper's L2 settings); 265 points that
+  failed in continuation were re-solved cold through the ladder; 0 failed. 11 min on 4 cores.
+- Alpha range: the request was 4–10, but then a design can only be gated up to alpha 8 (alpha+2 ≤ 10)
+  and every best gated design sat on that edge; 4–12 moved the edge to alpha 10 and the best still sat
+  on it. 4–14 gates designs up to alpha 12; the best is now at 10.75. The three runs agree exactly on
+  shared points (max |ΔCl| 0, no separation flips).
+- Gate per point (user definition): converged at alpha, +1, +2; no TE separation at any of the three;
+  stall margin ≥ 0.05/deg; FS2026 geometry checks. **3,115 points pass** (3,261 pass the pipeline's
+  own gate, which only logs separation at the probes).
+- **Gated Cl_max = 1.979** (m 0.09, p 0.25, t 0.11, alpha 10.75; Cd 0.0315, margin 0.060). Gated |Cl|
+  range 1.057–1.979; 99th percentile 1.872.
+- **Current box (Cl −1.78 ± 0.03, Cd ≤ 0.020): 8 passing points**, all at m ≥ 0.085, 4 of them at the
+  camber bound.
+
+### Proposed hard target (NOT applied; HARD_SPEC unchanged until reviewed)
+**Cl −1.89 ± 0.03, Cd ≤ 0.0325** (95.5% of gated Cl_max). Rule (`gated_sweep.py propose`): the highest
+target, in 0.01 steps, whose ±0.03 band holds ≥ 10 passing points away from the binding bounds
+(camber < 0.09, thickness > 0.0955 LE floor); Cd cap = worst Cd among those + 5%, rounded up to 0.0005.
+- 31 passing grid points in the box: 12 interior, 19 on the camber bound (m 0.09; 3 of them also on
+  the thickness floor). Positions 0.25–0.35, thickness 0.0955–0.135, alpha 9.0–11.0.
+- Cold cross-check of all 31 through the real pipeline (build, NeuralFoil screen, XFoil ladder, stall
+  probe, validator): all converge at L0 with the sweep's Cl, all in the box, attached, margin ≥ 0.05.
+  **29/31 pass everything.** Two interior points drop out: m 0.08 p 0.25 t 0.12 α 10.75 (NeuralFoil
+  screen slope 0.04995, blocked; XFoil margin 0.063) and m 0.085 p 0.3 t 0.135 α 10.25 (cold probe at
+  α+2 separates at x/c 0.99; continuation did not). So **10 interior points pass the screen and the full
+  gate cold**.
+- **Witness: m 0.085, p 0.30, t 0.12, alpha 9.5** (cid 8c50a2f006), between grid neighbours on every
+  axis. Real pipeline: NeuralFoil screen ok (slope 0.056, TE H 3.18); XFoil L0 Cl −1.8782, Cd 0.02505,
+  attached; stall margin 0.072/deg, no separation at α+1/+2; validator PASS, terminal. At NeuralFoil
+  it reads Cl −1.846 (0.044 short: TARGET_MISS but inside the 2·tol promotion window), so the
+  pipeline would promote it.
+- Position edge: most per-camber maxima sit at p 0.25, the bottom of the requested range
+  (`WingParams` allows 0.20). A supplementary p 0.20 slice (35 geometries, same settings; 2 of 1,435
+  points did not converge at any ladder level) gives gated Cl_max 1.938 (m 0.09, t 0.0955, alpha
+  10.75) < 1.979, so the overall maximum lies between p 0.20 and 0.30 and the edge does not cap it. p
+  0.20 is higher for four cambers (0.06, 0.065, 0.075, 0.085) and adds no point to the proposed box
+  (its Cd is higher, up to 0.036).
+
+### Camber bound (0.09) — reported, not changed
+Gated Cl_max by camber: 0.06 → 1.690, 0.065 → 1.764, 0.07 → 1.848, 0.075 → 1.852, 0.08 → 1.935,
+0.085 → 1.917, 0.09 → 1.979. The best gated design is on the bound and the trend still rises, so the
+bound **is active** for the best gated designs. The proposed target does not need it: 12 interior
+points (m 0.08–0.085) are in the box, though 19 of 31 box points sit on it.
+
+### Next (waiting for review)
+- Apply the target (HARD_SPEC), add the witness as a test, then session 6's items 1–5 and the
+  40-eval live run.
+
 ## Session 6 (2026-10-01): report honesty, NeuralFoil screen, analysis of the first live run
 
 ### Done
@@ -154,7 +217,8 @@ Spec: Cl −1.78 ± 0.03, Cd ≤ 0.02, Re 3e5; start camber 0.06 / p 0.4 / t 0.1
   alpha (`SINGLE_ELEMENT_PARAMS`). camber_pos stayed 0.4 in 14 of 15 designs (gen 8 tried 0.368;
   gen 9 restarted from the best record, which had 0.4; see session 6), thickness stayed 0.10–0.125,
   and camber topped out at 0.082. The sweep in session 3 says
-  attached designs exist at higher camber and a more aft camber position (m 0.09, p 0.5, alpha ~6.5:
+  attached designs exist at higher camber and a more aft camber position (m 0.09, p 0.5, alpha ~6.5 —
+  attached but without stall margin, so this is wrong; see session 7:
   Cl −1.78, Cd 0.016); 15 evals from this start did not reach that region.
 - NeuralFoil passed four designs (gens 4, 6, 9, 11); XFoil rejected all four when promoted
   (4 → 5 just outside the box on loading; 6 → 7, 9 → 10, 11 → 12 on stall slope). NeuralFoil is
@@ -287,7 +351,8 @@ XFoil gens 3–4 are **TE-separated TARGET_MISS** (x/c 0.993; still the strip's 
 From gen 5 the mock sits on in-box designs (Cl −1.77…−1.78, Cd 0.0195–0.0198) whose probes show
 slope +0.03 then ≈ −0.03: each is TARGET_MISS with the margin logged. The mock's greedy
 gradient steps reach Cl through alpha, not camber, so it never finds the attached, high-camber
-designs the sweep says exist (m 0.09, p 0.5, alpha ~6.5 gives Cl −1.78 at Cd 0.016).
+designs the sweep says exist (m 0.09, p 0.5, alpha ~6.5 gives Cl −1.78 at Cd 0.016 — attached at
+that alpha but with no stall margin; corrected in session 7).
 I tried Cd caps 0.016–0.018 and targets −1.70/−1.74 with the same start: none ended in target_met.
 I did not lower the threshold to make the mock pass (its designs sit at 0.03–0.033).
 - **The L0 → L1 recovery no longer happens in the hard demo**: every solve in the committed
