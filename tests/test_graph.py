@@ -3,6 +3,8 @@
 import json
 import time
 
+from conftest import good_stall
+
 from swarm.critic.numeric import validate
 from swarm.graph import build_graph, checkpointer, route_after_critic_fn
 from swarm.ledger import RunFiles
@@ -48,7 +50,7 @@ def test_xfoil_ladder_in_graph(spec, start, fake_xfoil, tmp_path):
     xf = [r for r in final["ledger"] if r.result.fidelity == "xfoil"]
     assert xf and all(r.result.solver_level == 2 for r in xf)
     cid = xf[0].params.cid
-    assert [lvl for c, lvl in calls if c == cid][:3] == [0, 1, 2]  # never repeats a level
+    assert [c[1] for c in calls if c[0] == cid and len(c) == 2][:3] == [0, 1, 2]  # never repeats a level
 
 
 def test_exhausted_ladder_falls_back_and_never_ends_as_target_met(spec, start, fake_xfoil, tmp_path):
@@ -63,7 +65,7 @@ def test_exhausted_ladder_falls_back_and_never_ends_as_target_met(spec, start, f
 
 
 def _state(spec, verdict_status, result, terminal, n=1):
-    rep = validate(result, _P, spec, [])
+    rep = validate(result, _P, spec, [], stall=good_stall())
     assert rep.terminal == terminal
     v = Verdict(status=verdict_status, diagnosis=Diagnosis(symptom="NONE"), confidence=0.5)
     return {

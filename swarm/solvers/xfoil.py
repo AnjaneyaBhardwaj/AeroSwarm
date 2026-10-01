@@ -296,11 +296,19 @@ def run_xfoil(
 
 
 def evaluate(
-    params: WingParams, spec: DesignSpec, coords_path: str | Path, run_dir: str | Path, level: int
+    params: WingParams,
+    spec: DesignSpec,
+    coords_path: str | Path,
+    run_dir: str | Path,
+    level: int,
+    alpha_deg: float | None = None,
 ) -> CFDResult:
+    """Solve at `level`. `alpha_deg` overrides the design alpha for stall-margin probes
+    (same geometry, same cid; a separate work dir keeps the main solve's artifacts)."""
     t0 = time.perf_counter()
-    work = Path(run_dir) / params.cid / f"xfoil_L{level}"
-    r = run_xfoil(coords_path, spec.reynolds, params.alpha_deg, level, work, ncrit=spec.ncrit)
+    alpha = params.alpha_deg if alpha_deg is None else alpha_deg
+    work = Path(run_dir) / params.cid / (f"xfoil_L{level}" if alpha_deg is None else f"xfoil_L{level}_a{alpha:+.2f}")
+    r = run_xfoil(coords_path, spec.reynolds, alpha, level, work, ncrit=spec.ncrit)
     artifacts = {
         k: str(work / f) for k, f in (("polar", POLAR), ("bl_dump", DUMP), ("cp", CPWR)) if (work / f).exists()
     }

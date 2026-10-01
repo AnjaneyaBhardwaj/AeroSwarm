@@ -257,6 +257,26 @@ class StrategyMemo(BaseModel):
     declare_plateau: bool = False
 
 
+class StallMargin(BaseModel):
+    """Stall-margin probe: the same candidate re-solved at alpha+1 and alpha+2 deg.
+
+    `dcl_dalpha` is the smallest forward secant of downforce growth, d|Cl|/dalpha in
+    1/deg (upright-section sign: positive = still loading up). Thin-airfoil theory is
+    0.110/deg; a healthy attached section stays above ~0.08, and a slope near zero or
+    negative means alpha+1..2 deg is at or past Cl,max.
+    """
+
+    alphas_deg: list[float]  # alpha, alpha+1, alpha+2 (race-car Cl in `cls`)
+    cls: list[float | None]
+    levels: list[int | None]  # XFoil ladder level that solved each point
+    te_separation_xc: list[float | None] = []  # suction-side TE separation start at each point
+    slopes: list[float] = []  # d|Cl|/dalpha between successive points
+    dcl_dalpha: float | None = None  # min(slopes); None if a probe did not solve
+    threshold: float
+    ok: bool
+    failure: str | None = None  # e.g. "alpha+2: ladder exhausted (not_converged@L3)"
+
+
 class EvalRecord(BaseModel):
     generation: int
     params: WingParams
@@ -266,6 +286,7 @@ class EvalRecord(BaseModel):
     quarantined: bool = False  # excluded from "best" (non-physical)
     predicted_signs: dict[str, tuple[int, int]] = {}  # param -> (dCl sign, dCd sign)
     parent_cid: str | None = None
+    stall_margin: StallMargin | None = None  # measured only for a candidate that would otherwise be target_met
 
 
 class SwarmState(TypedDict, total=False):
@@ -279,6 +300,7 @@ class SwarmState(TypedDict, total=False):
     geometry: GeometryArtifact | None
     result: CFDResult | None
     numeric: Any  # critic.numeric.NumericReport
+    stall: StallMargin | None  # stall-margin probe for the current candidate, when one was run
     sens: dict  # NeuralFoil sensitivities at the generation's base design
     solver: dict  # {"fidelity", "level", "tried", "fallback_from"} for the current candidate
     verdict: Verdict | None

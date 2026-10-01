@@ -16,6 +16,7 @@ from swarm.state import (
     DesignSpec,
     Diagnosis,
     EvalRecord,
+    StallMargin,
     VerdictStatus,
     WingParams,
 )
@@ -44,6 +45,15 @@ class ValidatorConfig(BaseModel, frozen=True):
     residual_drop_orders_U: float = 5.0
     coeff_rel_std_max: float = 0.005  # Cl, Cd relative std over the window
     coeff_window_iters: int = 300
+    # Stall margin (project convention, calibrate): a candidate may only end the run if
+    # re-solving at alpha+1 and alpha+2 deg still gains downforce. Slope is d|Cl|/dalpha
+    # in 1/deg, the smaller of the two forward secants. Thin-airfoil theory gives 0.110.
+    # In the Re 3e5 XFoil sweep (scripts/clmax_sweep.py, 1008 points) attached points with
+    # slope < 0.05 have a median 2.0 deg to the first TE-separated alpha, those at
+    # 0.08-0.10 have 4.8 deg; the relation is noisy, so 0.05 (about 45% of linear) is a
+    # round number between "flattening" and "healthy", not a fitted limit.
+    stall_probe_deg: tuple[float, ...] = (1.0, 2.0)
+    stall_min_dcl_dalpha: float = 0.05
 
 
 VALIDATION = ValidatorConfig()
@@ -112,12 +122,26 @@ def expected_lift_sign(params: WingParams, cfg: ValidatorConfig = VALIDATION) ->
     return 1 if eff > 0 else -1
 
 
+def stall_check_required(result: CFDResult | None, report: NumericReport) -> bool:
+    """True when `result` would end the run but for the stall margin: the probe costs two
+    extra solves, so it only runs for candidates that clear every other check."""
+    return bool(
+        result is not None
+        and report.ok
+        and report.target_met
+        and all(c.ok or c.severity == "skipped" or c.name == "stall_margin" for c in report.checks)
+        and not result.lower_fidelity
+        and result.fidelity in TERMINAL_FIDELITIES
+    )
+
+
 def validate(
     result: CFDResult | None,
     params: WingParams,
     spec: DesignSpec,
     ledger: list[EvalRecord],
     cfg: ValidatorConfig = VALIDATION,
+    stall: StallMargin | None = None,
 ) -> NumericReport:
     if result is None:
         c = Check(name="result_present", ok=False, message="no solver result", failure_class="NUMERICAL_FAILURE")
@@ -186,6 +210,17 @@ def validate(
             failure_class="NON_PHYSICAL",
         )
     )
+    sep_xc = result.bl.te_separation_xc if result.bl is not None else None
+    checks.append(
+        Check(
+            name="te_separation",
+            ok=sep_xc is None,
+            value=sep_xc,
+            threshold="no suction-side Cf<0 persisting to the TE",
+            severity="suspect",
+            message="trailing-edge separation: in the target box or not, this is TARGET_MISS",
+        )
+    )
     sign = expected_lift_sign(params, cfg)
     if sign == 0:
         checks.append(
@@ -241,9 +276,33 @@ def validate(
             )
         )
 
+    target = in_target(result, spec)
+    # Terminal fidelity, in the box, nothing else wrong: the stall margin decides. A missing
+    # probe blocks target_met just as a failed one does (see graph.numeric_validate).
+    if target and not result.lower_fidelity and result.fidelity in TERMINAL_FIDELITIES:
+        others_ok = all(c.ok or c.severity == "skipped" for c in checks)
+        if stall is not None:
+            checks.append(
+                Check(
+                    name="stall_margin",
+                    ok=stall.ok,
+                    value=stall.dcl_dalpha,
+                    threshold=f"d|Cl|/dalpha >= {stall.threshold} over alpha+0..+{cfg.stall_probe_deg[-1]:g} deg",
+                    severity="suspect",
+                    message=stall.failure or "design is at or near Cl,max: no stall margin",
+                )
+            )
+        elif others_ok:
+            checks.append(
+                Check(
+                    name="stall_margin",
+                    ok=False,
+                    severity="suspect",
+                    message="stall-margin probe not run; target_met needs it",
+                )
+            )
     fatal = next((c for c in checks if not c.ok and c.severity == "fatal"), None)
     suspect = any(not c.ok and c.severity == "suspect" for c in checks)
-    target = in_target(result, spec)
     if result.lower_fidelity:
         checks.append(
             Check(

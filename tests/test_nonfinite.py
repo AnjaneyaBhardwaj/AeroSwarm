@@ -8,7 +8,7 @@ import math
 import subprocess
 
 import pytest
-from conftest import FIXTURES
+from conftest import FIXTURES, good_stall
 
 from swarm.cad.build import build
 from swarm.critic.numeric import nonfinite_fields, suggest_diagnosis, validate
@@ -172,7 +172,7 @@ def test_critic_rejects_nonfinite_at_neuralfoil_too(spec):
 
 
 def test_finite_result_passes_finite_check(spec):
-    rep = validate(res(bl=BoundaryLayerSummary(cf_te=0.001, source="xfoil_cf")), P, spec, [])
+    rep = validate(res(bl=BoundaryLayerSummary(cf_te=0.001, source="xfoil_cf")), P, spec, [], stall=good_stall())
     assert rep.status == "PASS" and next(c for c in rep.checks if c.name == "finite").ok
 
 
@@ -182,7 +182,7 @@ def test_nonfinite_rows_never_become_best(spec):
     assert not usable(bad) and objective(bad.result, spec) == INF
     assert best_record([bad, good], spec) is good
     # a NaN on another tier must not poison the fidelity-gap check
-    assert validate(res(), P, spec, [bad]).status == "PASS"
+    assert validate(res(), P, spec, [bad], stall=good_stall()).status == "PASS"
     assert suggest_diagnosis(res(cd=INF), spec).symptom == "NONE"
 
 
@@ -194,8 +194,10 @@ def test_graph_recovers_from_nonfinite_xfoil(spec, start, tmp_path, monkeypatch)
     to the ladder, L1 is finite, and the NaN never reaches the ledger as a result."""
     calls = []
 
-    def evaluate(params, spec, coords_path, run_dir, level):
+    def evaluate(params, spec, coords_path, run_dir, level, alpha_deg=None):
         calls.append((params.cid, level))
+        if alpha_deg is not None:  # stall-margin probe
+            params = params.model_copy(update={"alpha_deg": alpha_deg})
         r = neuralfoil.evaluate(params, spec)
         r = r.model_copy(update={"fidelity": "xfoil", "solver_level": level, "confidence": None})
         return r.model_copy(update={"cl": NAN}) if level == 0 else r

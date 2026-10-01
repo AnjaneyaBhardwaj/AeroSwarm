@@ -1,4 +1,5 @@
 import pytest
+from conftest import good_stall
 
 from swarm.agents.critic import merge_verdict
 from swarm.critic.numeric import VALIDATION, ValidatorConfig, suggest_diagnosis, validate
@@ -20,7 +21,7 @@ def res(cl=-1.49, cd=0.0175, fidelity="xfoil", status="converged", **kw):
 
 
 def test_pass_at_xfoil_is_terminal(spec):
-    rep = validate(res(), P, spec, [])
+    rep = validate(res(), P, spec, [], stall=good_stall())
     assert rep.ok and rep.status == "PASS" and rep.terminal
 
 
