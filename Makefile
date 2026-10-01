@@ -1,0 +1,26 @@
+.PHONY: install xfoil test lint format demo clean-runs
+
+install:
+	uv sync
+
+# Builds XFoil 6.99 headless-safe into /usr/local (see scripts/install_xfoil.sh).
+xfoil:
+	scripts/install_xfoil.sh
+
+test:
+	uv run pytest -q
+
+lint:
+	uv run ruff check swarm tests
+	uv run ruff format --check swarm tests
+
+format:
+	uv run ruff format swarm tests
+	uv run ruff check --fix swarm tests
+
+# Full optimization: real LLM when ANTHROPIC_API_KEY is set, labelled mock otherwise.
+demo:
+	uv run python -m swarm.run
+
+clean-runs:
+	rm -rf runs/
