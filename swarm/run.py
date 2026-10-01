@@ -117,6 +117,7 @@ def run(
                 "verdict": None,
                 "ledger": [],
                 "events": [],
+                "history": [],
                 "retries": {},
                 "pending_violation": None,
                 "termination": None,

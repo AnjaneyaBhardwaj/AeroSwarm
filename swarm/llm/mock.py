@@ -197,6 +197,8 @@ class MockClient:
                     )
                 elif hm:
                     mech = hm
+            want = (f.get("directions") or {}).get(p, "free")
+            against = want != "free" and (want == "+") != (dv > 0)
             changes.append(
                 ParamChange(
                     name=p,
@@ -204,6 +206,7 @@ class MockClient:
                     mechanism=mech,
                     expected_dCl_sign=_sign(s["dCl"] * dv, 1e-6),
                     expected_dCd_sign=_sign(s["dCd"] * dv, 1e-7),
+                    override_reason="the sensitivity step points the other way" if against else "",
                 )
             )
         return ParamDelta(changes=changes, note="; ".join(notes)), None

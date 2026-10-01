@@ -12,7 +12,7 @@ import json
 import operator
 from typing import Annotated, Any, Literal, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 Fidelity = Literal["neuralfoil", "xfoil", "of2d", "of3d"]
 FIDELITY_RANK: dict[str, int] = {"neuralfoil": 0, "xfoil": 1, "of2d": 2, "of3d": 3}
@@ -239,6 +239,9 @@ class ParamChange(BaseModel):
     mechanism: str  # physical reasoning
     expected_dCl_sign: Literal[-1, 0, 1]  # sign of change in race-car Cl
     expected_dCd_sign: Literal[-1, 0, 1]
+    # Required when the change goes against the Chief's direction for this parameter;
+    # the graph logs it as a chief_cad_disagreement. Empty otherwise.
+    override_reason: str = ""
 
 
 class ParamDelta(BaseModel):
@@ -246,15 +249,43 @@ class ParamDelta(BaseModel):
     note: str = ""  # e.g. a logged heuristic-vs-sensitivity contradiction
 
 
+Direction = Literal["+", "-", "free"]
+
+
+class FocusParam(BaseModel):
+    """A parameter the Chief lets the CAD agent change, and which way: "+" increase, "-" decrease,
+    "free" either. The CAD may go against "+"/"-" only with an override_reason (logged)."""
+
+    name: str
+    direction: Direction = "free"
+
+
 class StrategyMemo(BaseModel):
     hypothesis: str
-    focus_params: list[str]
+    focus_params: list[FocusParam]
     trust_radius: float = Field(ge=0.02, le=0.5)
     fidelity: Fidelity
     mode: Literal["reasoned_step", "inner_optimizer"]
     inner_budget: int = 0
     promote_cid: str | None = None  # re-evaluate this ledger candidate at `fidelity`
     declare_plateau: bool = False
+    # A fresh design sent straight to XFoil (fidelity xfoil, no promote_cid) first goes through
+    # the NeuralFoil screen; a non-empty reason skips that screen and is logged.
+    screen_override: str = ""
+
+    @field_validator("focus_params", mode="before")
+    @classmethod
+    def _names_are_free(cls, v: Any) -> Any:
+        """A bare parameter name means direction "free"."""
+        return [{"name": x, "direction": "free"} if isinstance(x, str) else x for x in v] if isinstance(v, list) else v
+
+    @property
+    def focus_names(self) -> list[str]:
+        # tolerant of bare names: model_copy(update=...) skips the validator above
+        return [f if isinstance(f, str) else f.name for f in self.focus_params]
+
+    def direction(self, name: str) -> str:
+        return next((f.direction for f in self.focus_params if not isinstance(f, str) and f.name == name), "free")
 
 
 class StallMargin(BaseModel):
@@ -345,6 +376,7 @@ class SwarmState(TypedDict, total=False):
     events: Annotated[list[dict], operator.add]  # audit trail
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
+    history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
     termination: (
         Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]
         | None

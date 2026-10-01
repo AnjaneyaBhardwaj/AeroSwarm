@@ -24,7 +24,7 @@ from swarm.state import (
 
 
 class ToolError(BaseModel):
-    kind: Literal["unknown_param", "not_allowed", "bounds", "trust_region", "duplicate", "no_change"]
+    kind: Literal["unknown_param", "not_allowed", "direction", "bounds", "trust_region", "duplicate", "no_change"]
     msg: str
     hint: str = ""
 
@@ -36,6 +36,8 @@ class ProposalResult(BaseModel):
     ok: bool
     params: WingParams | None = None
     error: ToolError | None = None
+    # changes that go against the Chief's direction, each with the CAD's override reason
+    disagreements: list[dict] = []
 
 
 def allowed_interval(name: str, base: WingParams, radius: float) -> tuple[float, float]:
@@ -52,9 +54,10 @@ def apply_delta(
     spec: DesignSpec,
     ledger: list[EvalRecord],
 ) -> ProposalResult:
-    allowed = set(strategy.focus_params) & set(free_params(spec))
+    allowed = set(strategy.focus_names) & set(free_params(spec))
     bounds = WingParams.bounds()
     updates: dict[str, float] = {}
+    disagreements: list[dict] = []
     for ch in delta.changes:
         if ch.name not in bounds:
             return ProposalResult(
@@ -79,6 +82,19 @@ def apply_delta(
                 ok=False,
                 error=ToolError(kind="bounds", msg=f"{ch.name} {ch.new_value} {side}", hint=f"bounds [{lo}, {hi}]"),
             )
+        want = strategy.direction(ch.name)
+        moved = "+" if ch.new_value > getattr(base, ch.name) else "-"
+        if want != "free" and abs(ch.new_value - getattr(base, ch.name)) >= 1e-4 and moved != want:
+            if not ch.override_reason.strip():
+                return ProposalResult(
+                    ok=False,
+                    error=ToolError(
+                        kind="direction",
+                        msg=f"{ch.name} moves {moved} but the Chief asked for {want}",
+                        hint="follow the Chief's direction, or give override_reason for this change",
+                    ),
+                )
+            disagreements.append({"param": ch.name, "chief": want, "cad": moved, "reason": ch.override_reason.strip()})
         a, b = allowed_interval(ch.name, base, strategy.trust_radius)
         if not a - 1e-9 <= ch.new_value <= b + 1e-9:
             return ProposalResult(
@@ -111,7 +127,7 @@ def apply_delta(
                 ok=False,
                 error=ToolError(kind="duplicate", msg=f"already evaluated: {nums}", hint="propose something different"),
             )
-    return ProposalResult(ok=True, params=params)
+    return ProposalResult(ok=True, params=params, disagreements=disagreements)
 
 
 def fallback_params(
@@ -124,7 +140,7 @@ def fallback_params(
 ) -> WingParams:
     """Best-known design plus a small random perturbation inside the bounds and trust region."""
     rng = np.random.default_rng(seed)
-    names = [n for n in strategy.focus_params if n in free_params(spec)] or list(free_params(spec))
+    names = [n for n in strategy.focus_names if n in free_params(spec)] or list(free_params(spec))
     seen = {(r.params.cid, r.result.fidelity) for r in ledger}
     for _ in range(50):
         upd = {}

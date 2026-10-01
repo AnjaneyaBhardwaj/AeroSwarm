@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from swarm.briefs import chief_brief
 from swarm.llm.client import LLMClient
-from swarm.state import FIDELITY_RANK, StrategyMemo, SwarmState, free_params
+from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
 AVAILABLE_FIDELITIES = ("neuralfoil", "xfoil")  # of2d/of3d arrive with the OpenFOAM milestone
 
@@ -20,18 +20,19 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
     spec, events, upd = state["spec"], [], {}
     gen = state.get("generation", 0)
     free = free_params(spec)
-    focus = [p for p in memo.focus_params if p in free][:3]
-    if focus != memo.focus_params:
+    focus = [f for f in memo.focus_params if f.name in free][:3]
+    if [f.name for f in focus] != memo.focus_names:
+        used = focus or [FocusParam(name=n) for n in free[:3]]
         events.append(
             {
                 "node": "chief_plan",
                 "gen": gen,
                 "event": "focus_params_coerced",
-                "requested": memo.focus_params,
-                "used": focus or list(free[:3]),
+                "requested": [f.model_dump() for f in memo.focus_params],
+                "used": [f.model_dump() for f in used],
             }
         )
-        upd["focus_params"] = focus or list(free[:3])
+        upd["focus_params"] = used
     if memo.mode == "inner_optimizer":
         events.append(
             {

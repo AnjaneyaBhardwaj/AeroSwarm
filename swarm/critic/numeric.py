@@ -355,8 +355,60 @@ def validate(
     )
 
 
-def suggest_diagnosis(result: CFDResult | None, spec: DesignSpec, parent: CFDResult | None = None) -> Diagnosis:
-    """Deterministic physical diagnosis from solver facts. A starting point for the Critic."""
+def stall_evidence(stall: StallMargin | None, screen: SurrogateScreen | None) -> tuple[list[str], float | None] | None:
+    """Evidence lines and the separation x/c when the XFoil stall margin or (without a probe)
+    the NeuralFoil screen failed; None when neither failed. XFoil's probe wins when it ran."""
+    if stall is not None:
+        if stall.ok:
+            return None
+        ev = [f"XFoil stall probe at alpha {', '.join(f'{a:g}' for a in stall.alphas_deg)} deg"]
+        if stall.dcl_dalpha is None:
+            ev.append(f"no margin could be measured: {stall.failure}")
+        else:
+            short = stall.threshold - stall.dcl_dalpha
+            ev.append(
+                f"slopes d|Cl|/dalpha {', '.join(f'{s:.3f}' for s in stall.slopes)}/deg; margin {stall.dcl_dalpha:.3f}"
+                f" vs threshold {stall.threshold}" + (f" (short by {short:.3f})" if short > 0 else "")
+            )
+        seps = [(a, x) for a, x in zip(stall.alphas_deg, stall.te_separation_xc, strict=False) if x is not None]
+        ev.append(
+            f"TE separation first at alpha {seps[0][0]:g} deg from x/c {seps[0][1]:.2f}"
+            if seps
+            else "no TE separation at alpha+0..+2"
+        )
+        return ev, (seps[0][1] if seps else None)
+    if screen is not None and not screen.ok:
+        ev = [f"NeuralFoil screen at alpha {', '.join(f'{a:g}' for a in screen.alphas_deg)} deg"]
+        if screen.dcl_dalpha is not None:
+            short = screen.stall_threshold - screen.dcl_dalpha
+            ev.append(
+                f"slopes d|Cl|/dalpha {', '.join(f'{s:.3f}' for s in screen.slopes)}/deg; margin "
+                f"{screen.dcl_dalpha:.3f} vs threshold {screen.stall_threshold}"
+                + (f" (short by {short:.3f})" if short > 0 else "")
+            )
+        first = next(
+            (a for a, h in zip(screen.alphas_deg, screen.te_shape_factor, strict=False) if h >= screen.h_sep), None
+        )
+        ev.append(
+            f"suction-side TE H >= {screen.h_sep} (separation) first at alpha {first:g} deg"
+            if first is not None
+            else f"suction-side TE H below {screen.h_sep} at alpha+0..+2"
+        )
+        return ev, screen.sep_xc
+    return None
+
+
+def suggest_diagnosis(
+    result: CFDResult | None,
+    spec: DesignSpec,
+    parent: CFDResult | None = None,
+    stall: StallMargin | None = None,
+    screen: SurrogateScreen | None = None,
+) -> Diagnosis:
+    """Deterministic physical diagnosis from solver facts. A starting point for the Critic.
+
+    TE separation at the design alpha first; then a failed stall margin (XFoil probe) or, at
+    NeuralFoil, a failed screen: EARLY_STALL, with slope, margin and separation alpha as evidence."""
     if result is None or result.cl is None or result.cd is None:
         return Diagnosis(symptom="NONE", evidence=["no converged coefficients"])
     if bad := nonfinite_fields(result):
@@ -370,6 +422,11 @@ def suggest_diagnosis(result: CFDResult | None, spec: DesignSpec, parent: CFDRes
         if bl.te_separation_xc < 0.5:
             return Diagnosis(symptom="EARLY_STALL", x_over_c=(bl.te_separation_xc, 1.0), evidence=ev)
         return Diagnosis(symptom="TE_SEPARATION_MAIN", x_over_c=(bl.te_separation_xc, 1.0), evidence=ev)
+    stalled = stall_evidence(stall, screen if result.fidelity == "neuralfoil" else None)
+    if stalled is not None:
+        ev, sep_xc = stalled
+        ev.append(f"Cl {result.cl:.4f} (target {spec.target_cl} ± {spec.cl_tol}), Cd {result.cd:.5f}")
+        return Diagnosis(symptom="EARLY_STALL", x_over_c=(sep_xc, 1.0) if sep_xc is not None else None, evidence=ev)
     need_more = abs(result.cl) < abs(spec.target_cl) - spec.cl_tol
     if result.cd > spec.cd_max:
         ev.append(f"Cd={result.cd:.4f} > cd_max={spec.cd_max}")

@@ -49,10 +49,11 @@ from swarm.critic.stall import measure_stall_margin
 from swarm.ledger import (
     RunFiles,
     best_passing,
-    best_record,
     closest_candidate,
     failing_checks,
+    latest_per_cid,
     objective,
+    select_parent,
     usable,
 )
 from swarm.llm.client import LLMClient
@@ -130,13 +131,14 @@ def node_boundary(name: str, files: RunFiles, on_error: dict | None = None):
 
 
 def _record_for(ledger: list[EvalRecord], cid: str) -> EvalRecord | None:
-    rows = [r for r in ledger if r.params.cid == cid and usable(r)]
-    return rows[-1] if rows else None
+    """The cid's highest-fidelity usable record (the one its verdict and diagnosis come from)."""
+    return next((r for r in latest_per_cid(ledger) if r.params.cid == cid), None)
 
 
-def _base(ledger: list[EvalRecord], spec: DesignSpec, initial: WingParams, fidelity: str | None = None):
-    rec = (best_record(ledger, spec, fidelity) if fidelity else None) or best_record(ledger, spec)
-    return (rec.params, rec) if rec else (initial, None)
+def _base(ledger: list[EvalRecord], spec: DesignSpec, initial: WingParams) -> tuple[WingParams, str]:
+    """The design the next CAD step modifies (`ledger.select_parent`), and why."""
+    rec, why = select_parent(ledger, spec)
+    return (rec.params, why) if rec else (initial, "baseline")
 
 
 def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
@@ -191,7 +193,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             return {"events": [cap_event("chief_plan", s)]}
         spec, ledger = s["spec"], s.get("ledger", [])
         gen = s.get("generation", 0) + (1 if ledger else 0)
-        sbase, _ = _base(ledger, spec, initial)
+        sbase, why = _base(ledger, spec, initial)
         names = free_params(spec)
         sens = neuralfoil.sensitivities(sbase, spec, names)
         st = {**s, "generation": gen}
@@ -203,7 +205,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             prev = s.get("strategy")
             memo = prev or StrategyMemo(
                 hypothesis="(chief unavailable) screen around best",
-                focus_params=list(names[:3]),
+                focus_params=list(names[:3]),  # direction "free"
                 trust_radius=0.15,
                 fidelity="neuralfoil",
                 mode="reasoned_step",
@@ -212,10 +214,13 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                 {"node": "chief_plan", "gen": gen, "event": "llm_error_reused_strategy", "error": repr(e)[:300]}
             )
         events.append({"node": "chief_plan", "gen": gen, "event": "strategy", "strategy": memo.model_dump()})
+        entry = {"gen": gen, "hypothesis": memo.hypothesis, "focus": [f.model_dump() for f in memo.focus_params]}
+        entry |= {"fidelity": memo.fidelity, "promote_cid": memo.promote_cid, "screen_override": memo.screen_override}
         upd: dict[str, Any] = {
             "generation": gen,
             "strategy": memo,
             "events": events,
+            "history": [entry],
             "retries": {**s.get("retries", {}), "cad": 0, "cad_gen": 0},
             "pending_violation": None,
             "delta": None,
@@ -226,10 +231,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         elif not ledger:
             upd |= {"params": initial, "parent": None}
         else:
-            parent, prec = _base(ledger, spec, initial, memo.fidelity)
-            if parent.cid != sbase.cid:
-                sens = neuralfoil.sensitivities(parent, spec, names)
-            upd |= {"params": None, "parent": parent}
+            events.append({"node": "chief_plan", "gen": gen, "event": "parent_selected", "cid": sbase.cid, "why": why})
+            upd |= {"params": None, "parent": sbase}
         upd["sens"] = sens
         return upd
 
@@ -297,12 +300,17 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                 "retries": retries,
                 "events": [{**ev, "event": "proposal_rejected", "error": res.error.model_dump()}],
             }
+        events = [{**ev, "event": "proposal_accepted", "cid": res.params.cid}]
+        events += [
+            {"node": "cad_propose", "gen": gen, "event": "chief_cad_disagreement", "cid": res.params.cid} | d
+            for d in res.disagreements
+        ]
         return {
             "params": res.params,
             "delta": delta,
             "pending_violation": None,
             "retries": retries,
-            "events": [{**ev, "event": "proposal_accepted", "cid": res.params.cid}],
+            "events": events,
         }
 
     def route_after_cad(s: SwarmState) -> str:
@@ -336,13 +344,30 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                     }
                 ],
             }
+        events = [{"node": "geometry_build", "gen": gen, "event": "geometry_ok", "cid": p.cid}]
+        fidelity = memo.fidelity
+        if fidelity != "neuralfoil" and memo.promote_cid != p.cid:
+            # A fresh design sent straight past NeuralFoil: screen it first unless the Chief said why not.
+            if memo.screen_override.strip():
+                events.append(
+                    {"node": "geometry_build", "gen": gen, "event": "screen_override", "cid": p.cid}
+                    | {"fidelity": fidelity, "reason": memo.screen_override.strip()}
+                )
+            else:
+                sc = surrogate_screen(p, spec)
+                if not sc.ok:
+                    fidelity = "neuralfoil"
+                    events.append(
+                        {"node": "geometry_build", "gen": gen, "event": "direct_xfoil_screened_out", "cid": p.cid}
+                        | {"requested": memo.fidelity, "reasons": sc.reasons()}
+                    )
         return {
             "geometry": geo,
             "pending_violation": None,
-            "solver": {"fidelity": memo.fidelity, "level": 0, "tried": [], "fallback_from": None},
+            "solver": {"fidelity": fidelity, "level": 0, "tried": [], "fallback_from": None},
             "stall": None,
             "screen": None,
-            "events": [{"node": "geometry_build", "gen": gen, "event": "geometry_ok", "cid": p.cid}],
+            "events": events,
         }
 
     def route_after_geometry(s: SwarmState) -> str:
@@ -462,17 +487,29 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         events = []
         rep: NumericReport = s["numeric"]
         if aborted(s):
-            v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+            v = Verdict(
+                status=rep.status,
+                diagnosis=suggest_diagnosis(s.get("result"), spec, stall=s.get("stall"), screen=s.get("screen")),
+                confidence=0.3,
+            )
             events.append({**abort_event("critic", s), "action": "numeric verdict, no LLM call"})
         elif capped(s):
-            v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+            v = Verdict(
+                status=rep.status,
+                diagnosis=suggest_diagnosis(s.get("result"), spec, stall=s.get("stall"), screen=s.get("screen")),
+                confidence=0.3,
+            )
             events.append({**cap_event("critic", s), "action": "numeric verdict, no LLM call"})
         else:
             try:
                 v = critic_agent.review(llm, s, parent_rec)
             except Exception as e:
                 fallback("critic", "numeric_verdict", e)
-                v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+                v = Verdict(
+                    status=rep.status,
+                    diagnosis=suggest_diagnosis(s.get("result"), spec, stall=s.get("stall"), screen=s.get("screen")),
+                    confidence=0.3,
+                )
                 events.append(
                     {"node": "critic", "gen": gen, "event": "llm_error_numeric_verdict", "error": repr(e)[:300]}
                 )

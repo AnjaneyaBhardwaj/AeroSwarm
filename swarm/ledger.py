@@ -109,6 +109,71 @@ def failing_checks(rec: EvalRecord, spec: DesignSpec) -> list[str]:
     return out
 
 
+def latest_per_cid(ledger: list[EvalRecord]) -> list[EvalRecord]:
+    """One record per usable cid: its highest-fidelity result (XFoil overrides NeuralFoil), latest first."""
+    out: dict[str, EvalRecord] = {}
+    for r in ledger:
+        if not usable(r):
+            continue
+        cur = out.get(r.params.cid)
+        if cur is None or FIDELITY_RANK[r.result.fidelity] >= FIDELITY_RANK[cur.result.fidelity]:
+            out[r.params.cid] = r
+    return list(out.values())
+
+
+def violation(rec: EvalRecord, spec: DesignSpec) -> dict[str, float]:
+    """Constraint violation, each term in units of its own threshold (0 = satisfied).
+
+    stall: shortfall of d|Cl|/dalpha below the threshold (XFoil probe if it ran, else the
+    NeuralFoil screen; a probe that could not be solved counts as 1). separation: 1 if the
+    design separates at its alpha or within the probe range (XFoil facts, else the screen's
+    warning). box: distance outside the target box, Cl in units of cl_tol plus Cd excess at
+    the objective's exchange rate (CD_PENALTY), also in units of cl_tol.
+    """
+    r, sm, sc = rec.result, rec.stall_margin, rec.screen
+    stall = 0.0
+    if sm is not None:
+        stall = 1.0 if sm.dcl_dalpha is None else max(0.0, sm.threshold - sm.dcl_dalpha) / sm.threshold
+    elif sc is not None:
+        stall = 1.0 if sc.dcl_dalpha is None else max(0.0, sc.stall_threshold - sc.dcl_dalpha) / sc.stall_threshold
+    sep = r.bl is not None and r.bl.te_separation_xc is not None
+    if sm is not None:
+        sep = sep or any(x is not None for x in sm.te_separation_xc[1:])
+    elif sc is not None and r.fidelity == "neuralfoil":
+        sep = sep or sc.sep_warning
+    box = float("inf")
+    if r.cl is not None and r.cd is not None and math.isfinite(r.cl) and math.isfinite(r.cd):
+        out = max(0.0, abs(r.cl - spec.target_cl) - spec.cl_tol) + CD_PENALTY * max(0.0, r.cd - spec.cd_max)
+        box = out / spec.cl_tol
+    return {"stall": stall, "separation": float(sep), "box": box, "total": stall + float(sep) + box}
+
+
+def passed_at_fidelity(rec: EvalRecord) -> bool:
+    """PASS verdict at the record's own fidelity (a NeuralFoil PASS includes the screen)."""
+    return usable(rec) and rec.verdict is not None and rec.verdict.status == "PASS"
+
+
+def select_parent(ledger: list[EvalRecord], spec: DesignSpec) -> tuple[EvalRecord | None, str]:
+    """The design the next CAD step modifies, and why.
+
+    The best design that passed all checks at its fidelity (judged on each cid's highest-fidelity
+    record, so an XFoil rejection overrides a NeuralFoil pass). If none passed, the design with
+    the smallest constraint violation (`violation`), objective as the tie-break; never the
+    objective alone, which happily picks an in-box design with no stall margin.
+    """
+    rows = latest_per_cid(ledger)
+    if not rows:
+        return None, "no usable design yet"
+    ok = [r for r in rows if passed_at_fidelity(r)]
+    if ok:
+        best = min(ok, key=lambda r: (objective(r.result, spec), -FIDELITY_RANK[r.result.fidelity]))
+        return best, f"passed all checks at {best.result.fidelity}"
+    best = min(rows, key=lambda r: (violation(r, spec)["total"], objective(r.result, spec)))
+    v = violation(best, spec)
+    why = ", ".join(f"{k} {v[k]:.2f}" for k in ("stall", "separation", "box"))
+    return best, f"nothing passed; least constraint violation ({why})"
+
+
 def no_improve_streak(ledger: list[EvalRecord], spec: DesignSpec) -> int:
     """Generations since the best objective last improved."""
     best, streak, last_gen = float("inf"), 0, None
@@ -136,6 +201,7 @@ def row(r: EvalRecord, spec: DesignSpec) -> dict:
         "objective": None if not usable(r) else round(objective(res, spec), 4),
         "quarantined": r.quarantined,
         "lower_fidelity": res.lower_fidelity,
+        "failing": (failing_checks(r, spec) or [""])[0][:90],
         "params": {k: v for k, v in r.params.model_dump().items()},
     }
 
