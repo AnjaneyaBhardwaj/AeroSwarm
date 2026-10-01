@@ -16,6 +16,12 @@ the estimated LLM spend reaches the cap, no further LLM call is made: an
 in-flight candidate is still solved and recorded with the deterministic
 numeric verdict, then the run goes to `report` with termination "cost_cap".
 The overshoot is therefore at most the one call that crossed the cap.
+
+LLM validity (`LLMHealth` on the client's trace; real LLMs only): the run aborts at the
+first routing boundary after more than `MAX_FAILED_CALLS` LLM calls have failed, with no
+further LLM call, and ends with termination "invalid_llm". At the end of any real-LLM run
+an agent that never got a successful call also makes it invalid. Every time a node
+substitutes a deterministic output for an agent's, it is counted as that agent's fallback.
 """
 
 from __future__ import annotations
@@ -128,6 +134,31 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         trace = getattr(llm, "trace", None)
         return trace is not None and trace.over_budget(s["spec"].max_cost_usd)
 
+    def health():
+        return getattr(getattr(llm, "trace", None), "health", None)
+
+    def enforced() -> bool:
+        return not llm.is_mock and health() is not None
+
+    def aborted(s: SwarmState) -> bool:
+        """Too many failed LLM calls: stop calling the LLM and end the run."""
+        return enforced() and health().exceeded()
+
+    def abort_event(node: str, s: SwarmState) -> dict:
+        h = health()
+        return {
+            "node": node,
+            "gen": s.get("generation", 0),
+            "event": "llm_run_aborted",
+            "failed_calls": h.failed_total,
+            "limit": h.max_failed,
+        }
+
+    def fallback(role: str, kind: str, err: BaseException | None = None) -> None:
+        trace = getattr(llm, "trace", None)
+        if trace is not None:
+            trace.log_fallback(role, kind, err)
+
     def cap_event(node: str, s: SwarmState) -> dict:
         t = llm.trace.totals
         return {
@@ -142,6 +173,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     # ------------------------------------------------------------ chief
     @node_boundary("chief_plan", files)
     def chief_plan(s: SwarmState) -> dict:
+        if aborted(s):
+            return {"events": [abort_event("chief_plan", s)]}
         if capped(s):  # e.g. resumed after the cap was reached: plan nothing
             return {"events": [cap_event("chief_plan", s)]}
         spec, ledger = s["spec"], s.get("ledger", [])
@@ -154,6 +187,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         try:
             memo, events = chief_agent.plan(llm, st, sens)
         except Exception as e:
+            fallback("chief", "reused_strategy", e)
             prev = s.get("strategy")
             memo = prev or StrategyMemo(
                 hypothesis="(chief unavailable) screen around best",
@@ -189,7 +223,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
 
     def route_after_chief(s: SwarmState) -> str:
         ledger, memo = s.get("ledger", []), s.get("strategy")
-        if s.get("termination") == "fatal" or _budget_spent(s) or capped(s):
+        if s.get("termination") == "fatal" or aborted(s) or _budget_spent(s) or capped(s):
             return "report"
         if memo and memo.declare_plateau and ledger:
             return "report"
@@ -200,6 +234,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     # ------------------------------------------------------------ cad
     @node_boundary("cad_propose", files)
     def cad_propose(s: SwarmState) -> dict:
+        if aborted(s):
+            return {"params": None, "events": [abort_event("cad_propose", s)]}
         if capped(s):
             return {"params": None, "events": [cap_event("cad_propose", s)]}
         spec, ledger, memo = s["spec"], s.get("ledger", []), s["strategy"]
@@ -215,6 +251,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                 "events": [{"node": "cad_propose", "gen": gen, "event": "cad_attempts_exhausted"}],
             }
         if retries.get("cad", 0) >= MAX_CAD_RETRIES:
+            fallback("cad", "deterministic_proposal")
             p = fallback_params(base, memo, spec, ledger, seed=gen * 100 + retries["cad_gen"])
             retries["cad"] = 0
             return {
@@ -257,7 +294,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         }
 
     def route_after_cad(s: SwarmState) -> str:
-        if s.get("termination") == "fatal":
+        if s.get("termination") == "fatal" or aborted(s):
             return "report"
         if s.get("params") is not None and not s.get("pending_violation"):
             return "geometry_build"  # a proposal already paid for is still evaluated
@@ -296,7 +333,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         }
 
     def route_after_geometry(s: SwarmState) -> str:
-        if s.get("termination") == "fatal":
+        if s.get("termination") == "fatal" or aborted(s):
             return "report"
         if s.get("pending_violation"):
             return "report" if capped(s) else "cad_propose"
@@ -400,13 +437,17 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         gen = s.get("generation", 0)
         events = []
         rep: NumericReport = s["numeric"]
-        if capped(s):
+        if aborted(s):
+            v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+            events.append({**abort_event("critic", s), "action": "numeric verdict, no LLM call"})
+        elif capped(s):
             v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
             events.append({**cap_event("critic", s), "action": "numeric verdict, no LLM call"})
         else:
             try:
                 v = critic_agent.review(llm, s, parent_rec)
             except Exception as e:
+                fallback("critic", "numeric_verdict", e)
                 v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
                 events.append(
                     {"node": "critic", "gen": gen, "event": "llm_error_numeric_verdict", "error": repr(e)[:300]}
@@ -455,12 +496,14 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         return {"verdict": v, "ledger": [rec], "events": events, "retries": retries}
 
     def route_after_critic(s: SwarmState) -> str:
-        return route_after_critic_fn(s, cost_capped=capped(s))
+        return route_after_critic_fn(s, cost_capped=capped(s), aborted=aborted(s))
 
     # ------------------------------------------------------------ report
     @node_boundary("report", files)
     def report(s: SwarmState) -> dict:
-        term = termination_reason(s, cost_capped=capped(s))
+        h = health()
+        reasons = h.check(final=True) if enforced() else []
+        term = termination_reason(s, cost_capped=capped(s), invalid=bool(reasons))
         write_report(s, files, term, llm)
         events = [cap_event("report", s)] if term == "cost_cap" else []
         return {"termination": term, "events": events + [{"node": "report", "event": "terminated", "reason": term}]}
@@ -503,9 +546,9 @@ def target_met(s: SwarmState) -> bool:
     return bool(v and r and rep and v.status == "PASS" and rep.terminal and not r.lower_fidelity)
 
 
-def route_after_critic_fn(s: SwarmState, cost_capped: bool = False) -> str:
+def route_after_critic_fn(s: SwarmState, cost_capped: bool = False, aborted: bool = False) -> str:
     v = s["verdict"]
-    if s.get("termination") == "fatal" or target_met(s) or _budget_spent(s) or cost_capped:
+    if s.get("termination") == "fatal" or aborted or target_met(s) or _budget_spent(s) or cost_capped:
         return "report"
     # NUMERICAL_FAILURE reaches the critic only after the ladder (and fallback) is
     # exhausted: escalate to the Chief with the failure record (Scenario B step 4).
@@ -518,9 +561,11 @@ def route_after_critic_fn(s: SwarmState, cost_capped: bool = False) -> str:
     }[v.status]
 
 
-def termination_reason(s: SwarmState, cost_capped: bool = False) -> str:
+def termination_reason(s: SwarmState, cost_capped: bool = False, invalid: bool = False) -> str:
     if s.get("termination") == "fatal":
         return "fatal"
+    if invalid:  # a real-LLM run that failed its validity rules is never target_met/budget/...
+        return "invalid_llm"
     if s.get("verdict") and target_met(s):
         return "target_met"
     if cost_capped:
@@ -541,10 +586,18 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     summary = (
         llm.trace.write_summary({"llm_client": llm.label, "is_mock": llm.is_mock}) if hasattr(llm, "trace") else {}
     )
-    lines = [
-        f"# Run {files.dir.name}",
-        "",
+    h = getattr(getattr(llm, "trace", None), "health", None)
+    enforced = (not llm.is_mock) and h is not None
+    health = h.snapshot(enforced) if h is not None else None
+    lines = [f"# Run {files.dir.name}", ""]
+    if health and enforced and not health["valid"]:
+        lines += ["> **INVALID RUN: not usable as a real-LLM result.** `require_real_llm()` will refuse it."]
+        lines += [f"> - {r}" for r in health["invalid_reasons"]] + [""]
+    lines += [
         f"- LLM client: **{llm.label}**",
+        f"- LLM health: **{'INVALID' if not health['valid'] else 'valid'}**"
+        if health and enforced
+        else "- LLM health: not enforced (mock)",
         f"- Termination: **{term}**",
         f"- Evaluations: {len(ledger)} / {spec.max_evals}",
         f"- Target: Cl = {spec.target_cl} ± {spec.cl_tol}, Cd ≤ {spec.cd_max}, Re = {spec.reynolds:.3e}",
@@ -553,6 +606,23 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         + (f" (cap ${spec.max_cost_usd:.2f})" if spec.max_cost_usd is not None else " (no cost cap)"),
         "",
     ]
+    if health:
+        lines += [
+            "## LLM calls by agent",
+            "",
+            "| agent | ok | failed | fallbacks |",
+            "|---|---|---|---|",
+        ]
+        a = health["agents"]
+        lines += [f"| {k} | {v['ok']} | {v['failed']} | {v['fallbacks']} |" for k, v in a.items()]
+        lines += [
+            f"| **total** | {sum(v['ok'] for v in a.values())} | {health['failed_calls']} "
+            f"| {sum(v['fallbacks'] for v in a.values())} |",
+            "",
+            f"failed = the call raised, was refused or returned nothing (a real-LLM run with more than "
+            f"{health['max_failed_calls']} is aborted); fallbacks = a deterministic output replaced the agent's.",
+            "",
+        ]
     for label, rec in (("Best overall", best), ("Best at XFoil", best_x)):
         if rec:
             r = rec.result
@@ -589,6 +659,7 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
             "termination": term,
             "evals": len(ledger),
             "llm_usage": summary,
+            "llm_health": health,
             "viz": viz,
             "best_cid": best.params.cid if best else None,
             "best_xfoil_cid": best_x.params.cid if best_x else None,

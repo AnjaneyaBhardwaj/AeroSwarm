@@ -4,15 +4,14 @@
 
 - The key is read from `AEROSWARM_ANTHROPIC_API_KEY` first, then `ANTHROPIC_API_KEY`; an empty value
   counts as unset (`resolve_api_key()` in `swarm/llm/client.py`). `AnthropicClient` passes the result to
-  `anthropic.Anthropic(api_key=...)` explicitly, and raises `RuntimeError` naming both variables when
-  neither is set. `make_client("auto")` uses the same helper, so it picks the real client exactly when
+  `anthropic.Anthropic(api_key=...)` explicitly, and raises `MissingAPIKey` (a `RuntimeError`) naming both
+  variables when neither is set. A blank (whitespace-only) value also counts as unset. `make_client("auto")` uses the same helper, so it picks the real client exactly when
   `AnthropicClient` would accept a key. Before, the SDK silently read `ANTHROPIC_API_KEY` itself.
 - CI blanks both variables so the suite stays keyless.
 - `tests/test_llm.py` covers: mock with no key, new name, new name beating the fallback, fallback alone,
   empty new name falling back, and both empty (mock, plus the missing-key error).
-- Known issue: `tests/test_llm.py::test_anthropic_client_logs_tokens_and_cost` asserts the default model,
-  so it fails in any shell that exports `AEROSWARM_MODEL` (this cloud env sets `claude-sonnet-5`).
-  Not caused by this change; run with `env -u AEROSWARM_MODEL` or monkeypatch the variable.
+- That session's known issue (`test_anthropic_client_logs_tokens_and_cost` failing when `AEROSWARM_MODEL`
+  is exported) is fixed: the test clears the variable itself. See the LLM-run validity guard under Session 3.
 
 ## Session 3 (2026-10-01): near-stall PASS fix, before the first live run
 
@@ -64,7 +63,40 @@ suction-side Cf < 0 from x/c 0.91 to the TE. That design is now rejected (regres
   There is an offline copy using the recorded numbers, so CI covers it. A second real-XFoil
   test: an in-box, attached design that separates one degree later and whose Cl peaks before
   alpha+2 (slope −0.029) is rejected by the probe.
-- 147 tests: 141 offline + 6 needing the XFoil binary.
+- 147 tests at this point: 141 offline + 6 needing the XFoil binary (166 / 160 / 6 after the guard below).
+
+### LLM-run validity guard (added later in session 3, before the first live run)
+Why: with no API key, `--llm anthropic` ran all 15 evaluations on the deterministic fallbacks
+(every call raised an auth error), exited 0 and wrote `is_mock: false`, 0 calls, $0.00. That run
+looked like a live run and was meaningless. It is deleted.
+- **Startup:** `--llm anthropic` (or `AEROSWARM_LLM=anthropic`) without a non-blank key
+  (`AEROSWARM_ANTHROPIC_API_KEY`, else `ANTHROPIC_API_KEY`, via PR 4's `resolve_api_key()`) is a CLI error (exit 2) before any run directory exists. `run()`,
+  `make_client()` and `AnthropicClient()` raise `MissingAPIKey` too. `--llm auto` without a key
+  is still the labelled mock.
+- **Counts per agent** (`LLMHealth` on the `TraceLogger`; chief / cad / critic):
+  `ok`, `failed` (the call raised, was refused or returned nothing) and `fallbacks` (the graph
+  substituted a deterministic output: Chief reused strategy, CAD deterministic proposal, Critic
+  numeric-only verdict). Logged to `traces.jsonl` (`llm_call` with `ok`, `llm_failure`,
+  `llm_fallback`), reloaded on resume, written to `meta.json["llm_health"]` and to a
+  "LLM calls by agent" table in `report.md`. A cost-cap "no LLM call" verdict is not a fallback.
+- **Validity (real LLMs only):** more than 2 failed calls aborts the run at the next routing
+  boundary with no further LLM call (termination `invalid_llm`); at the end, any agent with no
+  successful call, including one never called, also makes it invalid. Banner in `report.md`,
+  `llm_health.valid = false` with reasons in `meta.json`, CLI exit code 3. The mock is not enforced.
+  - Strict by design: a run too short to reach the CAD agent (`--max-evals 1`, or a cap hit before
+    its first call) is invalid with "cad: no successful call (never called)".
+- **`require_real_llm()`** takes a client or a finished run (run dir, `meta.json`, or the dict).
+  It raises `InvalidLLMRun` (a `ValueError`) for an invalid run, an unfinished one, or one without
+  an `llm_health` record. It still rejects mocks.
+- **Sonnet 5 priced:** `claude-sonnet-5` = $2 in / $10 out (5m cache write $2.50, cache hit $0.20),
+  from https://platform.claude.com/docs/en/about-claude/pricing, fetched 2026-10-01 (URL and date are
+  in the `PRICES` comment). Every existing row matched that page. Without it the cost cap treats
+  every call as unpriced and stops after the first one. `AEROSWARM_MODEL=claude-sonnet-5` is kept
+  as set in the environment.
+- `tests/test_llm.py` clears `AEROSWARM_MODEL` itself (monkeypatch). New `tests/test_llm_guard.py`
+  (19 tests): startup, per-agent counting and resume reload, the 2/3-failure boundary, agent never
+  succeeding / never called, `require_real_llm` for every input form, CLI exit codes.
+- Not changed: `--resume` of an invalid run reloads its failure counts, so it aborts again.
 
 ### What the hard demo does now (mock, this XFoil build) — it does NOT reach target_met
 `make demo-hard`: 21 evals, termination `plateau`. NeuralFoil gens 0–2 climb to Cl −1.755, then
@@ -90,9 +122,6 @@ its low-camber start (m 0.02) reaches −1.5 at alpha ≈ 9.5° with slope 0.042
 target_met in 4 evaluations (m 0.07 also works, m 0.05 plateaus). The spec is untouched.
 
 ### Known issues / limits
-- `AEROSWARM_MODEL` is set to `claude-sonnet-5` in this sandbox's environment, which fails
-  `tests/test_llm.py::test_anthropic_client_logs_tokens_and_cost` (it expects the default
-  model). With `env -u AEROSWARM_MODEL` all 147 pass (CI runs 141 offline). Not touched; CI is unaffected.
 - `te_separation` follows the existing definition (≥ 2 stations to the TE). A single
   reversed TE station (`cf_te < 0` only) is not flagged.
 - The probe adds two XFoil solves (plus ladder retries) for each would-be-final candidate.
@@ -100,8 +129,8 @@ target_met in 4 evaluations (m 0.07 also works, m 0.05 plateaus). The spec is un
 - Everything in session 2's list still holds (no live API call yet; costs are estimates).
 
 ### Next
-- Stopped before any live run, as asked. First live run:
-  `python -m swarm.run --llm anthropic --preset hard --max-evals 10 --budget-usd 2`. Expect a real
+- No live run yet (no key in this environment; it will be added in a new session). First live run:
+  `python -m swarm.run --llm anthropic --preset hard --max-evals 15 --budget-usd 2`. Expect a real
   LLM to take its own path; whether it finds a camber-led design is the open question.
 - Decide whether the hard demo should be able to finish (e.g. a start with more camber) or
   stay a rejection demo.

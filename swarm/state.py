@@ -308,5 +308,5 @@ class SwarmState(TypedDict, total=False):
     events: Annotated[list[dict], operator.add]  # audit trail
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
-    termination: Literal["target_met", "budget", "cost_cap", "plateau", "fatal"] | None
+    termination: Literal["target_met", "budget", "cost_cap", "plateau", "fatal", "invalid_llm"] | None
     started_at: float
