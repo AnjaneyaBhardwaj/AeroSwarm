@@ -1,5 +1,75 @@
 # Progress
 
+## Session 5 (2026-10-01): first live LLM run (hard preset) — no design passes the stall gate
+
+No code changed. `python -m swarm.run --llm anthropic --preset hard --max-evals 15 --budget-usd 2`
+with `AEROSWARM_ANTHROPIC_API_KEY` set, real XFoil, run `20261001-023609-a2c08c`
+(`runs/` is gitignored, so the table below is the record). Exit 0, `llm_valid: true`, termination
+`budget` (15/15 evals; cost was far under the cap), model `anthropic:claude-sonnet-5`.
+Spec: Cl −1.78 ± 0.03, Cd ≤ 0.02, Re 3e5; start camber 0.06 / p 0.4 / t 0.10 / alpha 8.0.
+
+### Result: no target_met
+- 40 LLM calls (chief 15, cad 10, critic 15), 0 failed, 0 fallbacks; 113,441 tokens in / 47,456 out,
+  **estimated** cost $0.7014 (the run's own estimate, not a billing figure).
+- **Best overall = best at XFoil = `01ee6bd07c`** (gen 7): Cl −1.7777, Cd 0.01973, camber 0.078, p 0.4,
+  t 0.117, alpha 9.031. It is in the box but its stall slope is 0.026 (< 0.05), so the ledger status is
+  TARGET_MISS (`EARLY_STALL`). `report.md` calls it "Best overall" without showing that status.
+- Every XFoil result missed. Stall slope was measured for the in-box ones; all are under the 0.05 gate.
+
+| gen | solver | Cl | Cd | camber | t | alpha | outcome |
+|---|---|---|---|---|---|---|---|
+| 0 | neuralfoil | −1.5392 | 0.01585 | 0.060 | 0.100 | 8.000 | miss (loading) |
+| 1 | neuralfoil | −1.7308 | 0.02113 | 0.073 | 0.100 | 9.631 | miss (drag) |
+| 2 | neuralfoil | −1.7443 | 0.02002 | 0.071 | 0.110 | 9.631 | miss (drag) |
+| 3 | neuralfoil | −1.7556 | 0.02040 | 0.071 | 0.125 | 9.631 | miss (drag) |
+| 4 | neuralfoil | −1.7576 | 0.01935 | 0.074 | 0.117 | 9.031 | PASS (not terminal) |
+| 5 | xfoil | −1.7462 | 0.01929 | 0.074 | 0.117 | 9.031 | miss (loading, just outside the box) |
+| 6 | neuralfoil | −1.7915 | 0.01982 | 0.078 | 0.117 | 9.031 | PASS (not terminal) |
+| 7 | xfoil | −1.7777 | 0.01973 | 0.078 | 0.117 | 9.031 | miss: stall slope 0.026 |
+| 8 | neuralfoil | −1.7929 | 0.02040 | 0.082 | 0.117 | 8.531 | miss (drag) |
+| 9 | neuralfoil | −1.7933 | 0.01969 | 0.078 | 0.112 | 9.075 | PASS (not terminal) |
+| 10 | xfoil | −1.7776 | 0.01963 | 0.078 | 0.112 | 9.075 | miss: stall slope 0.015 |
+| 11 | neuralfoil | −1.7891 | 0.01946 | 0.081 | 0.117 | 8.531 | PASS (not terminal) |
+| 12 | xfoil | −1.7961 | 0.01934 | 0.081 | 0.117 | 8.531 | miss: stall slope 0.031 |
+| 13 | xfoil | −1.8105 | 0.01979 | 0.081 | 0.125 | 8.531 | miss (Cl 0.0005 past the box) |
+| 14 | xfoil | −1.7506 | 0.01887 | 0.077 | 0.117 | 8.551 | miss: stall slope 0.036 |
+
+### What the live LLM did differently from the mock
+- It went camber-led: camber 0.060 → 0.081 and alpha 9.6° → 8.5° after the first stall rejection, with
+  its hypotheses citing the sensitivities (e.g. dCl/dcamber ≈ −11.6). The mock's greedy steps reach Cl
+  through alpha. This is the direction session 3 said the open question was about.
+- It did not get far enough. The free set for `wing_1el` is only camber, camber_pos, thickness and
+  alpha (`SINGLE_ELEMENT_PARAMS`). camber_pos stayed 0.4 in 14 of 15 designs (gen 8 tried 0.368, then
+  went back), thickness stayed 0.10–0.125, and camber topped out at 0.082. The sweep in session 3 says
+  attached designs exist at higher camber and a more aft camber position (m 0.09, p 0.5, alpha ~6.5:
+  Cl −1.78, Cd 0.016); 15 evals from this start did not reach that region.
+- NeuralFoil passed four designs (gens 4, 6, 9, 11); XFoil rejected all four when promoted
+  (4 → 5 just outside the box on loading; 6 → 7, 9 → 10, 11 → 12 on stall slope). NeuralFoil is
+  optimistic near the stall knee, which is the reason the gate exists.
+
+### Known issues found by this run
+- **The chief is not told why an XFoil candidate failed.** `chief_brief` (`swarm/briefs.py`) tables only
+  gen/cid/fidelity/status/Cl/Cd/objective, ranks "Best 5" by objective, and passes only the latest
+  verdict. The stall slope is not in any table. Result: `01ee6bd07c` sits at the top of "Best 5"
+  with status TARGET_MISS and no reason. In the gen 9, 12 and 14 strategies the chief hypothesised a
+  "marginal threshold / fallback flag" or "tolerance edge-case"; gen 14 even says the critic confirms
+  no separation. The critic's verdicts for those designs were EARLY_STALL (gens 7, 10, 12). Gens 8, 11
+  and 13 did name the stall knee, so it is not consistent. This is read from the code and the traces;
+  I have not tested that adding the slope to the brief fixes it.
+- `report.md` "Best overall" and "Best at XFoil" show Cl/Cd/objective but not the status, so a
+  stall-rejected design reads like a winner. `best_record` ranks by objective regardless of status.
+
+### Next
+- Put the stall-probe result (slope, threshold, first separated alpha) and the failed-check names in
+  the chief's brief and the Failure table, then rerun the same command. Expect cost ≈ $0.70 again.
+- Show status (and the failed check) next to "Best overall" in `report.md`.
+- Decide whether the hard demo should be able to finish (carried over from session 3): a start with
+  more camber / aft camber_pos, or keep it as a rejection demo. This run is evidence it does not
+  finish from the current start in 15 evals, with one run and one model.
+- One run is one sample; the LLM is not deterministic. Repeat before drawing conclusions about the
+  agents versus the mock.
+- Milestone 2 is still not started (failure zoo, recovery metrics, sign-prediction scoring).
+
 ## Session 4 (2026-10-01): API key env var renamed, old name kept as a fallback
 
 - The key is read from `AEROSWARM_ANTHROPIC_API_KEY` first, then `ANTHROPIC_API_KEY`; an empty value
