@@ -136,6 +136,25 @@ def cmd_report(root: str) -> None:
                 f"| {m} | {r['seed']} | {r['termination']} | {r['evals']} | {r['xfoil_evals']} | {r['blocked']} "
                 f"| ${r['cost']:.2f} | {60 * r['wall_h']:.1f} min | {res} |"
             )
+    out += [
+        "",
+        "## Methods",
+        "",
+        "- **llm**: the agent graph with the real LLM (`--llm anthropic`, the client's default model,",
+        "  meta.json `llm_client`). Its runs were executed concurrently (one process per seed), so their",
+        "  wall clock includes some CPU contention between XFoil solves.",
+        "- **mock**: the same graph with `MockClient`, a deterministic rule-based stand-in (NOT an LLM):",
+        "  damped least-norm steps on the NeuralFoil sensitivities, promote the best promotable design.",
+        "- **random**: `baselines.random_search`: each evaluation promotes the best promotable design if",
+        "  any (the pipeline's rule), else evaluates a uniform random sample of camber, position,",
+        "  thickness and alpha over their bounds. Same geometry checks, NeuralFoil screen, XFoil ladder,",
+        "  stall probe and validator as the graph.",
+        "- An evaluation is one ledger record (a NeuralFoil or an XFoil result); stall-margin probes and",
+        "  ladder retries are part of the XFoil evaluation they belong to, as in a run.",
+        "- All methods use the session-9 NeuralFoil screen (slope >= 0.0575 and TE H < 3.85 at",
+        "  alpha+1/+2), which keeps false passes near 5% but blocks about 43% of XFoil-feasible designs",
+        "  near the target (docs/PROGRESS.md, session 9).",
+    ]
     starts = next((by[m] for m in METHODS if by[m]), [])
     out += ["", "## Starts", "", "| seed | camber | position | thickness | alpha |", "|---|---|---|---|---|"]
     for r in starts:
