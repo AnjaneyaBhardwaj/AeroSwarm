@@ -55,12 +55,20 @@ class ValidatorConfig(BaseModel, frozen=True):
     # round number between "flattening" and "healthy", not a fitted limit.
     stall_probe_deg: tuple[float, ...] = (1.0, 2.0)
     stall_min_dcl_dalpha: float = 0.05
-    # NeuralFoil screen before promotion to XFoil (project convention). Calibrated against the
-    # same Re 3e5 XFoil sweep (scripts/clmax_sweep.py, then scripts/calibrate_screen.py).
-    # Stall: XFoil's 0.05 reused on NeuralFoil's Cl at alpha..alpha+2. Over the 816 sweep points
-    # with all three alphas converged it blocks 345 of 390 XFoil margin failures and 7 of 426
-    # passes; near the hard target (63 attached points, |Cl| 1.72-1.84) 27 of 38 and 0 of 25.
-    screen_min_dcl_dalpha: float = 0.05
+    # NeuralFoil screen before promotion to XFoil (project convention). Recalibrated in session 9
+    # against the gated XFoil sweep (scripts/gated_sweep.py, scripts/calibrate_screen_rules.py),
+    # whose ground truth is XFoil's full stall gate (margin >= 0.05 AND no TE separation at
+    # alpha+1/+2). In the promotion window (NeuralFoil Cl within 2*tol of the hard target, Cd under
+    # the cap: 804 points, 69 XFoil passes) the session-6 rule (NeuralFoil slope >= 0.05) let 50 of
+    # 118 screen passes fail XFoil (42%): NeuralFoil smooths the stall knee, and 22 of the 50 failed
+    # only on separation at the probes. A higher slope alone needs 0.075 to reach 5% (blocking 68 of
+    # 69 XFoil passes); an alpha+3 probe or a slope-drop (knee) rule never reaches 5%. Slope >= 0.0575
+    # plus suction-side TE H < 3.85 at alpha+1 and alpha+2: 2 of 41 screen passes fail XFoil (4.9%),
+    # 30 of 69 XFoil passes blocked (43%); over all 8,085 evaluable points 2.7% false passes, 10.3%
+    # of XFoil passes blocked. Held out by geometry (2-fold): 6-7% false passes, 31-55% blocked.
+    # XFoil's own threshold (stall_min_dcl_dalpha = 0.05) is unchanged.
+    screen_min_dcl_dalpha: float = 0.0575
+    screen_h_probe_max: float = 3.85
     # Separation: suction-side H at NeuralFoil's last station (x/c 0.984) at or above this flags
     # XFoil TE separation (Cf < 0 to the TE) with recall 0.90 and specificity 0.94 over all 1008
     # points, the best balanced accuracy of thresholds 2.0-8.0 in 0.25 steps; near the target
@@ -272,7 +280,7 @@ def validate(
                     ok=screen.ok,
                     value=screen.dcl_dalpha,
                     threshold=f"d|Cl|/dalpha >= {screen.stall_threshold} over alpha+0..+{cfg.stall_probe_deg[-1]:g} deg"
-                    f" and suction-side TE H < {screen.h_sep}",
+                    f", suction-side TE H < {screen.h_sep} at alpha and < {screen.probe_h_max} at alpha+1/+2",
                     severity="suspect",
                     message="; ".join(screen.reasons()) or "passes the NeuralFoil stall and separation screen",
                 )
@@ -386,13 +394,20 @@ def stall_evidence(stall: StallMargin | None, screen: SurrogateScreen | None) ->
                 f"{screen.dcl_dalpha:.3f} vs threshold {screen.stall_threshold}"
                 + (f" (short by {short:.3f})" if short > 0 else "")
             )
+        # H limit: h_sep at the design alpha, probe_h_max at alpha+1/+2 (old screens have no probe limit)
+        limits = [screen.h_sep] + [screen.probe_h_max or screen.h_sep] * (len(screen.te_shape_factor) - 1)
         first = next(
-            (a for a, h in zip(screen.alphas_deg, screen.te_shape_factor, strict=False) if h >= screen.h_sep), None
+            (
+                (a, h, lim)
+                for a, h, lim in zip(screen.alphas_deg, screen.te_shape_factor, limits, strict=False)
+                if h >= lim
+            ),
+            None,
         )
         ev.append(
-            f"suction-side TE H >= {screen.h_sep} (separation) first at alpha {first:g} deg"
+            f"suction-side TE H {first[1]:.2f} >= {first[2]} (separation) first at alpha {first[0]:g} deg"
             if first is not None
-            else f"suction-side TE H below {screen.h_sep} at alpha+0..+2"
+            else "suction-side TE H below the separation limits at alpha+0..+2"
         )
         return ev, screen.sep_xc
     return None

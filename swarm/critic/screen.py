@@ -42,6 +42,7 @@ def surrogate_screen(params: WingParams, spec: DesignSpec, cfg: ValidatorConfig 
     stall_ok = margin is not None and margin >= cfg.screen_min_dcl_dalpha
     sep_xc = _te_run_start([float(v) for v in pol["upper_h"][0]], cfg.screen_h_sep, float(pol["xtr_upper"][0]))
     sep_warning = not finite or sep_xc is not None
+    probe_sep = any(h >= cfg.screen_h_probe_max for h in h_te[1:])
     return SurrogateScreen(
         alphas_deg=alphas,
         cls=[round(c, 5) for c in cls],
@@ -53,7 +54,9 @@ def surrogate_screen(params: WingParams, spec: DesignSpec, cfg: ValidatorConfig 
         sep_xc=sep_xc,
         h_sep=cfg.screen_h_sep,
         sep_warning=sep_warning,
-        ok=stall_ok and not sep_warning,
+        probe_h_max=cfg.screen_h_probe_max,
+        probe_sep=probe_sep,
+        ok=stall_ok and not sep_warning and not probe_sep,
     )
 
 
@@ -66,12 +69,12 @@ def compare_with_xfoil(screen: SurrogateScreen, result: CFDResult, stall: StallM
     out: dict = {"disagree": []}
     if stall is not None and stall.dcl_dalpha is not None:
         out["stall"] = {
-            "screen_ok": screen.stall_ok,
+            "screen_ok": screen.margin_ok,
             "screen_dcl_dalpha": screen.dcl_dalpha,
             "xfoil_ok": stall.ok,
             "xfoil_dcl_dalpha": stall.dcl_dalpha,
         }
-        if screen.stall_ok != stall.ok:
+        if screen.margin_ok != stall.ok:
             out["disagree"].append("stall")
     xsep = result.bl.te_separation_xc if result.bl is not None else None
     if result.bl is not None:

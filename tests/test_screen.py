@@ -97,6 +97,34 @@ def test_nonfinite_surrogate_output_fails_the_screen(monkeypatch):
     assert s.dcl_dalpha is None and not s.stall_ok and s.sep_warning and not s.ok
 
 
+def _fake_polar(monkeypatch, cls, h_te):
+    def polar(params, spec, alphas):
+        h = np.full((3, 32), 2.0)
+        h[:, -1] = h_te
+        return {"cl": np.array(cls), "upper_h": h, "xtr_upper": np.full(3, 0.4)}
+
+    monkeypatch.setattr("swarm.solvers.neuralfoil.polar", polar)
+
+
+def test_screen_slope_threshold_is_stricter_than_xfoils(monkeypatch):
+    assert VALIDATION.screen_min_dcl_dalpha == 0.0575 > VALIDATION.stall_min_dcl_dalpha == 0.05
+    _fake_polar(monkeypatch, [-1.80, -1.855, -1.91], [2.5, 3.0, 3.5])  # slope 0.055: XFoil's 0.05 would pass it
+    s = surrogate_screen(HEALTHY, HARD_SPEC)
+    assert not s.stall_ok and not s.probe_sep and not s.ok
+
+
+def test_separation_at_a_probe_alpha_fails_the_screen(monkeypatch):
+    _fake_polar(monkeypatch, [-1.80, -1.87, -1.94], [2.5, 3.2, 3.9])  # healthy slope, H 3.9 at alpha+2
+    s = surrogate_screen(HEALTHY, HARD_SPEC)
+    assert s.stall_ok and not s.sep_warning and s.probe_sep and not s.ok and not s.margin_ok
+    assert any("alpha+1/+2" in w for w in s.reasons())
+    xf = CFDResult(cid="c", fidelity="xfoil", status="converged", cl=-1.8, cd=0.02, bl=BoundaryLayerSummary())
+    ok_probe = StallMargin(
+        alphas_deg=[4, 5, 6], cls=[-1.8, -1.87, -1.94], levels=[0, 0, 0], dcl_dalpha=0.07, threshold=0.05, ok=True
+    )
+    assert compare_with_xfoil(s, xf, ok_probe)["disagree"] == ["stall"]  # screen blocks, XFoil passes
+
+
 # ----------------------------------------------------------- validator: NeuralFoil only
 
 

@@ -312,9 +312,11 @@ class SurrogateScreen(BaseModel):
     """NeuralFoil-tier screen of one geometry: alpha, alpha+1, alpha+2 deg in one surrogate call.
 
     Stall: the same d|Cl|/dalpha definition as `StallMargin` (smallest forward secant,
-    1/deg), on NeuralFoil's Cl. Separation: NeuralFoil's suction-side (upright upper surface)
-    boundary-layer shape factor H at its last station (x/c 0.984); a warning when H there is
-    at or above `h_sep`. `sep_xc` is where the run of H >= h_sep that reaches the TE starts.
+    1/deg), on NeuralFoil's Cl, against a stricter threshold than XFoil's (NeuralFoil smooths
+    the stall knee). Separation: NeuralFoil's suction-side (upright upper surface) boundary-layer
+    shape factor H at its last station (x/c 0.984): a warning when H at the design alpha is at or
+    above `h_sep` (`sep_xc` is where that run of H starts), and a probe warning when H at alpha+1
+    or alpha+2 reaches `probe_h_max` (XFoil's gate fails on TE separation at the probes).
     It gates promotion to XFoil; it never overrides an XFoil result (XFoil's gates stay
     authoritative). Thresholds: `ValidatorConfig.screen_*`.
     """
@@ -329,7 +331,14 @@ class SurrogateScreen(BaseModel):
     sep_xc: float | None = None  # at the design alpha
     h_sep: float
     sep_warning: bool  # at the design alpha
-    ok: bool  # stall_ok and not sep_warning
+    probe_h_max: float = 0.0
+    probe_sep: bool = False  # TE H at alpha+1 or alpha+2 >= probe_h_max
+    ok: bool  # stall_ok and not sep_warning and not probe_sep
+
+    @property
+    def margin_ok(self) -> bool:
+        """The screen's view of XFoil's stall-margin gate (slope and separation at the probes)."""
+        return self.stall_ok and not self.probe_sep
 
     def reasons(self) -> list[str]:
         out = []
@@ -339,6 +348,11 @@ class SurrogateScreen(BaseModel):
         if self.sep_warning:
             h = self.te_shape_factor[0] if self.te_shape_factor else float("nan")
             out.append(f"NeuralFoil separation warning: suction-side H {h:.2f} >= {self.h_sep} at the TE")
+        if self.probe_sep:
+            hs = ", ".join(f"{h:.2f}" for h in self.te_shape_factor[1:])
+            out.append(
+                f"NeuralFoil separation warning at alpha+1/+2: suction-side TE H {hs} (limit {self.probe_h_max})"
+            )
         return out
 
 
