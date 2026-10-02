@@ -170,7 +170,10 @@ def cmd_report(root: str) -> None:
         out.append(
             f"| {r['seed']} | {s['main_camber']} | {s['main_camber_pos']} | {s['main_thickness']} | {s['alpha_deg']} |"
         )
-    DOC.write_text("\n".join(out) + "\n")
+    keep = ""
+    if DOC.exists() and "## Observations" in DOC.read_text():  # hand-written; survives regeneration
+        keep = "\n" + DOC.read_text()[DOC.read_text().index("## Observations") :]
+    DOC.write_text("\n".join(out) + "\n" + keep)
     print(DOC.read_text())
 
 

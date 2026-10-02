@@ -49,6 +49,31 @@ NeuralFoil gives physical downforce; `--start-seed`, recorded in meta.json), `ba
 (same gates and promotion rule as the graph), `scripts/benchmark.py` (40 evals, $4 / 1.5 h safety
 caps; writes `docs/BENCHMARK.md`). `--max-wall-hours` added. `make lint` covers `scripts/`.
 
+### Benchmark results (`docs/BENCHMARK.md`; runs in `runs/bench/`, not committed)
+5 seeded feasible starts (seeds 11, 22, 33, 44, 55), 40 evals, $4 / 1.5 h safety caps.
+
+| method | success | evals to target | est. cost / run | wall clock / run |
+|---|---|---|---|---|
+| LLM (claude-sonnet-5) | 1/5 | 17 | $1.57 mean ($1.10–2.45) | 18.1 min mean (concurrent) |
+| mock | 0/5 | — | $0 | 0.1 min |
+| random search | 0/5 | — | $0 | 0.1 min |
+
+- No run hit a safety cap. 4/5 LLM runs and 5/5 mock runs **declared a plateau** before the budget
+  (LLM at 16–28 evals): evaluations did not bind. The LLM's failed runs stalled on the camber bound
+  with camber position 0.40–0.54; the passing designs are at p 0.30–0.36.
+- 1 XFoil evaluation in 25 runs. Counterfactual XFoil gate on every near-target design the screen
+  failed: mock 0/51 would pass, LLM 2/26 (both in the successful seed-44 run). The screen cost no
+  method a success.
+
+### Known issues / next
+- The Chief's plateau rule ("after three non-improving hypotheses") ends LLM runs with a third of the
+  budget or more unused; with evaluations meant to be the only binding limit, consider allowing a
+  plateau only in the last part of the budget, or widening the trust region instead.
+- The screen blocks ~43% of XFoil-feasible designs in the promotion window (by design, for ≤ 5% false
+  passes); it blocked live run 2's winner on replay.
+- Camber position is the lever that separated success from failure here; the LLM rarely moved it
+  far forward from aft starts.
+
 ## Session 8 (2026-10-01): hard target applied, gate aligned, search-loop fixes
 
 ### Hard target: Cl −1.83 ± 0.03, Cd ≤ 0.025 (`HARD_SPEC`)
