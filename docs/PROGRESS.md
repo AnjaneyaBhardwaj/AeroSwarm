@@ -1,5 +1,54 @@
 # Progress
 
+## Session 9 (2026-10-02): screen recalibration, loop guards, example run, benchmark
+
+### NeuralFoil screen recalibrated (`scripts/calibrate_screen_rules.py` on the gated sweep)
+Ground truth: XFoil's full stall gate (margin ≥ 0.05, no TE separation at α+1/+2). Population that
+matters: the promotion window (NeuralFoil Cl within 2·tol of −1.83, NeuralFoil Cd ≤ 0.025): 804 sweep
+points, 69 of them pass XFoil. "false pass" = screen passes that fail XFoil; "blocks" = XFoil passes
+the screen rejects.
+
+| rule | window: false pass | window: blocks | all 8,085: false pass | all: blocks |
+|---|---|---|---|---|
+| session 6: slope ≥ 0.05 | 50/118 (42%) | 1/69 (1%) | 11.6% | 0.9% |
+| (a) slope only, best ≤ 5% FP: ≥ 0.075 | 0/1 | 68/69 (99%) | — | — |
+| (b) α+3 probe, min of 3 slopes | never ≤ 5% (best 16.7%) | | 3.7% @ 0.045 | 11.8% |
+| (c) knee: slope ≥ 0.05 and s1−s2 ≤ X | never ≤ 5% | | 4.5% @ X 0.013 | 25.6% |
+| **(d) slope ≥ 0.0575 and TE H < 3.85 at α+1, α+2** | **2/41 (4.9%)** | **30/69 (43%)** | **2.7%** | **10.3%** |
+
+- The session-6 calibration (27/38 caught, 0/25 blocked "near the target") used the old grid and an
+  XFoil-defined near-target set; in the window the screen actually gates, it was 42% false passes.
+- 22 of the 50 old false passes failed XFoil only on separation at the probes; NeuralFoil's TE shape
+  factor at α+2 is higher for them (median 4.19 vs 3.79). (b) and (c) cannot fix that; (d) does.
+- Robustness: neighbouring settings give 5–7% false passes; a 2-fold split by geometry gives 6–7%
+  held-out false passes with 31–55% blocks. ~5% is reachable only by blocking a large share of
+  feasible designs.
+- **Cost seen on real data**: replayed on live run 2's four promotions, (d) blocks the three XFoil
+  rejected and also the winner (`abb9803ead`: H 4.12 at α+2, XFoil attached).
+- Implemented: `ValidatorConfig.screen_min_dcl_dalpha = 0.0575`, `screen_h_probe_max = 3.85`;
+  `SurrogateScreen.probe_sep` / `margin_ok`. XFoil's 0.05 is unchanged.
+
+### Loop guards
+- **Near-duplicates** (`cad.apply.near_duplicate`): a proposal within α 0.05°, camber / position /
+  thickness 0.002 (others exact) of a design evaluated at the same fidelity is rejected like an
+  exact duplicate, naming that design and its result. The deterministic fallback avoids them too.
+- **Chief/CAD deadlock**: after a `chief_cad_disagreement` the Chief's next brief lists it; each such
+  parameter kept in focus must adopt the CAD's direction or be `locked` (the CAD tool rejects any
+  move against a locked direction, reason or not). A restated direction without a lock becomes a
+  lock, "free" adopts the CAD's direction (`deadlock_coerced`).
+- Report: the blocked list (report and Chief brief) is sorted by generation; stall-plot slope labels
+  sit on the side of their segment away from the threshold line.
+
+### Example run committed
+`runs/examples/hard_llm_20261001-201455-faf6a3/` (live run 2: report, strip, GIF, stall plots,
+ledger, events, traces, meta, README). `.gitignore` now ignores `runs/*` except `runs/examples/`.
+
+### Benchmark harness
+`baselines.random_start(seed)` (uniform over the free-parameter bounds until geometry/FS2026 pass and
+NeuralFoil gives physical downforce; `--start-seed`, recorded in meta.json), `baselines.random_search`
+(same gates and promotion rule as the graph), `scripts/benchmark.py` (40 evals, $4 / 1.5 h safety
+caps; writes `docs/BENCHMARK.md`). `--max-wall-hours` added. `make lint` covers `scripts/`.
+
 ## Session 8 (2026-10-01): hard target applied, gate aligned, search-loop fixes
 
 ### Hard target: Cl −1.83 ± 0.03, Cd ≤ 0.025 (`HARD_SPEC`)
