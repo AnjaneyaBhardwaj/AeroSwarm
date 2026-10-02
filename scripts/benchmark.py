@@ -67,6 +67,8 @@ def _row(d: Path) -> dict | None:
     if not (d / "meta.json").exists():
         return None
     meta = json.loads((d / "meta.json").read_text())
+    if "termination" not in meta:  # still running
+        return None
     ledger = [json.loads(x) for x in (d / "ledger.jsonl").read_text().splitlines() if x]
     events = (
         [json.loads(x) for x in (d / "events.jsonl").read_text().splitlines()] if (d / "events.jsonl").exists() else []
