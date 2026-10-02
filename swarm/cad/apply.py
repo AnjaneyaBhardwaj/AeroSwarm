@@ -108,6 +108,15 @@ def apply_delta(
         want = strategy.direction(ch.name)
         moved = "+" if ch.new_value > getattr(base, ch.name) else "-"
         if want != "free" and abs(ch.new_value - getattr(base, ch.name)) >= 1e-4 and moved != want:
+            if strategy.locked(ch.name):
+                return ProposalResult(
+                    ok=False,
+                    error=ToolError(
+                        kind="direction",
+                        msg=f"{ch.name} moves {moved} but the Chief locked it to {want}",
+                        hint="a locked direction cannot be overridden; move it the Chief's way or leave it unchanged",
+                    ),
+                )
             if not ch.override_reason.strip():
                 return ProposalResult(
                     ok=False,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from swarm.briefs import chief_brief
+from swarm.briefs import chief_brief, pending_disagreements
 from swarm.llm.client import LLMClient
 from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
@@ -33,6 +33,30 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
             }
         )
         upd["focus_params"] = used
+    # Deadlock rule: a parameter the CAD overrode last generation must be adopted (CAD's direction)
+    # or locked. Restating the old direction without a lock becomes a lock; "free" adopts the CAD's.
+    pending = {d["param"]: d for d in pending_disagreements(state)}
+    if pending:
+        focus_now = upd.get("focus_params", memo.focus_params)
+        fixed = []
+        for f in focus_now:
+            d = pending.get(f.name)
+            if d is None or f.locked or f.direction == d["cad"]:
+                if d is not None:
+                    how = "locked" if f.locked else "adopted"
+                    events.append({"node": "chief_plan", "gen": gen, "event": f"chief_{how}_direction"} | d)
+                fixed.append(f)
+                continue
+            if f.direction == d["chief"]:
+                g = f.model_copy(update={"locked": True})
+                how = "locked (restated without a lock)"
+            else:
+                g = f.model_copy(update={"direction": d["cad"], "locked": False})
+                how = "adopted the CAD direction (was free)"
+            events.append({"node": "chief_plan", "gen": gen, "event": "deadlock_coerced", "resolution": how} | d)
+            fixed.append(g)
+        if fixed != list(focus_now):
+            upd["focus_params"] = fixed
     if memo.mode == "inner_optimizer":
         events.append(
             {

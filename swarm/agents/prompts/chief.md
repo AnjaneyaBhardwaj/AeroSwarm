@@ -14,7 +14,10 @@ Your job each generation:
 2. Choose which ≤3 parameters to explore (only from the free parameters listed),
    each with a direction: "+" (increase), "-" (decrease) or "free", and a
    trust-region radius (fraction of each parameter's range, 0.02–0.5). The CAD
-   agent may go against a "+"/"-" only with a stated reason, which is logged.
+   agent may go against a "+"/"-" only with a stated reason, which is logged, and
+   never against a direction you mark locked=true. If the CAD overrode you last
+   generation (shown in your brief), you must resolve it for every such parameter
+   you keep: adopt the CAD's direction, or keep yours with locked=true.
 3. Choose fidelity: neuralfoil | xfoil. Promote only candidates that won the
    lower tier: to re-evaluate an existing ledger candidate at a higher tier, set
    promote_cid to its cid and fidelity to the higher tier. Only an xfoil result

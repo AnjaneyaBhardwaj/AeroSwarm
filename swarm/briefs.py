@@ -106,6 +106,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
     v_rec = ledger[-1] if ledger else None
     parent, parent_why = select_parent(ledger, spec)
     history = _history(state.get("history", []), ledger, spec)
+    overrides = pending_disagreements(state)
     cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective", "failing")
     promo = [r.params.cid for r in promotable(ledger, spec)]
     blocked = {r.params.cid: r.screen.reasons() for r in near_target(ledger, spec) if screen_blocked(r)}
@@ -127,6 +128,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "last_strategy": state["strategy"].model_dump() if state.get("strategy") else None,
         "parent": {"cid": parent.params.cid, "why": parent_why} if parent else None,
         "history": history,
+        "cad_overrides": overrides,
     }
     user = "\n\n".join(
         [
@@ -144,6 +146,17 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             ),
             "## Sensitivities at the CAD base (NeuralFoil; per unit parameter; race-car Cl)\n"
             + json.dumps(sens, indent=1),
+            "## The CAD agent overrode your direction last generation (you must resolve each one)\n"
+            + (
+                "\n".join(
+                    f"- {d['param']}: you said {_DIR_TEXT[d['chief']]}, CAD went {_DIR_TEXT[d['cad']]}: {d['reason']}"
+                    for d in overrides
+                )
+                + "\nFor each parameter you keep in focus: adopt the CAD's direction, or keep yours with "
+                "locked=true (the CAD then cannot override it). Or drop the parameter."
+                if overrides
+                else "(none)"
+            ),
             "## Your previous hypotheses and what happened (from the ledger)\n"
             + ("\n".join(f"- gen {h['gen']}: {h['hypothesis']} -> {h['outcome']}" for h in history) or "(none yet)"),
             "## Critic's latest verdict"
@@ -161,6 +174,21 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
 
 
 _DIR_TEXT = {"+": "increase", "-": "decrease", "free": "free"}
+
+
+def pending_disagreements(state: SwarmState) -> list[dict]:
+    """CAD overrides of the Chief's direction in the generation of the Chief's previous memo."""
+    hist = state.get("history", [])
+    if not hist:
+        return []
+    gen = hist[-1]["gen"]
+    out: dict[str, dict] = {}
+    for e in state.get("events", []):
+        if e.get("event") == "chief_cad_disagreement" and e.get("gen") == gen:
+            out[e["param"]] = {k: e[k] for k in ("param", "chief", "cad", "reason")}
+    return list(out.values())
+
+
 HISTORY_SHOWN = 8
 
 
@@ -192,6 +220,7 @@ def cad_brief(state: SwarmState, base: WingParams, base_rec: EvalRecord | None, 
     diag = v.diagnosis if v else None
     allowed = [p for p in strat.focus_names if p in free_params(spec)]
     directions = {p: strat.direction(p) for p in allowed}
+    locked = {p for p in allowed if strat.locked(p)}
     why_not = failing_checks(base_rec, spec) if base_rec is not None else []
     bounds = WingParams.bounds()
     intervals = {p: allowed_interval(p, base, strat.trust_radius) for p in allowed}
@@ -206,6 +235,7 @@ def cad_brief(state: SwarmState, base: WingParams, base_rec: EvalRecord | None, 
         "base_failing": why_not,
         "focus_params": allowed,
         "directions": directions,
+        "locked": sorted(locked),
         "trust_radius": strat.trust_radius,
         "bounds": {p: bounds[p] for p in allowed},
         "intervals": intervals,
@@ -225,6 +255,7 @@ def cad_brief(state: SwarmState, base: WingParams, base_rec: EvalRecord | None, 
             f"## Allowed changes (trust radius {strat.trust_radius} of range) and the Chief's direction\n"
             + "\n".join(
                 f"- {p}: bounds {bounds[p]}, allowed interval [{a:.4f}, {b:.4f}], Chief: {_DIR_TEXT[directions[p]]}"
+                + (" (LOCKED: no override)" if p in locked else "")
                 for p, (a, b) in intervals.items()
             ),
             "## Sensitivities (per unit change; race-car Cl, negative = more downforce)\n"

@@ -254,10 +254,12 @@ Direction = Literal["+", "-", "free"]
 
 class FocusParam(BaseModel):
     """A parameter the Chief lets the CAD agent change, and which way: "+" increase, "-" decrease,
-    "free" either. The CAD may go against "+"/"-" only with an override_reason (logged)."""
+    "free" either. The CAD may go against "+"/"-" only with an override_reason (logged), and never
+    against a locked direction."""
 
     name: str
     direction: Direction = "free"
+    locked: bool = False
 
 
 class StrategyMemo(BaseModel):
@@ -286,6 +288,9 @@ class StrategyMemo(BaseModel):
 
     def direction(self, name: str) -> str:
         return next((f.direction for f in self.focus_params if not isinstance(f, str) and f.name == name), "free")
+
+    def locked(self, name: str) -> bool:
+        return any(not isinstance(f, str) and f.name == name and f.locked for f in self.focus_params)
 
 
 class StallMargin(BaseModel):

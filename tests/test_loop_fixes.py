@@ -14,7 +14,7 @@ import pytest
 from conftest import good_stall
 
 from swarm.agents import critic as critic_agent
-from swarm.briefs import cad_brief
+from swarm.briefs import cad_brief, chief_brief
 from swarm.cad.apply import apply_delta
 from swarm.critic.numeric import suggest_diagnosis, validate
 from swarm.ledger import select_parent, violation
@@ -250,3 +250,80 @@ def test_chief_can_override_the_screen_with_a_logged_reason(spec, start, fake_xf
     assert len(ov) == 1 and ov[0]["reason"] == "map the stall boundary at XFoil"
     assert not any(e.get("event") == "direct_xfoil_screened_out" for e in events)
     assert final["ledger"][-1].result.fidelity == "xfoil" and calls
+
+
+# ----------------------------------------------------------- deadlock: adopt or lock
+
+
+def _deadlock_state(spec, chief="-", cad="+"):
+    d = {"event": "chief_cad_disagreement", "gen": 3, "param": "alpha_deg", "chief": chief, "cad": cad}
+    return {
+        "spec": spec,
+        "ledger": [],
+        "generation": 4,
+        "history": [{"gen": 3, "hypothesis": "h", "focus": [], "fidelity": "neuralfoil"}],
+        "events": [d | {"reason": "needs more loading", "cid": "x"}],
+    }
+
+
+def test_chief_must_adopt_or_lock_after_an_override(spec):
+    from swarm.agents.chief import sanitize
+
+    st = _deadlock_state(spec)
+    cases = {
+        ("-", False): (("-", True), "deadlock_coerced"),  # restated without a lock -> locked
+        ("free", False): (("+", False), "deadlock_coerced"),  # free -> adopts the CAD's direction
+        ("+", False): (("+", False), "chief_adopted_direction"),
+        ("-", True): (("-", True), "chief_locked_direction"),
+    }
+    for (direction, locked), ((want_dir, want_lock), event) in cases.items():
+        m = memo([{"name": "alpha_deg", "direction": direction, "locked": locked}, "main_camber"])
+        out, events = sanitize(m, st)
+        f = out.focus_params[0]
+        assert (f.direction, f.locked) == (want_dir, want_lock), (direction, locked)
+        assert [e["event"] for e in events] == [event] and events[0]["param"] == "alpha_deg"
+        assert out.focus_params[1].name == "main_camber"  # untouched
+    m = memo(["main_camber"])  # dropping the parameter also resolves it
+    assert sanitize(m, st) == (m, [])
+
+
+def test_locked_direction_cannot_be_overridden(spec):
+    m = memo([{"name": "alpha_deg", "direction": "-", "locked": True}])
+    res = apply_delta(wp(8.0), delta("alpha_deg", 9.0, "physics says so"), m, spec, [])
+    assert not res.ok and res.error.kind == "direction" and "locked" in res.error.msg
+
+
+def test_chief_brief_shows_last_generations_overrides(spec):
+    b = chief_brief(_deadlock_state(spec), {})
+    assert b.facts["cad_overrides"] == [
+        {"param": "alpha_deg", "chief": "-", "cad": "+", "reason": "needs more loading"}
+    ]
+    assert "- alpha_deg: you said decrease, CAD went increase: needs more loading" in b.user
+    assert "locked=true" in b.user
+
+
+def test_graph_locks_a_restated_direction_and_the_cad_must_follow(spec, start, tmp_path):
+    m = memo([{"name": "alpha_deg", "direction": "-"}])
+    v = Verdict(status="TARGET_MISS", diagnosis=Diagnosis(symptom="INSUFFICIENT_LOADING"), confidence=0.6)
+    script = [
+        m,
+        v,  # gen 0
+        m,
+        delta("alpha_deg", 5.0, "needs more loading"),
+        v,  # gen 1: override logged
+        m,
+        delta("alpha_deg", 6.0, "still needs loading"),
+        delta("alpha_deg", 3.0),
+        v,  # gen 2: locked
+    ]
+    llm = ScriptedClient(script)
+    run(spec.model_copy(update={"max_evals": 3}), start, run_id="l", runs_root=tmp_path, llm=llm)
+    assert not llm.responses
+    events = [json.loads(x) for x in (tmp_path / "l" / "events.jsonl").read_text().splitlines()]
+    co = [e for e in events if e.get("event") == "deadlock_coerced"]
+    assert len(co) == 1 and co[0]["gen"] == 2 and co[0]["resolution"].startswith("locked")
+    rej = [e for e in events if e.get("event") == "proposal_rejected"]
+    assert len(rej) == 1 and rej[0]["gen"] == 2 and "locked" in rej[0]["error"]["msg"]
+    assert len([e for e in events if e.get("event") == "chief_cad_disagreement"]) == 1
+    gen2_chief = [c for c in llm.calls if c["role"] == "chief"][2]["user"]
+    assert "- alpha_deg: you said decrease, CAD went increase: needs more loading" in gen2_chief
