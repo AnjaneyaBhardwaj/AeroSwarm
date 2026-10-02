@@ -823,7 +823,7 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
 
 def _screen_section(ledger: list[EvalRecord], spec: DesignSpec) -> list[str]:
     """NeuralFoil screen: promotions it blocked and how it compares with XFoil on the same geometry."""
-    blocked = [r for r in near_target(ledger, spec) if screen_blocked(r)]
+    blocked = sorted((r for r in near_target(ledger, spec) if screen_blocked(r)), key=lambda r: r.generation)
     compared = [r for r in ledger if r.screen is not None and r.result.fidelity in TERMINAL_FIDELITIES]
     if not blocked and not compared:
         return []

@@ -210,3 +210,13 @@ def test_graph_logs_screen_xfoil_disagreement(spec, start, fake_xfoil, tmp_path)
     assert all(
         nf[r.params.cid].screen.ok for r in final["ledger"] if r.result.fidelity == "xfoil" and r.params.cid in nf
     )
+
+
+def test_blocked_list_is_sorted_by_generation(spec):
+    a = WingParams(main_camber=0.05, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=8.0)
+    b = WingParams(main_camber=0.05, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=8.5)
+    blocked = scr(stall_ok=False, slope=0.01)
+    ledger = [nf_rec(a, -1.52, screen=blocked, gen=5), nf_rec(b, -1.50, screen=blocked, gen=2)]  # b is closer
+    brief = chief_brief({"spec": spec, "ledger": ledger, "generation": 6}, {})
+    assert list(brief.facts["screen_blocked"]) == [b.cid, a.cid]
+    assert brief.user.index(f"- {b.cid}:") < brief.user.index(f"- {a.cid}:")

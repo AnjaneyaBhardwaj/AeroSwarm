@@ -222,14 +222,17 @@ def stall_plot(rec: EvalRecord, spec: DesignSpec, path: Path) -> Path:
         good = slope >= sm.threshold
         ax.plot([a0, a1], [c0, c1], "-", color=OK if good else SEP, lw=2)
         ax.plot([a0, a1], [c0, c0 + sm.threshold * (a1 - a0)], "--", color="0.45", lw=1)
+        # The threshold line runs above a failing segment and below a passing one: label the other side.
         ax.annotate(
             f"{slope:+.3f}/deg",
             ((a0 + a1) / 2, (c0 + c1) / 2),
             textcoords="offset points",
-            xytext=(0, 8),
-            ha="center",
+            xytext=(6, 10) if good else (6, -12),
+            ha="left" if not good else "right",
+            va="bottom" if good else "top",
             fontsize=8,
             color=OK if good else SEP,
+            bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.85},
         )
     ax.plot([], [], "--", color="0.45", lw=1, label=f"threshold slope {sm.threshold}/deg")
     ax.plot(*zip(*pts, strict=True), "o", color=EDGE, ms=6, label="XFoil (probe)")

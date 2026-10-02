@@ -109,7 +109,11 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
     overrides = pending_disagreements(state)
     cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective", "failing")
     promo = [r.params.cid for r in promotable(ledger, spec)]
-    blocked = {r.params.cid: r.screen.reasons() for r in near_target(ledger, spec) if screen_blocked(r)}
+    blocked = {
+        r.params.cid: r.screen.reasons()
+        for r in sorted(near_target(ledger, spec), key=lambda r: r.generation)
+        if screen_blocked(r)
+    }
     streak = no_improve_streak(ledger, spec)
     facts = {
         "spec": spec.model_dump(),
