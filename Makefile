@@ -11,8 +11,8 @@ test:
 	uv run pytest -q
 
 lint:
-	uv run ruff check swarm tests
-	uv run ruff format --check swarm tests
+	uv run ruff check swarm tests scripts
+	uv run ruff format --check swarm tests scripts
 
 format:
 	uv run ruff format swarm tests

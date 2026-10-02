@@ -90,7 +90,10 @@ def score(pts: list[dict], rule) -> tuple[int, int, int, int]:
 def line(name: str, s: tuple[int, int, int, int]) -> str:
     n, fp, nx, fb = s
     rate = fp / n if n else float("nan")
-    return f"{name:<34} passes {n:4d}  false pass {fp:4d} ({rate:5.1%})  blocks {fb:4d} of {nx:4d} XFoil passes ({fb / nx:5.1%})"
+    return (
+        f"{name:<34} passes {n:4d}  false pass {fp:4d} ({rate:5.1%})  "
+        f"blocks {fb:4d} of {nx:4d} XFoil passes ({fb / nx:5.1%})"
+    )
 
 
 def best(pts: list[dict], family: dict) -> tuple[str, tuple] | None:
@@ -103,24 +106,40 @@ def best(pts: list[dict], family: dict) -> tuple[str, tuple] | None:
 def main(path: str) -> None:
     pts = points(path)
     lo = VALIDATION.stall_min_dcl_dalpha
+
+    def slope(t):
+        return lambda p: min(p["s1"], p["s2"]) >= t
+
+    def plus3(t):
+        return lambda p: min(p["s1"], p["s2"], p["s3"]) >= t
+
+    def knee(t, x):
+        return lambda p: min(p["s1"], p["s2"]) >= t and p["s1"] - p["s2"] <= x
+
+    def probe_h(t, hm):
+        return lambda p: min(p["s1"], p["s2"]) >= t and p["hp"] < hm
+
+    grid = np.arange
     fams = {
-        "(a) slope": {f"min(s1,s2) >= {t:.3f}": (lambda p, t=t: min(p["s1"], p["s2"]) >= t) for t in np.arange(0.05, 0.1201, 0.005)},
-        "(b) +3 probe": {f"min(s1,s2,s3) >= {t:.3f}": (lambda p, t=t: min(p["s1"], p["s2"], p["s3"]) >= t) for t in np.arange(0.03, 0.1001, 0.005)},
-        "(c) knee": {f"0.05 & s1-s2 <= {x:.3f}": (lambda p, x=x: min(p["s1"], p["s2"]) >= lo and p["s1"] - p["s2"] <= x) for x in np.arange(0.0, 0.0601, 0.0025)},
+        "(a) slope": {f"min(s1,s2) >= {t:.3f}": slope(t) for t in grid(0.05, 0.1201, 0.005)},
+        "(b) +3 probe": {f"min(s1,s2,s3) >= {t:.3f}": plus3(t) for t in grid(0.03, 0.1001, 0.005)},
+        "(c) knee": {f"0.05 & s1-s2 <= {x:.3f}": knee(lo, x) for x in grid(0.0, 0.0601, 0.0025)},
         "(c') slope+knee": {
-            f"min >= {t:.3f} & drop <= {x:.3f}": (lambda p, t=t, x=x: min(p["s1"], p["s2"]) >= t and p["s1"] - p["s2"] <= x)
-            for t in np.arange(0.05, 0.0801, 0.005) for x in np.arange(0.0, 0.0401, 0.005)
+            f"min >= {t:.3f} & drop <= {x:.3f}": knee(t, x)
+            for t in grid(0.05, 0.0801, 0.005)
+            for x in grid(0.0, 0.0401, 0.005)
         },
         "(d) slope+probe H": {
-            f"min >= {t:.4f} & H(a+1,a+2) < {hm:.2f}": (lambda p, t=t, hm=hm: min(p["s1"], p["s2"]) >= t and p["hp"] < hm)
-            for t in np.arange(0.05, 0.0701, 0.0025) for hm in np.arange(3.4, 4.61, 0.05)
+            f"min >= {t:.4f} & H(a+1,a+2) < {hm:.2f}": probe_h(t, hm)
+            for t in grid(0.05, 0.0701, 0.0025)
+            for hm in grid(3.4, 4.61, 0.05)
         },
-    }  # fmt: skip
+    }
     for pop, sel in (("window", [p for p in pts if p["window"]]), ("all", pts)):
         print(f"\n=== population {pop}: {len(sel)} points, {sum(p['xfoil'] for p in sel)} pass XFoil's gate")
         print(line("session-6 rule: min(s1,s2) >= 0.050", score(sel, lambda p: min(p["s1"], p["s2"]) >= lo)))
-        t, hm = VALIDATION.screen_min_dcl_dalpha, VALIDATION.screen_h_probe_max
-        print(line(f"current: >= {t} & H(a+1,a+2) < {hm}", score(sel, lambda p: min(p["s1"], p["s2"]) >= t and p["hp"] < hm)))
+        cur_t, cur_h = VALIDATION.screen_min_dcl_dalpha, VALIDATION.screen_h_probe_max
+        print(line(f"current: >= {cur_t} & H(a+1,a+2) < {cur_h}", score(sel, probe_h(cur_t, cur_h))))
         for fam, rules in fams.items():
             b = best(sel, rules)
             print(line(f"{fam} best: {b[0]}", b[1]) if b else f"{fam}: no setting reaches <= {FP_MAX:.0%} false pass")

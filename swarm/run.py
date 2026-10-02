@@ -71,6 +71,7 @@ def run(
     inject_faults: bool = False,
     resume: bool = False,
     preset: str | None = None,
+    start_seed: int | None = None,
 ) -> dict:
     if llm is None:
         preflight_llm(which)  # MissingAPIKey before any run directory exists
@@ -81,7 +82,15 @@ def run(
     if not llm.is_mock and spec.max_cost_usd is None and not resume:
         print("warning: real LLM run without a cost cap; pass --budget-usd to bound spend", file=sys.stderr)
     meta = (
-        {} if resume else {"run_id": run_id, "preset": preset, "spec": spec.model_dump(), "start": start.model_dump()}
+        {}
+        if resume
+        else {
+            "run_id": run_id,
+            "preset": preset,
+            "spec": spec.model_dump(),
+            "start": start.model_dump(),
+            "start_seed": start_seed,  # set when the start was sampled by baselines.random_start
+        }
     )
     files.write_meta(
         {
@@ -141,6 +150,8 @@ def main(argv: list[str] | None = None) -> None:
         type=float,
         help="stop cleanly once the estimated LLM cost reaches this (USD); calls with unknown pricing count as over",
     )
+    ap.add_argument("--max-wall-hours", type=float, help="wall-clock limit in hours (default: the preset's)")
+    ap.add_argument("--start-seed", type=int, help="start from a seeded random feasible design (recorded in meta.json)")
     ap.add_argument("--resume", metavar="RUN_ID")
     ap.add_argument("--no-faults", action="store_true", help="mock: skip the injected demo fault")
     a = ap.parse_args(argv)
@@ -154,9 +165,15 @@ def main(argv: list[str] | None = None) -> None:
         upd["max_evals"] = a.max_evals
     if a.budget_usd is not None:
         upd["max_cost_usd"] = a.budget_usd
-    if a.resume and (upd or a.preset != "default"):
+    if a.max_wall_hours is not None:
+        upd["max_wall_hours"] = a.max_wall_hours
+    if a.resume and (upd or a.preset != "default" or a.start_seed is not None):
         ap.error("--resume continues the checkpointed spec; --preset/--max-evals/--budget-usd are fixed at run start")
     spec = spec.model_copy(update=upd)
+    if a.start_seed is not None:
+        from swarm.baselines import random_start
+
+        start = random_start(a.start_seed, spec)
     try:
         preflight_llm(a.llm)
     except MissingAPIKey as e:
@@ -170,6 +187,7 @@ def main(argv: list[str] | None = None) -> None:
         inject_faults=not a.no_faults,
         resume=bool(a.resume),
         preset=None if a.resume else a.preset,
+        start_seed=a.start_seed,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     health = meta.get("llm_health") or {}
