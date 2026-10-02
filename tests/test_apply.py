@@ -1,4 +1,4 @@
-from swarm.cad.apply import apply_delta, fallback_params
+from swarm.cad.apply import NEAR_DUP_TOL, apply_delta, fallback_params, near_duplicate
 from swarm.state import CFDResult, EvalRecord, ParamChange, ParamDelta, StrategyMemo, WingParams
 
 BASE = WingParams(main_camber=0.04, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=8.0)
@@ -63,3 +63,31 @@ def test_fallback_stays_in_trust_region_and_is_new(spec):
     assert p.cid != BASE.cid
     assert abs(p.alpha_deg - BASE.alpha_deg) <= 0.1 * 16 * 0.25 + 1e-9
     assert p.main_thickness == BASE.main_thickness  # outside the focus set: unchanged
+
+
+def test_near_duplicate_is_rejected_with_the_existing_result(spec):
+    base = WingParams(main_camber=0.05, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=8.0)
+    seen = base.model_copy(update={"alpha_deg": 9.0})
+    rec = EvalRecord(
+        generation=3,
+        params=seen,
+        result=CFDResult(cid=seen.cid, fidelity="neuralfoil", status="converged", cl=-1.6, cd=0.017),
+        verdict=None,
+        rationale="",
+    )
+    memo = MEMO.model_copy(update={"trust_radius": 0.3})
+    near = ParamDelta(
+        changes=[
+            ParamChange(name="alpha_deg", new_value=9.03, mechanism="m", expected_dCl_sign=-1, expected_dCd_sign=1)
+        ]
+    )
+    res = apply_delta(base, near, memo, spec, [rec])
+    assert not res.ok and res.error.kind == "duplicate"
+    assert f"within tolerance of {seen.cid} (gen 3), already evaluated: Cl=-1.600, Cd=0.0170" in res.error.msg
+    assert NEAR_DUP_TOL["alpha_deg"] == 0.05 and NEAR_DUP_TOL["main_camber"] == 0.002
+    far = near.model_copy(update={"changes": [near.changes[0].model_copy(update={"new_value": 9.06})]})
+    assert apply_delta(base, far, memo, spec, [rec]).ok  # outside 0.05 deg
+    other_fid = memo.model_copy(update={"fidelity": "xfoil"})
+    assert apply_delta(base, near, other_fid, spec, [rec]).ok  # a different tier is not a duplicate
+    assert near_duplicate(seen.model_copy(update={"main_camber": 0.0515}), [rec], "neuralfoil") is rec
+    assert near_duplicate(seen.model_copy(update={"main_camber": 0.0525}), [rec], "neuralfoil") is None

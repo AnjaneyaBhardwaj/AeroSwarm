@@ -40,6 +40,29 @@ class ProposalResult(BaseModel):
     disagreements: list[dict] = []
 
 
+# A proposal within these of an evaluated design (every parameter) is a near-duplicate: it costs an
+# evaluation and tells us nothing new (live run 2, gens 9-11: alpha nudged by 0.002 deg).
+NEAR_DUP_TOL: dict[str, float] = {
+    "alpha_deg": 0.05,
+    "main_camber": 0.002,
+    "main_camber_pos": 0.002,
+    "main_thickness": 0.002,
+}
+EXACT_TOL = 1e-4  # quantization step: every other parameter must match
+
+
+def near_duplicate(params: WingParams, ledger: list[EvalRecord], fidelity: str) -> EvalRecord | None:
+    """The latest record at `fidelity` whose design is within NEAR_DUP_TOL of `params` (exact match included)."""
+    p = params.model_dump()
+    for rec in reversed(ledger):
+        if rec.result.fidelity != fidelity:
+            continue
+        q = rec.params.model_dump()
+        if all(abs(p[k] - q[k]) <= NEAR_DUP_TOL.get(k, EXACT_TOL) + 1e-12 for k in p):
+            return rec
+    return None
+
+
 def allowed_interval(name: str, base: WingParams, radius: float) -> tuple[float, float]:
     lo, hi = WingParams.bounds()[name]
     r = radius * (hi - lo)
@@ -119,14 +142,21 @@ def apply_delta(
                 hint="change at least one parameter by more than 1e-4",
             ),
         )
-    for rec in ledger:
-        if rec.params.cid == params.cid and rec.result.fidelity == strategy.fidelity:
-            r = rec.result
-            nums = f"Cl={r.cl:.3f}, Cd={r.cd:.4f}" if r.cl is not None and r.cd is not None else r.status
-            return ProposalResult(
-                ok=False,
-                error=ToolError(kind="duplicate", msg=f"already evaluated: {nums}", hint="propose something different"),
-            )
+    rec = near_duplicate(params, ledger, strategy.fidelity)
+    if rec is not None:
+        r = rec.result
+        nums = f"Cl={r.cl:.3f}, Cd={r.cd:.4f}" if r.cl is not None and r.cd is not None else r.status
+        if rec.params.cid == params.cid:
+            msg = f"already evaluated: {nums}"
+        else:
+            msg = f"within tolerance of {rec.params.cid} (gen {rec.generation}), already evaluated: {nums}"
+        tol = ", ".join(f"{k} {v:g}" for k, v in NEAR_DUP_TOL.items())
+        return ProposalResult(
+            ok=False,
+            error=ToolError(
+                kind="duplicate", msg=msg, hint=f"propose something different (near-duplicate tolerance: {tol})"
+            ),
+        )
     return ProposalResult(ok=True, params=params, disagreements=disagreements)
 
 
@@ -141,13 +171,12 @@ def fallback_params(
     """Best-known design plus a small random perturbation inside the bounds and trust region."""
     rng = np.random.default_rng(seed)
     names = [n for n in strategy.focus_names if n in free_params(spec)] or list(free_params(spec))
-    seen = {(r.params.cid, r.result.fidelity) for r in ledger}
     for _ in range(50):
         upd = {}
         for n in names:
             a, b = allowed_interval(n, best, strategy.trust_radius * radius_frac)
             upd[n] = quantize(rng.uniform(a, b))
         p = WingParams(**{**best.model_dump(), **upd})
-        if (p.cid, strategy.fidelity) not in seen and p.cid != best.cid:
+        if p.cid != best.cid and near_duplicate(p, ledger, strategy.fidelity) is None:
             return p
     return best
