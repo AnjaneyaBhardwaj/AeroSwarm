@@ -19,6 +19,8 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from swarm.baselines import random_search, random_start
+from swarm.briefs import near_target, screen_blocked
+from swarm.ledger import RunFiles
 from swarm.run import HARD_SPEC, run
 
 SEEDS = (11, 22, 33, 44, 55)
@@ -89,6 +91,8 @@ def _row(d: Path) -> dict | None:
         "closest": meta.get("closest_candidate_cid"),
         "failing": (meta.get("closest_candidate_failing") or [""])[0],
         "blocked": sum(e.get("event") in ("promotion_blocked_by_screen", "direct_xfoil_screened_out") for e in events),
+        # NeuralFoil designs in the promotion window that the screen failed (never promotable)
+        "near_blocked": sum(screen_blocked(x) for x in near_target(RunFiles(d).read_ledger(), SPEC)),
         "start": meta.get("start"),
     }
 
@@ -128,14 +132,16 @@ def cmd_report(root: str) -> None:
         "",
         "## Per run",
         "",
-        "| method | seed | termination | evals | XFoil evals | screen blocks | est. cost | wall clock | result |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| method | seed | termination | evals | XFoil evals | near-target designs failing the screen "
+        "| blocked promotions / direct XFoil | est. cost | wall clock | result |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for m in METHODS:
         for r in by[m]:
             res = f"PASS `{r['best']}`" if r["success"] else f"closest `{r['closest']}`: {r['failing']}"
             out.append(
-                f"| {m} | {r['seed']} | {r['termination']} | {r['evals']} | {r['xfoil_evals']} | {r['blocked']} "
+                f"| {m} | {r['seed']} | {r['termination']} | {r['evals']} | {r['xfoil_evals']} | {r['near_blocked']} "
+                f"| {r['blocked']} "
                 f"| ${r['cost']:.2f} | {60 * r['wall_h']:.1f} min | {res} |"
             )
     out += [
