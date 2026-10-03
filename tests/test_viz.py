@@ -89,3 +89,30 @@ def test_stall_plot_written_per_probed_xfoil_candidate(spec, tmp_path):
     assert out["stall_plots"] == {cid: str(tmp_path / f"stall_{cid}.png")}
     img = iio.imread(stall_plot(led[-1], spec, tmp_path / "s.png"))
     assert img.ndim == 3 and img.shape[1] > img.shape[0]
+
+
+def test_middle_is_not_the_start_when_a_later_failure_exists(spec):
+    from swarm.state import SurrogateScreen
+
+    def screened(r, slope):
+        sc = SurrogateScreen(
+            alphas_deg=[1, 2, 3],
+            cls=[-1, -1, -1],
+            slopes=[slope, slope],
+            dcl_dalpha=slope,
+            stall_threshold=0.0575,
+            stall_ok=False,
+            h_sep=4.25,
+            sep_warning=False,
+            ok=False,
+        )
+        return r.model_copy(update={"screen": sc})
+
+    led = [
+        screened(rec(0, 12, -1.2, 0.040), -0.05),  # the start: worst screen slope of the run
+        screened(rec(1, 9, -1.4, 0.020), 0.03),
+        rec(2, 9.5, -1.49, 0.016, status="PASS", stall=good_stall()),
+    ]
+    first, middle, after = pick_frames(led, spec)
+    assert after is led[2] and middle is led[1] and middle.params.cid != first.params.cid
+    assert pick_frames(led[:1] + led[2:], spec)[1] is led[0]  # nothing else failed: the start it is

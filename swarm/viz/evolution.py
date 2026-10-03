@@ -62,12 +62,14 @@ def _instructive_failure(pool: list[EvalRecord], first: EvalRecord) -> EvalRecor
 
 def pick_frames(ledger: list[EvalRecord], spec: DesignSpec) -> tuple[EvalRecord, EvalRecord, EvalRecord]:
     """(before, middle, after). `after` is the best passing design, else the closest candidate
-    (check with `ledger.passing`); `middle` never has the same cid as `after`."""
+    (check with `ledger.passing`); `middle` never has the same cid as `after`, and is the start
+    design only when nothing else failed."""
     ok = [r for r in ledger if usable(r)]
     first = ok[0]
     final = best_passing(ledger, spec) or closest_candidate(ledger, spec) or first
     pool = [r for r in ok if r.params.cid != final.params.cid]
-    middle = _instructive_failure(pool, first)
+    later = [r for r in pool if r.params.cid != first.params.cid]
+    middle = _instructive_failure(later, first) or _instructive_failure(pool, first)
     if middle is None:  # every usable round is the final design: nothing else to show
         middle = first
     return first, middle, final
