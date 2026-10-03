@@ -38,6 +38,9 @@ the screen rejects.
   lock, "free" adopts the CAD's direction (`deadlock_coerced`).
 - Report: the blocked list (report and Chief brief) is sorted by generation; stall-plot slope labels
   sit on the side of their segment away from the threshold line.
+- Evolution strip: the "most instructive failure" frame is the start design only when nothing else
+  failed. Benchmark run `llm_s44` showed the start as both "before" and "middle" (it had the run's
+  worst screen slope); its strip, GIF and stall plot in `runs/bench/llm_s44/` were re-rendered.
 
 ### Example run committed
 `runs/examples/hard_llm_20261001-201455-faf6a3/` (live run 2: report, strip, GIF, stall plots,
