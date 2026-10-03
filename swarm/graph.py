@@ -40,14 +40,26 @@ from langgraph.graph import END, START, StateGraph
 from swarm.agents import cad as cad_agent
 from swarm.agents import chief as chief_agent
 from swarm.agents import critic as critic_agent
+from swarm.briefs import near_target, screen_blocked
 from swarm.cad.apply import apply_delta, fallback_params
 from swarm.cad.build import build
-from swarm.critic.numeric import NumericReport, stall_check_required, suggest_diagnosis, validate
+from swarm.critic.numeric import VALIDATION, NumericReport, stall_check_required, suggest_diagnosis, validate
+from swarm.critic.screen import compare_with_xfoil, surrogate_screen
 from swarm.critic.stall import measure_stall_margin
-from swarm.ledger import RunFiles, best_record, objective, usable
+from swarm.ledger import (
+    RunFiles,
+    best_passing,
+    closest_candidate,
+    failing_checks,
+    latest_per_cid,
+    objective,
+    select_parent,
+    usable,
+)
 from swarm.llm.client import LLMClient
 from swarm.solvers import neuralfoil, xfoil
 from swarm.state import (
+    TERMINAL_FIDELITIES,
     CFDResult,
     DesignSpec,
     EvalRecord,
@@ -77,6 +89,7 @@ CHECKPOINT_TYPES = [
         "Diagnosis",
         "Finding",
         "StallMargin",
+        "SurrogateScreen",
         "EvalRecord",
         "ParamDelta",
         "ParamChange",
@@ -118,13 +131,14 @@ def node_boundary(name: str, files: RunFiles, on_error: dict | None = None):
 
 
 def _record_for(ledger: list[EvalRecord], cid: str) -> EvalRecord | None:
-    rows = [r for r in ledger if r.params.cid == cid and usable(r)]
-    return rows[-1] if rows else None
+    """The cid's highest-fidelity usable record (the one its verdict and diagnosis come from)."""
+    return next((r for r in latest_per_cid(ledger) if r.params.cid == cid), None)
 
 
-def _base(ledger: list[EvalRecord], spec: DesignSpec, initial: WingParams, fidelity: str | None = None):
-    rec = (best_record(ledger, spec, fidelity) if fidelity else None) or best_record(ledger, spec)
-    return (rec.params, rec) if rec else (initial, None)
+def _base(ledger: list[EvalRecord], spec: DesignSpec, initial: WingParams) -> tuple[WingParams, str]:
+    """The design the next CAD step modifies (`ledger.select_parent`), and why."""
+    rec, why = select_parent(ledger, spec)
+    return (rec.params, why) if rec else (initial, "baseline")
 
 
 def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
@@ -179,7 +193,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             return {"events": [cap_event("chief_plan", s)]}
         spec, ledger = s["spec"], s.get("ledger", [])
         gen = s.get("generation", 0) + (1 if ledger else 0)
-        sbase, _ = _base(ledger, spec, initial)
+        sbase, why = _base(ledger, spec, initial)
         names = free_params(spec)
         sens = neuralfoil.sensitivities(sbase, spec, names)
         st = {**s, "generation": gen}
@@ -191,7 +205,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             prev = s.get("strategy")
             memo = prev or StrategyMemo(
                 hypothesis="(chief unavailable) screen around best",
-                focus_params=list(names[:3]),
+                focus_params=list(names[:3]),  # direction "free"
                 trust_radius=0.15,
                 fidelity="neuralfoil",
                 mode="reasoned_step",
@@ -200,10 +214,13 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                 {"node": "chief_plan", "gen": gen, "event": "llm_error_reused_strategy", "error": repr(e)[:300]}
             )
         events.append({"node": "chief_plan", "gen": gen, "event": "strategy", "strategy": memo.model_dump()})
+        entry = {"gen": gen, "hypothesis": memo.hypothesis, "focus": [f.model_dump() for f in memo.focus_params]}
+        entry |= {"fidelity": memo.fidelity, "promote_cid": memo.promote_cid, "screen_override": memo.screen_override}
         upd: dict[str, Any] = {
             "generation": gen,
             "strategy": memo,
             "events": events,
+            "history": [entry],
             "retries": {**s.get("retries", {}), "cad": 0, "cad_gen": 0},
             "pending_violation": None,
             "delta": None,
@@ -214,10 +231,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         elif not ledger:
             upd |= {"params": initial, "parent": None}
         else:
-            parent, prec = _base(ledger, spec, initial, memo.fidelity)
-            if parent.cid != sbase.cid:
-                sens = neuralfoil.sensitivities(parent, spec, names)
-            upd |= {"params": None, "parent": parent}
+            events.append({"node": "chief_plan", "gen": gen, "event": "parent_selected", "cid": sbase.cid, "why": why})
+            upd |= {"params": None, "parent": sbase}
         upd["sens"] = sens
         return upd
 
@@ -285,12 +300,17 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                 "retries": retries,
                 "events": [{**ev, "event": "proposal_rejected", "error": res.error.model_dump()}],
             }
+        events = [{**ev, "event": "proposal_accepted", "cid": res.params.cid}]
+        events += [
+            {"node": "cad_propose", "gen": gen, "event": "chief_cad_disagreement", "cid": res.params.cid} | d
+            for d in res.disagreements
+        ]
         return {
             "params": res.params,
             "delta": delta,
             "pending_violation": None,
             "retries": retries,
-            "events": [{**ev, "event": "proposal_accepted", "cid": res.params.cid}],
+            "events": events,
         }
 
     def route_after_cad(s: SwarmState) -> str:
@@ -324,12 +344,30 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                     }
                 ],
             }
+        events = [{"node": "geometry_build", "gen": gen, "event": "geometry_ok", "cid": p.cid}]
+        fidelity = memo.fidelity
+        if fidelity != "neuralfoil" and memo.promote_cid != p.cid:
+            # A fresh design sent straight past NeuralFoil: screen it first unless the Chief said why not.
+            if memo.screen_override.strip():
+                events.append(
+                    {"node": "geometry_build", "gen": gen, "event": "screen_override", "cid": p.cid}
+                    | {"fidelity": fidelity, "reason": memo.screen_override.strip()}
+                )
+            else:
+                sc = surrogate_screen(p, spec)
+                if not sc.ok:
+                    fidelity = "neuralfoil"
+                    events.append(
+                        {"node": "geometry_build", "gen": gen, "event": "direct_xfoil_screened_out", "cid": p.cid}
+                        | {"requested": memo.fidelity, "reasons": sc.reasons()}
+                    )
         return {
             "geometry": geo,
             "pending_violation": None,
-            "solver": {"fidelity": memo.fidelity, "level": 0, "tried": [], "fallback_from": None},
+            "solver": {"fidelity": fidelity, "level": 0, "tried": [], "fallback_from": None},
             "stall": None,
-            "events": [{"node": "geometry_build", "gen": gen, "event": "geometry_ok", "cid": p.cid}],
+            "screen": None,
+            "events": events,
         }
 
     def route_after_geometry(s: SwarmState) -> str:
@@ -369,8 +407,14 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     @node_boundary("numeric_validate", files)
     def numeric_validate(s: SwarmState) -> dict:
         res, p, spec, ledger = s.get("result"), s["params"], s["spec"], s.get("ledger", [])
+        gen = s.get("generation", 0)
         rep = validate(res, p, spec, ledger)
-        stall, events = None, []
+        stall, screen, events = None, None, []
+        if res is not None and rep.ok:
+            # NeuralFoil screen (one surrogate call): a check at NeuralFoil, a comparison at XFoil.
+            screen = surrogate_screen(p, spec)
+            if res.fidelity == "neuralfoil":
+                rep = validate(res, p, spec, ledger, screen=screen)
         if stall_check_required(res, rep):
             # Only a candidate that clears every other check pays for the two extra solves.
             coords = s["geometry"].coords_path
@@ -379,18 +423,23 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             )
             rep = validate(res, p, spec, ledger, stall=stall)
             events.append(
-                {"node": "numeric_validate", "gen": s.get("generation", 0), "event": "stall_margin", "cid": p.cid}
-                | stall.model_dump()
+                {"node": "numeric_validate", "gen": gen, "event": "stall_margin", "cid": p.cid} | stall.model_dump()
             )
+        if screen is not None and res.fidelity != "neuralfoil":
+            cmp = compare_with_xfoil(screen, res, stall)
+            if cmp["disagree"]:
+                events.append(
+                    {"node": "numeric_validate", "gen": gen, "event": "screen_xfoil_disagreement", "cid": p.cid} | cmp
+                )
         events.append(
             {
                 "node": "numeric_validate",
-                "gen": s.get("generation", 0),
+                "gen": gen,
                 "status": rep.status,
                 "failed": [c.name for c in rep.checks if not c.ok],
             }
         )
-        return {"numeric": rep, "stall": stall, "events": events}
+        return {"numeric": rep, "stall": stall, "screen": screen, "events": events}
 
     def recoverable(s: SwarmState) -> bool:
         rep: NumericReport | None = s.get("numeric")
@@ -438,17 +487,29 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         events = []
         rep: NumericReport = s["numeric"]
         if aborted(s):
-            v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+            v = Verdict(
+                status=rep.status,
+                diagnosis=suggest_diagnosis(s.get("result"), spec, stall=s.get("stall"), screen=s.get("screen")),
+                confidence=0.3,
+            )
             events.append({**abort_event("critic", s), "action": "numeric verdict, no LLM call"})
         elif capped(s):
-            v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+            v = Verdict(
+                status=rep.status,
+                diagnosis=suggest_diagnosis(s.get("result"), spec, stall=s.get("stall"), screen=s.get("screen")),
+                confidence=0.3,
+            )
             events.append({**cap_event("critic", s), "action": "numeric verdict, no LLM call"})
         else:
             try:
                 v = critic_agent.review(llm, s, parent_rec)
             except Exception as e:
                 fallback("critic", "numeric_verdict", e)
-                v = Verdict(status=rep.status, diagnosis=suggest_diagnosis(s.get("result"), spec), confidence=0.3)
+                v = Verdict(
+                    status=rep.status,
+                    diagnosis=suggest_diagnosis(s.get("result"), spec, stall=s.get("stall"), screen=s.get("screen")),
+                    confidence=0.3,
+                )
                 events.append(
                     {"node": "critic", "gen": gen, "event": "llm_error_numeric_verdict", "error": repr(e)[:300]}
                 )
@@ -479,6 +540,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             predicted_signs=signs,
             parent_cid=parent.cid if parent else None,
             stall_margin=s.get("stall"),
+            screen=s.get("screen"),
+            failed_checks=[c.name for c in rep.checks if not c.ok and c.severity != "skipped"],
         )
         files.append_record(rec)
         events.append(
@@ -532,12 +595,17 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     return g
 
 
-def _budget_spent(s: SwarmState) -> bool:
-    spec = s["spec"]
-    if len(s.get("ledger", [])) >= spec.max_evals:
-        return True
+def _evals_spent(s: SwarmState) -> bool:
+    return len(s.get("ledger", [])) >= s["spec"].max_evals
+
+
+def _wall_clock_spent(s: SwarmState) -> bool:
     t0 = s.get("started_at")
-    return bool(t0) and (time.time() - t0) / 3600.0 >= spec.max_wall_hours
+    return bool(t0) and (time.time() - t0) / 3600.0 >= s["spec"].max_wall_hours
+
+
+def _budget_spent(s: SwarmState) -> bool:
+    return _evals_spent(s) or _wall_clock_spent(s)
 
 
 def target_met(s: SwarmState) -> bool:
@@ -562,9 +630,11 @@ def route_after_critic_fn(s: SwarmState, cost_capped: bool = False, aborted: boo
 
 
 def termination_reason(s: SwarmState, cost_capped: bool = False, invalid: bool = False) -> str:
+    """Which limit ended the run. eval_budget (max_evals), wall_clock (max_wall_hours) and
+    cost_cap (max_cost_usd) are separate labels; "unknown" means no rule explains the stop."""
     if s.get("termination") == "fatal":
         return "fatal"
-    if invalid:  # a real-LLM run that failed its validity rules is never target_met/budget/...
+    if invalid:  # a real-LLM run that failed its validity rules is never target_met/eval_budget/...
         return "invalid_llm"
     if s.get("verdict") and target_met(s):
         return "target_met"
@@ -573,15 +643,60 @@ def termination_reason(s: SwarmState, cost_capped: bool = False, invalid: bool =
     memo = s.get("strategy")
     if memo and memo.declare_plateau:
         return "plateau"
-    return "budget"
+    if _evals_spent(s):
+        return "eval_budget"
+    if _wall_clock_spent(s):
+        return "wall_clock"
+    return "unknown"
+
+
+TERMINATION_TEXT = {
+    "target_met": "a design passed every check at XFoil",
+    "eval_budget": "evaluation budget (max_evals) used up",
+    "wall_clock": "wall-clock limit (max_wall_hours) reached",
+    "cost_cap": "estimated LLM cost reached the cap (max_cost_usd)",
+    "plateau": "the Chief declared a plateau",
+    "fatal": "too many node errors",
+    "invalid_llm": "the real-LLM run failed its validity rules",
+    "unknown": "no termination rule matched (please report)",
+}
+
+
+def _record_section(rec: EvalRecord, spec: DesignSpec, viz: dict) -> list[str]:
+    r = rec.result
+    status = rec.verdict.status if rec.verdict else r.status
+    lines = [
+        f"`{rec.params.cid}` (gen {rec.generation}, {r.fidelity}"
+        + (", lower-fidelity fallback" if r.lower_fidelity else "")
+        + f"), status **{status}**",
+        f"- Cl = {r.cl:.4f}, Cd = {r.cd:.5f}, objective = {objective(r, spec):.4f}",
+    ]
+    if rec.stall_margin is not None and rec.stall_margin.dcl_dalpha is not None:
+        lines.append(
+            f"- Stall margin d|Cl|/dα = {rec.stall_margin.dcl_dalpha:.3f}/deg (threshold {rec.stall_margin.threshold})"
+        )
+    plot = viz.get("stall_plots", {}).get(rec.params.cid)
+    if plot:
+        lines.append(f"- Stall-margin plot: [{Path(plot).name}]({Path(plot).name})")
+    lines += [f"- Params: `{rec.params.model_dump_json()}`", ""]
+    return lines
+
+
+def _screen_cell(rec: EvalRecord) -> str:
+    sc = rec.screen
+    if sc is None:
+        return ""
+    if sc.ok:
+        return "ok"
+    return " + ".join(x for x, bad in (("stall", not sc.stall_ok), ("sep", sc.sep_warning)) if bad)
 
 
 def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> None:
     from swarm.viz.evolution import write_evolution
 
     spec, ledger = s["spec"], s.get("ledger", [])
-    best = best_record(ledger, spec)
-    best_x = best_record(ledger, spec, "xfoil")
+    passed = best_passing(ledger, spec)
+    closest = None if passed else closest_candidate(ledger, spec)
     viz = write_evolution(ledger, spec, files.dir) if any(usable(r) for r in ledger) else {}
     summary = (
         llm.trace.write_summary({"llm_client": llm.label, "is_mock": llm.is_mock}) if hasattr(llm, "trace") else {}
@@ -589,6 +704,17 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     h = getattr(getattr(llm, "trace", None), "health", None)
     enforced = (not llm.is_mock) and h is not None
     health = h.snapshot(enforced) if h is not None else None
+    t0 = s.get("started_at")
+    limits = {
+        "evals": len(ledger),
+        "max_evals": spec.max_evals,
+        "cost_usd": round(summary.get("cost_usd", 0.0), 6),
+        "max_cost_usd": spec.max_cost_usd,
+        "wall_hours": round((time.time() - t0) / 3600.0, 4) if t0 else None,
+        "max_wall_hours": spec.max_wall_hours,
+    }
+    cap = f"cap ${spec.max_cost_usd:.2f}" if spec.max_cost_usd is not None else "no cost cap"
+    wall = f"{limits['wall_hours']:.2f} h" if limits["wall_hours"] is not None else "n/a"
     lines = [f"# Run {files.dir.name}", ""]
     if health and enforced and not health["valid"]:
         lines += ["> **INVALID RUN: not usable as a real-LLM result.** `require_real_llm()` will refuse it."]
@@ -598,12 +724,12 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         f"- LLM health: **{'INVALID' if not health['valid'] else 'valid'}**"
         if health and enforced
         else "- LLM health: not enforced (mock)",
-        f"- Termination: **{term}**",
-        f"- Evaluations: {len(ledger)} / {spec.max_evals}",
+        f"- Termination: **{term}** ({TERMINATION_TEXT.get(term, term)})",
+        f"- Limits: evaluations {len(ledger)} / {spec.max_evals}; est. LLM cost ${limits['cost_usd']:.4f} ({cap}); "
+        f"wall clock {wall} / {spec.max_wall_hours} h",
         f"- Target: Cl = {spec.target_cl} ± {spec.cl_tol}, Cd ≤ {spec.cd_max}, Re = {spec.reynolds:.3e}",
         f"- LLM calls: {summary.get('calls', 0)}, tokens in/out: {summary.get('input_tokens', 0)}/"
-        f"{summary.get('output_tokens', 0)}, est. cost ${summary.get('cost_usd', 0.0):.4f}"
-        + (f" (cap ${spec.max_cost_usd:.2f})" if spec.max_cost_usd is not None else " (no cost cap)"),
+        f"{summary.get('output_tokens', 0)}",
         "",
     ]
     if health:
@@ -623,22 +749,21 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
             f"{health['max_failed_calls']} is aborted); fallbacks = a deterministic output replaced the agent's.",
             "",
         ]
-    for label, rec in (("Best overall", best), ("Best at XFoil", best_x)):
-        if rec:
-            r = rec.result
-            lines += [
-                f"## {label}: `{rec.params.cid}` (gen {rec.generation}, {r.fidelity}"
-                + (", lower-fidelity fallback" if r.lower_fidelity else "")
-                + ")",
-                f"- Cl = {r.cl:.4f}, Cd = {r.cd:.5f}, objective = {objective(r, spec):.4f}",
-                f"- Params: `{rec.params.model_dump_json()}`",
-                "",
-            ]
+    lines += ["## Best passing design", ""]
+    if passed:
+        lines += ["A full PASS: XFoil (not a fallback), in the target box, attached, with a stall margin.", ""]
+        lines += _record_section(passed, spec, viz)
+    else:
+        lines += ["**None.** No design passed every check at a terminal fidelity (XFoil, not a fallback).", ""]
+    if closest:
+        lines += ["## Closest candidate (did not pass)", ""]
+        lines += _record_section(closest, spec, viz)[:-1]
+        lines += ["- **Failing check(s):**"] + [f"  - {w}" for w in failing_checks(closest, spec)] + [""]
     lines += [
         "## Ledger",
         "",
-        "| gen | cid | fidelity | status | Cl | Cd | stall d\\|Cl\\|/dα | quarantined |",
-        "|---|---|---|---|---|---|---|---|",
+        "| gen | cid | fidelity | status | Cl | Cd | stall d\\|Cl\\|/dα | NF screen | quarantined |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for rec in ledger:
         r = rec.result
@@ -648,9 +773,36 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         stall = "" if sm is None else ("n/a" if sm.dcl_dalpha is None else f"{sm.dcl_dalpha:.3f}")
         lines.append(
             f"| {rec.generation} | {rec.params.cid} | {r.fidelity}{'*' if r.lower_fidelity else ''} "
-            f"| {rec.verdict.status if rec.verdict else r.status} | {cl} | {cd} | {stall} | {rec.quarantined} |"
+            f"| {rec.verdict.status if rec.verdict else r.status} | {cl} | {cd} | {stall} | {_screen_cell(rec)} "
+            f"| {rec.quarantined} |"
         )
-    lines += ["", "`*` = lower-fidelity fallback. All numbers above come from ledger.jsonl.", ""]
+    lines += [
+        "",
+        "`*` = lower-fidelity fallback. Only XFoil PASS rows are passing designs; a NeuralFoil PASS is a "
+        "lower-tier result. NF screen = NeuralFoil stall (alpha+1/+2) and suction-side separation screen. "
+        "All numbers above come from ledger.jsonl.",
+        "",
+    ]
+    lines += _screen_section(ledger, spec)
+    plots = viz.get("stall_plots", {})
+    xf = [r for r in ledger if r.result.fidelity in TERMINAL_FIDELITIES and usable(r)]
+    if xf:
+        lines += ["## Stall-margin plots (XFoil candidates)", ""]
+        for rec in xf:
+            sm, plot = rec.stall_margin, plots.get(rec.params.cid)
+            if sm is not None and plot:
+                v = "probe failed" if sm.dcl_dalpha is None else f"d|Cl|/dα {sm.dcl_dalpha:.3f}/deg"
+                ok = "ok" if sm.ok else f"< {sm.threshold}"
+                lines.append(
+                    f"- gen {rec.generation} `{rec.params.cid}`: {v} {ok} — [{Path(plot).name}]({Path(plot).name})"
+                )
+            else:
+                why = "; ".join(failing_checks(rec, spec)) or "not in the target box"
+                lines.append(
+                    f"- gen {rec.generation} `{rec.params.cid}`: no probe "
+                    f"(it runs only for in-box, attached results: {why})"
+                )
+        lines.append("")
     if viz:
         lines += [f"![evolution]({Path(viz['strip']).name})", ""]
     (files.dir / "report.md").write_text("\n".join(lines))
@@ -658,10 +810,49 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         {
             "termination": term,
             "evals": len(ledger),
+            "limits": limits,
             "llm_usage": summary,
             "llm_health": health,
             "viz": viz,
-            "best_cid": best.params.cid if best else None,
-            "best_xfoil_cid": best_x.params.cid if best_x else None,
+            "best_passing_cid": passed.params.cid if passed else None,
+            "closest_candidate_cid": closest.params.cid if closest else None,
+            "closest_candidate_failing": failing_checks(closest, spec) if closest else [],
         }
     )
+
+
+def _screen_section(ledger: list[EvalRecord], spec: DesignSpec) -> list[str]:
+    """NeuralFoil screen: promotions it blocked and how it compares with XFoil on the same geometry."""
+    blocked = sorted((r for r in near_target(ledger, spec) if screen_blocked(r)), key=lambda r: r.generation)
+    compared = [r for r in ledger if r.screen is not None and r.result.fidelity in TERMINAL_FIDELITIES]
+    if not blocked and not compared:
+        return []
+    lines = ["## NeuralFoil screen", ""]
+    if blocked:
+        lines += ["Blocked from promotion to XFoil (near the target at NeuralFoil, screen failed):", ""]
+        lines += [f"- gen {r.generation} `{r.params.cid}`: {'; '.join(r.screen.reasons())}" for r in blocked] + [""]
+    if compared:
+        lines += [
+            "Screen vs XFoil on the same geometry (XFoil is authoritative):",
+            "",
+            "| gen | cid | screen d\\|Cl\\|/dα | XFoil d\\|Cl\\|/dα | screen TE H | XFoil TE sep x/c | disagree |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for r in compared:
+            cmp = compare_with_xfoil(r.screen, r.result, r.stall_margin)
+            sc, sm = r.screen, r.stall_margin
+            xs = "" if sm is None or sm.dcl_dalpha is None else f"{sm.dcl_dalpha:.3f}"
+            ns = "" if sc.dcl_dalpha is None else f"{sc.dcl_dalpha:.3f}"
+            sep = r.result.bl.te_separation_xc if r.result.bl is not None else None
+            h = f"{sc.te_shape_factor[0]:.2f}" if sc.te_shape_factor else ""
+            lines.append(
+                f"| {r.generation} | {r.params.cid} | {ns} | {xs} | {h} | {'' if sep is None else f'{sep:.2f}'} "
+                f"| {', '.join(cmp['disagree']) or '-'} |"
+            )
+        lines += [
+            "",
+            f"Stall: screen and XFoil both use d|Cl|/dα ≥ {VALIDATION.stall_min_dcl_dalpha} (XFoil only when its "
+            f"probe ran). Separation: screen warns at suction-side TE H ≥ {VALIDATION.screen_h_sep}.",
+            "",
+        ]
+    return lines

@@ -41,6 +41,24 @@ def evaluate(params: WingParams, spec: DesignSpec, fallback_from: Fidelity | Non
     )
 
 
+def polar(params: WingParams, spec: DesignSpec, alphas_deg: list[float]) -> dict[str, np.ndarray]:
+    """One surrogate call over several alphas (same geometry).
+
+    Returns race-car `cl` (n,), the suction-side boundary-layer shape factor `upper_h`
+    (n, 32) at `nf.bl_x_points` (the upright upper surface is the suction side), and the
+    suction-side transition point `xtr_upper` (n,).
+    """
+    af = asb.Airfoil(name=params.cid, coordinates=main_section(params))
+    alpha = np.asarray(alphas_deg, dtype=float)
+    r = nf.get_aero_from_airfoil(airfoil=af, alpha=alpha, Re=spec.reynolds, n_crit=spec.ncrit, model_size=MODEL_SIZE)
+    n = len(nf.bl_x_points)
+    return {
+        "cl": -np.ravel(r["CL"]),
+        "upper_h": np.stack([np.ravel(r[f"upper_bl_H_{i}"]) for i in range(n)], axis=1),
+        "xtr_upper": np.ravel(r["Top_Xtr"]),
+    }
+
+
 def coefficients(params: WingParams, spec: DesignSpec) -> tuple[float, float]:
     r = _aero(params, spec)
     return -_f(r["CL"]), _f(r["CD"])

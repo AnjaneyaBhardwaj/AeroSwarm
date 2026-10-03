@@ -4,7 +4,9 @@ Same geometry, same fidelity (XFoil), same recovery ladder per probe point: leve
 are tried in order from L0, each once, via `xfoil.next_level`. If the ladder is
 exhausted or the output is non-finite the margin cannot be established, and a design
 without a margin never ends the run. The slope threshold is `ValidatorConfig`'s
-`stall_min_dcl_dalpha`.
+`stall_min_dcl_dalpha`. TE separation at alpha+1 or alpha+2 also fails the margin: the
+design would separate within the probe range (the gate the hard-preset target was
+derived with; scripts/gated_sweep.py).
 """
 
 from __future__ import annotations
@@ -55,7 +57,14 @@ def measure_stall_margin(
     pts = [(a, abs(c)) for a, c in zip(alphas, cls, strict=True) if c is not None]
     slopes = [(c1 - c0) / (a1 - a0) for (a0, c0), (a1, c1) in zip(pts, pts[1:], strict=False)]
     margin = min(slopes) if failure is None and slopes else None
-    ok = margin is not None and margin >= cfg.stall_min_dcl_dalpha
+    sep_probe = [
+        f"alpha+{d:g}: TE separation from x/c {x:.2f}"
+        for d, x in zip(cfg.stall_probe_deg, seps[1:], strict=True)
+        if x is not None
+    ]
+    ok = margin is not None and margin >= cfg.stall_min_dcl_dalpha and not sep_probe
+    if sep_probe and failure is None:
+        failure = "; ".join(sep_probe)
     return StallMargin(
         alphas_deg=alphas,
         cls=cls,

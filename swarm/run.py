@@ -37,20 +37,18 @@ DEMO_SPEC = DesignSpec(
 DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
 
 # "Hard" preset: a near-stall target at a low-speed-corner Re (3e5 ≈ 15 m/s on the
-# 300 mm chord). Target = 85% of the attached Cl,max found by the XFoil sweep over the
-# feasible single-element box (scripts/clmax_sweep.py; docs/PROGRESS.md, session 3):
-# attached Cl,max 2.092 (m 0.09, p 0.3, t 0.12, alpha 12), so Cl -1.78; attached designs in
-# the Cl box have Cd 0.015-0.019, so the cap is 0.020 (session 2's 0.030 admitted
-# separated near-stall designs). The start point is unchanged. The mock's path through
-# it (L0 -> L1 recovery, a TE-separated TARGET_MISS as the strip's middle frame, then a
-# stall-margin-checked target_met) is verified by tests/test_demo_hard.py (needs the
-# xfoil binary). A real LLM takes its own path, so those events are expected there,
-# not guaranteed.
+# 300 mm chord), derived from the GATED XFoil sweep (scripts/gated_sweep.py; docs/PROGRESS.md,
+# session 7): a design counts only if it is attached at alpha, alpha+1 and alpha+2 and keeps
+# d|Cl|/dalpha >= 0.05/deg there (the pipeline's full gate). Gated Cl_max is 1.979. With
+# Cd <= 0.025, -1.83 ± 0.03 is the hardest target (0.01 steps) whose box holds >= 10 passing
+# grid points off the binding bounds (camber < 0.09, thickness > 0.0955): 13 interior,
+# 28 in total. The old -1.78 / Cd 0.020 box held 8 passing points, 4 on the camber bound.
+# XFoil-derived: re-check when the OpenFOAM tiers arrive. The start point is unchanged.
 HARD_SPEC = DesignSpec(
     component="wing_1el",
-    target_cl=-1.78,
+    target_cl=-1.83,
     cl_tol=0.03,
-    cd_max=0.020,
+    cd_max=0.025,
     speed_mps=round(speed_for_reynolds(3.0e5, PLACEHOLDER_CAR.chord_mm), 2),
     max_evals=30,
     max_wall_hours=0.5,
@@ -73,6 +71,7 @@ def run(
     inject_faults: bool = False,
     resume: bool = False,
     preset: str | None = None,
+    start_seed: int | None = None,
 ) -> dict:
     if llm is None:
         preflight_llm(which)  # MissingAPIKey before any run directory exists
@@ -83,7 +82,15 @@ def run(
     if not llm.is_mock and spec.max_cost_usd is None and not resume:
         print("warning: real LLM run without a cost cap; pass --budget-usd to bound spend", file=sys.stderr)
     meta = (
-        {} if resume else {"run_id": run_id, "preset": preset, "spec": spec.model_dump(), "start": start.model_dump()}
+        {}
+        if resume
+        else {
+            "run_id": run_id,
+            "preset": preset,
+            "spec": spec.model_dump(),
+            "start": start.model_dump(),
+            "start_seed": start_seed,  # set when the start was sampled by baselines.random_start
+        }
     )
     files.write_meta(
         {
@@ -119,6 +126,7 @@ def run(
                 "verdict": None,
                 "ledger": [],
                 "events": [],
+                "history": [],
                 "retries": {},
                 "pending_violation": None,
                 "termination": None,
@@ -142,6 +150,8 @@ def main(argv: list[str] | None = None) -> None:
         type=float,
         help="stop cleanly once the estimated LLM cost reaches this (USD); calls with unknown pricing count as over",
     )
+    ap.add_argument("--max-wall-hours", type=float, help="wall-clock limit in hours (default: the preset's)")
+    ap.add_argument("--start-seed", type=int, help="start from a seeded random feasible design (recorded in meta.json)")
     ap.add_argument("--resume", metavar="RUN_ID")
     ap.add_argument("--no-faults", action="store_true", help="mock: skip the injected demo fault")
     a = ap.parse_args(argv)
@@ -155,9 +165,15 @@ def main(argv: list[str] | None = None) -> None:
         upd["max_evals"] = a.max_evals
     if a.budget_usd is not None:
         upd["max_cost_usd"] = a.budget_usd
-    if a.resume and (upd or a.preset != "default"):
+    if a.max_wall_hours is not None:
+        upd["max_wall_hours"] = a.max_wall_hours
+    if a.resume and (upd or a.preset != "default" or a.start_seed is not None):
         ap.error("--resume continues the checkpointed spec; --preset/--max-evals/--budget-usd are fixed at run start")
     spec = spec.model_copy(update=upd)
+    if a.start_seed is not None:
+        from swarm.baselines import random_start
+
+        start = random_start(a.start_seed, spec)
     try:
         preflight_llm(a.llm)
     except MissingAPIKey as e:
@@ -171,6 +187,7 @@ def main(argv: list[str] | None = None) -> None:
         inject_faults=not a.no_faults,
         resume=bool(a.resume),
         preset=None if a.resume else a.preset,
+        start_seed=a.start_seed,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     health = meta.get("llm_health") or {}
@@ -185,8 +202,9 @@ def main(argv: list[str] | None = None) -> None:
                         "llm_client",
                         "termination",
                         "evals",
-                        "best_cid",
-                        "best_xfoil_cid",
+                        "best_passing_cid",
+                        "closest_candidate_cid",
+                        "closest_candidate_failing",
                         "viz",
                     )
                 },

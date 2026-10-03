@@ -12,7 +12,7 @@ import json
 import operator
 from typing import Annotated, Any, Literal, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 Fidelity = Literal["neuralfoil", "xfoil", "of2d", "of3d"]
 FIDELITY_RANK: dict[str, int] = {"neuralfoil": 0, "xfoil": 1, "of2d": 2, "of3d": 3}
@@ -239,6 +239,9 @@ class ParamChange(BaseModel):
     mechanism: str  # physical reasoning
     expected_dCl_sign: Literal[-1, 0, 1]  # sign of change in race-car Cl
     expected_dCd_sign: Literal[-1, 0, 1]
+    # Required when the change goes against the Chief's direction for this parameter;
+    # the graph logs it as a chief_cad_disagreement. Empty otherwise.
+    override_reason: str = ""
 
 
 class ParamDelta(BaseModel):
@@ -246,15 +249,48 @@ class ParamDelta(BaseModel):
     note: str = ""  # e.g. a logged heuristic-vs-sensitivity contradiction
 
 
+Direction = Literal["+", "-", "free"]
+
+
+class FocusParam(BaseModel):
+    """A parameter the Chief lets the CAD agent change, and which way: "+" increase, "-" decrease,
+    "free" either. The CAD may go against "+"/"-" only with an override_reason (logged), and never
+    against a locked direction."""
+
+    name: str
+    direction: Direction = "free"
+    locked: bool = False
+
+
 class StrategyMemo(BaseModel):
     hypothesis: str
-    focus_params: list[str]
+    focus_params: list[FocusParam]
     trust_radius: float = Field(ge=0.02, le=0.5)
     fidelity: Fidelity
     mode: Literal["reasoned_step", "inner_optimizer"]
     inner_budget: int = 0
     promote_cid: str | None = None  # re-evaluate this ledger candidate at `fidelity`
     declare_plateau: bool = False
+    # A fresh design sent straight to XFoil (fidelity xfoil, no promote_cid) first goes through
+    # the NeuralFoil screen; a non-empty reason skips that screen and is logged.
+    screen_override: str = ""
+
+    @field_validator("focus_params", mode="before")
+    @classmethod
+    def _names_are_free(cls, v: Any) -> Any:
+        """A bare parameter name means direction "free"."""
+        return [{"name": x, "direction": "free"} if isinstance(x, str) else x for x in v] if isinstance(v, list) else v
+
+    @property
+    def focus_names(self) -> list[str]:
+        # tolerant of bare names: model_copy(update=...) skips the validator above
+        return [f if isinstance(f, str) else f.name for f in self.focus_params]
+
+    def direction(self, name: str) -> str:
+        return next((f.direction for f in self.focus_params if not isinstance(f, str) and f.name == name), "free")
+
+    def locked(self, name: str) -> bool:
+        return any(not isinstance(f, str) and f.name == name and f.locked for f in self.focus_params)
 
 
 class StallMargin(BaseModel):
@@ -277,6 +313,54 @@ class StallMargin(BaseModel):
     failure: str | None = None  # e.g. "alpha+2: ladder exhausted (not_converged@L3)"
 
 
+class SurrogateScreen(BaseModel):
+    """NeuralFoil-tier screen of one geometry: alpha, alpha+1, alpha+2 deg in one surrogate call.
+
+    Stall: the same d|Cl|/dalpha definition as `StallMargin` (smallest forward secant,
+    1/deg), on NeuralFoil's Cl, against a stricter threshold than XFoil's (NeuralFoil smooths
+    the stall knee). Separation: NeuralFoil's suction-side (upright upper surface) boundary-layer
+    shape factor H at its last station (x/c 0.984): a warning when H at the design alpha is at or
+    above `h_sep` (`sep_xc` is where that run of H starts), and a probe warning when H at alpha+1
+    or alpha+2 reaches `probe_h_max` (XFoil's gate fails on TE separation at the probes).
+    It gates promotion to XFoil; it never overrides an XFoil result (XFoil's gates stay
+    authoritative). Thresholds: `ValidatorConfig.screen_*`.
+    """
+
+    alphas_deg: list[float]
+    cls: list[float]  # race-car Cl (negative = downforce)
+    slopes: list[float] = []  # d|Cl|/dalpha between successive points
+    dcl_dalpha: float | None = None  # min(slopes)
+    stall_threshold: float
+    stall_ok: bool
+    te_shape_factor: list[float] = []  # suction-side H at x/c 0.984, per alpha
+    sep_xc: float | None = None  # at the design alpha
+    h_sep: float
+    sep_warning: bool  # at the design alpha
+    probe_h_max: float = 0.0
+    probe_sep: bool = False  # TE H at alpha+1 or alpha+2 >= probe_h_max
+    ok: bool  # stall_ok and not sep_warning and not probe_sep
+
+    @property
+    def margin_ok(self) -> bool:
+        """The screen's view of XFoil's stall-margin gate (slope and separation at the probes)."""
+        return self.stall_ok and not self.probe_sep
+
+    def reasons(self) -> list[str]:
+        out = []
+        if not self.stall_ok:
+            v = "n/a" if self.dcl_dalpha is None else f"{self.dcl_dalpha:.3f}"
+            out.append(f"NeuralFoil stall screen: d|Cl|/dalpha {v}/deg < {self.stall_threshold}")
+        if self.sep_warning:
+            h = self.te_shape_factor[0] if self.te_shape_factor else float("nan")
+            out.append(f"NeuralFoil separation warning: suction-side H {h:.2f} >= {self.h_sep} at the TE")
+        if self.probe_sep:
+            hs = ", ".join(f"{h:.2f}" for h in self.te_shape_factor[1:])
+            out.append(
+                f"NeuralFoil separation warning at alpha+1/+2: suction-side TE H {hs} (limit {self.probe_h_max})"
+            )
+        return out
+
+
 class EvalRecord(BaseModel):
     generation: int
     params: WingParams
@@ -287,6 +371,8 @@ class EvalRecord(BaseModel):
     predicted_signs: dict[str, tuple[int, int]] = {}  # param -> (dCl sign, dCd sign)
     parent_cid: str | None = None
     stall_margin: StallMargin | None = None  # measured only for a candidate that would otherwise be target_met
+    screen: SurrogateScreen | None = None  # NeuralFoil screen of this geometry (any fidelity)
+    failed_checks: list[str] = []  # names of the numeric checks that failed (not skipped ones)
 
 
 class SwarmState(TypedDict, total=False):
@@ -301,6 +387,7 @@ class SwarmState(TypedDict, total=False):
     result: CFDResult | None
     numeric: Any  # critic.numeric.NumericReport
     stall: StallMargin | None  # stall-margin probe for the current candidate, when one was run
+    screen: SurrogateScreen | None  # NeuralFoil screen of the current candidate
     sens: dict  # NeuralFoil sensitivities at the generation's base design
     solver: dict  # {"fidelity", "level", "tried", "fallback_from"} for the current candidate
     verdict: Verdict | None
@@ -308,5 +395,9 @@ class SwarmState(TypedDict, total=False):
     events: Annotated[list[dict], operator.add]  # audit trail
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
-    termination: Literal["target_met", "budget", "cost_cap", "plateau", "fatal", "invalid_llm"] | None
+    history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
+    termination: (
+        Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]
+        | None
+    )
     started_at: float

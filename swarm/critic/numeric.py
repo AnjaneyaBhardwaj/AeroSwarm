@@ -17,6 +17,7 @@ from swarm.state import (
     Diagnosis,
     EvalRecord,
     StallMargin,
+    SurrogateScreen,
     VerdictStatus,
     WingParams,
 )
@@ -54,6 +55,25 @@ class ValidatorConfig(BaseModel, frozen=True):
     # round number between "flattening" and "healthy", not a fitted limit.
     stall_probe_deg: tuple[float, ...] = (1.0, 2.0)
     stall_min_dcl_dalpha: float = 0.05
+    # NeuralFoil screen before promotion to XFoil (project convention). Recalibrated in session 9
+    # against the gated XFoil sweep (scripts/gated_sweep.py, scripts/calibrate_screen_rules.py),
+    # whose ground truth is XFoil's full stall gate (margin >= 0.05 AND no TE separation at
+    # alpha+1/+2). In the promotion window (NeuralFoil Cl within 2*tol of the hard target, Cd under
+    # the cap: 804 points, 69 XFoil passes) the session-6 rule (NeuralFoil slope >= 0.05) let 50 of
+    # 118 screen passes fail XFoil (42%): NeuralFoil smooths the stall knee, and 22 of the 50 failed
+    # only on separation at the probes. A higher slope alone needs 0.075 to reach 5% (blocking 68 of
+    # 69 XFoil passes); an alpha+3 probe or a slope-drop (knee) rule never reaches 5%. Slope >= 0.0575
+    # plus suction-side TE H < 3.85 at alpha+1 and alpha+2: 2 of 41 screen passes fail XFoil (4.9%),
+    # 30 of 69 XFoil passes blocked (43%); over all 8,085 evaluable points 2.7% false passes, 10.3%
+    # of XFoil passes blocked. Held out by geometry (2-fold): 6-7% false passes, 31-55% blocked.
+    # XFoil's own threshold (stall_min_dcl_dalpha = 0.05) is unchanged.
+    screen_min_dcl_dalpha: float = 0.0575
+    screen_h_probe_max: float = 3.85
+    # Separation: suction-side H at NeuralFoil's last station (x/c 0.984) at or above this flags
+    # XFoil TE separation (Cf < 0 to the TE) with recall 0.90 and specificity 0.94 over all 1008
+    # points, the best balanced accuracy of thresholds 2.0-8.0 in 0.25 steps; near the target
+    # (169 points) it flags 94 of 104 separated and 7 of 65 attached points. Re 3e5 only.
+    screen_h_sep: float = 4.25
 
 
 VALIDATION = ValidatorConfig()
@@ -142,6 +162,7 @@ def validate(
     ledger: list[EvalRecord],
     cfg: ValidatorConfig = VALIDATION,
     stall: StallMargin | None = None,
+    screen: SurrogateScreen | None = None,
 ) -> NumericReport:
     if result is None:
         c = Check(name="result_present", ok=False, message="no solver result", failure_class="NUMERICAL_FAILURE")
@@ -251,6 +272,19 @@ def validate(
                 failure_class="NUMERICAL_FAILURE",
             )
         )
+        if screen is not None:
+            # NeuralFoil tier only: it blocks promotion to XFoil. XFoil results keep their own gates.
+            checks.append(
+                Check(
+                    name="neuralfoil_screen",
+                    ok=screen.ok,
+                    value=screen.dcl_dalpha,
+                    threshold=f"d|Cl|/dalpha >= {screen.stall_threshold} over alpha+0..+{cfg.stall_probe_deg[-1]:g} deg"
+                    f", suction-side TE H < {screen.h_sep} at alpha and < {screen.probe_h_max} at alpha+1/+2",
+                    severity="suspect",
+                    message="; ".join(screen.reasons()) or "passes the NeuralFoil stall and separation screen",
+                )
+            )
     for name in ("residuals", "mesh", "yplus"):
         checks.append(Check(name=name, ok=True, severity="skipped", message=f"not applicable at {result.fidelity}"))
 
@@ -329,8 +363,67 @@ def validate(
     )
 
 
-def suggest_diagnosis(result: CFDResult | None, spec: DesignSpec, parent: CFDResult | None = None) -> Diagnosis:
-    """Deterministic physical diagnosis from solver facts. A starting point for the Critic."""
+def stall_evidence(stall: StallMargin | None, screen: SurrogateScreen | None) -> tuple[list[str], float | None] | None:
+    """Evidence lines and the separation x/c when the XFoil stall margin or (without a probe)
+    the NeuralFoil screen failed; None when neither failed. XFoil's probe wins when it ran."""
+    if stall is not None:
+        if stall.ok:
+            return None
+        ev = [f"XFoil stall probe at alpha {', '.join(f'{a:g}' for a in stall.alphas_deg)} deg"]
+        if stall.dcl_dalpha is None:
+            ev.append(f"no margin could be measured: {stall.failure}")
+        else:
+            short = stall.threshold - stall.dcl_dalpha
+            ev.append(
+                f"slopes d|Cl|/dalpha {', '.join(f'{s:.3f}' for s in stall.slopes)}/deg; margin {stall.dcl_dalpha:.3f}"
+                f" vs threshold {stall.threshold}" + (f" (short by {short:.3f})" if short > 0 else "")
+            )
+        seps = [(a, x) for a, x in zip(stall.alphas_deg, stall.te_separation_xc, strict=False) if x is not None]
+        ev.append(
+            f"TE separation first at alpha {seps[0][0]:g} deg from x/c {seps[0][1]:.2f}"
+            if seps
+            else "no TE separation at alpha+0..+2"
+        )
+        return ev, (seps[0][1] if seps else None)
+    if screen is not None and not screen.ok:
+        ev = [f"NeuralFoil screen at alpha {', '.join(f'{a:g}' for a in screen.alphas_deg)} deg"]
+        if screen.dcl_dalpha is not None:
+            short = screen.stall_threshold - screen.dcl_dalpha
+            ev.append(
+                f"slopes d|Cl|/dalpha {', '.join(f'{s:.3f}' for s in screen.slopes)}/deg; margin "
+                f"{screen.dcl_dalpha:.3f} vs threshold {screen.stall_threshold}"
+                + (f" (short by {short:.3f})" if short > 0 else "")
+            )
+        # H limit: h_sep at the design alpha, probe_h_max at alpha+1/+2 (old screens have no probe limit)
+        limits = [screen.h_sep] + [screen.probe_h_max or screen.h_sep] * (len(screen.te_shape_factor) - 1)
+        first = next(
+            (
+                (a, h, lim)
+                for a, h, lim in zip(screen.alphas_deg, screen.te_shape_factor, limits, strict=False)
+                if h >= lim
+            ),
+            None,
+        )
+        ev.append(
+            f"suction-side TE H {first[1]:.2f} >= {first[2]} (separation) first at alpha {first[0]:g} deg"
+            if first is not None
+            else "suction-side TE H below the separation limits at alpha+0..+2"
+        )
+        return ev, screen.sep_xc
+    return None
+
+
+def suggest_diagnosis(
+    result: CFDResult | None,
+    spec: DesignSpec,
+    parent: CFDResult | None = None,
+    stall: StallMargin | None = None,
+    screen: SurrogateScreen | None = None,
+) -> Diagnosis:
+    """Deterministic physical diagnosis from solver facts. A starting point for the Critic.
+
+    TE separation at the design alpha first; then a failed stall margin (XFoil probe) or, at
+    NeuralFoil, a failed screen: EARLY_STALL, with slope, margin and separation alpha as evidence."""
     if result is None or result.cl is None or result.cd is None:
         return Diagnosis(symptom="NONE", evidence=["no converged coefficients"])
     if bad := nonfinite_fields(result):
@@ -344,6 +437,11 @@ def suggest_diagnosis(result: CFDResult | None, spec: DesignSpec, parent: CFDRes
         if bl.te_separation_xc < 0.5:
             return Diagnosis(symptom="EARLY_STALL", x_over_c=(bl.te_separation_xc, 1.0), evidence=ev)
         return Diagnosis(symptom="TE_SEPARATION_MAIN", x_over_c=(bl.te_separation_xc, 1.0), evidence=ev)
+    stalled = stall_evidence(stall, screen if result.fidelity == "neuralfoil" else None)
+    if stalled is not None:
+        ev, sep_xc = stalled
+        ev.append(f"Cl {result.cl:.4f} (target {spec.target_cl} ± {spec.cl_tol}), Cd {result.cd:.5f}")
+        return Diagnosis(symptom="EARLY_STALL", x_over_c=(sep_xc, 1.0) if sep_xc is not None else None, evidence=ev)
     need_more = abs(result.cl) < abs(spec.target_cl) - spec.cl_tol
     if result.cd > spec.cd_max:
         ev.append(f"Cd={result.cd:.4f} > cd_max={spec.cd_max}")

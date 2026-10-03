@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from swarm.briefs import chief_brief
+from swarm.briefs import chief_brief, pending_disagreements
 from swarm.llm.client import LLMClient
-from swarm.state import FIDELITY_RANK, StrategyMemo, SwarmState, free_params
+from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
 AVAILABLE_FIDELITIES = ("neuralfoil", "xfoil")  # of2d/of3d arrive with the OpenFOAM milestone
 
@@ -20,18 +20,43 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
     spec, events, upd = state["spec"], [], {}
     gen = state.get("generation", 0)
     free = free_params(spec)
-    focus = [p for p in memo.focus_params if p in free][:3]
-    if focus != memo.focus_params:
+    focus = [f for f in memo.focus_params if f.name in free][:3]
+    if [f.name for f in focus] != memo.focus_names:
+        used = focus or [FocusParam(name=n) for n in free[:3]]
         events.append(
             {
                 "node": "chief_plan",
                 "gen": gen,
                 "event": "focus_params_coerced",
-                "requested": memo.focus_params,
-                "used": focus or list(free[:3]),
+                "requested": [f.model_dump() for f in memo.focus_params],
+                "used": [f.model_dump() for f in used],
             }
         )
-        upd["focus_params"] = focus or list(free[:3])
+        upd["focus_params"] = used
+    # Deadlock rule: a parameter the CAD overrode last generation must be adopted (CAD's direction)
+    # or locked. Restating the old direction without a lock becomes a lock; "free" adopts the CAD's.
+    pending = {d["param"]: d for d in pending_disagreements(state)}
+    if pending:
+        focus_now = upd.get("focus_params", memo.focus_params)
+        fixed = []
+        for f in focus_now:
+            d = pending.get(f.name)
+            if d is None or f.locked or f.direction == d["cad"]:
+                if d is not None:
+                    how = "locked" if f.locked else "adopted"
+                    events.append({"node": "chief_plan", "gen": gen, "event": f"chief_{how}_direction"} | d)
+                fixed.append(f)
+                continue
+            if f.direction == d["chief"]:
+                g = f.model_copy(update={"locked": True})
+                how = "locked (restated without a lock)"
+            else:
+                g = f.model_copy(update={"direction": d["cad"], "locked": False})
+                how = "adopted the CAD direction (was free)"
+            events.append({"node": "chief_plan", "gen": gen, "event": "deadlock_coerced", "resolution": how} | d)
+            fixed.append(g)
+        if fixed != list(focus_now):
+            upd["focus_params"] = fixed
     if memo.mode == "inner_optimizer":
         events.append(
             {
@@ -68,4 +93,16 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
                 }
             )
             upd["promote_cid"] = None
+        elif rec.screen is not None and not rec.screen.ok and rec.result.fidelity == "neuralfoil":
+            # The NeuralFoil screen gates promotion; the generation explores at NeuralFoil instead.
+            events.append(
+                {
+                    "node": "chief_plan",
+                    "gen": gen,
+                    "event": "promotion_blocked_by_screen",
+                    "cid": memo.promote_cid,
+                    "reasons": rec.screen.reasons(),
+                }
+            )
+            upd["promote_cid"], upd["fidelity"] = None, "neuralfoil"
     return (memo.model_copy(update=upd) if upd else memo), events

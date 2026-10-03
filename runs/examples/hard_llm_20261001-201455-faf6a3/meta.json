@@ -1,0 +1,102 @@
+{
+  "run_id": "20261001-201455-faf6a3",
+  "preset": "hard",
+  "spec": {
+    "component": "wing_1el",
+    "target_cl": -1.83,
+    "cl_tol": 0.03,
+    "cd_max": 0.025,
+    "speed_mps": 15.0,
+    "mach": 0.15,
+    "ncrit": 9.0,
+    "max_evals": 40,
+    "max_wall_hours": 0.5,
+    "max_cost_usd": 2.0,
+    "rulebook": "FS2026_v1.1",
+    "car": {
+      "chord_mm": 300.0,
+      "head_restraint_x": 1350.0,
+      "rear_tire_rear_x": 1850.0,
+      "wing_mount_x": 1760.0,
+      "wing_mount_z": 950.0,
+      "inner_rear_track_mm": 1000.0
+    },
+    "reynolds": 300000.0
+  },
+  "start": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 8.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+  },
+  "llm_client": "anthropic:claude-sonnet-5",
+  "llm_kind": "anthropic",
+  "is_mock": false,
+  "mock_notice": null,
+  "xfoil_available": true,
+  "termination": "target_met",
+  "evals": 23,
+  "limits": {
+    "evals": 23,
+    "max_evals": 40,
+    "cost_usd": 1.469134,
+    "max_cost_usd": 2.0,
+    "wall_hours": 0.2761,
+    "max_wall_hours": 0.5
+  },
+  "llm_usage": {
+    "type": "run_summary",
+    "ts": 1790886690.8592243,
+    "calls": 69,
+    "input_tokens": 264277,
+    "output_tokens": 94058,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cost_usd": 1.469134,
+    "cost_unknown_calls": 0,
+    "llm_client": "anthropic:claude-sonnet-5",
+    "is_mock": false
+  },
+  "llm_health": {
+    "enforced": true,
+    "valid": true,
+    "invalid_reasons": [],
+    "max_failed_calls": 2,
+    "failed_calls": 0,
+    "agents": {
+      "chief": {
+        "ok": 23,
+        "failed": 0,
+        "fallbacks": 0
+      },
+      "cad": {
+        "ok": 23,
+        "failed": 0,
+        "fallbacks": 0
+      },
+      "critic": {
+        "ok": 23,
+        "failed": 0,
+        "fallbacks": 0
+      }
+    }
+  },
+  "viz": {
+    "strip": "runs/20261001-201455-faf6a3/evolution_strip.png",
+    "gif": "runs/20261001-201455-faf6a3/evolution_morph.gif",
+    "stall_plots": {
+      "81b3351c10": "runs/20261001-201455-faf6a3/stall_81b3351c10.png",
+      "db44a69c81": "runs/20261001-201455-faf6a3/stall_db44a69c81.png",
+      "7670e8aaaf": "runs/20261001-201455-faf6a3/stall_7670e8aaaf.png",
+      "abb9803ead": "runs/20261001-201455-faf6a3/stall_abb9803ead.png"
+    }
+  },
+  "best_passing_cid": "abb9803ead",
+  "closest_candidate_cid": null,
+  "closest_candidate_failing": []
+}

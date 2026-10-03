@@ -285,7 +285,7 @@ class SwarmState(TypedDict):
     events: Annotated[list[dict], operator.add]         # audit trail (errors, recoveries, routing)
     retries: dict[str, int]                              # {"cad": n, "cfd_recovery": level}
     pending_violation: str | None                        # fed back to the CAD agent verbatim
-    termination: Literal["target_met", "budget", "plateau", "fatal"] | None
+    termination: Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"] | None
 ```
 
 ### Anti-drift rules
