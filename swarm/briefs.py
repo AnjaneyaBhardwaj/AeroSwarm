@@ -20,6 +20,8 @@ from swarm.cad.heuristics import lookup_heuristics
 from swarm.explore import active_branch, current_parent, plateau_allowed_after
 from swarm.ledger import (
     best_record,
+    dial_coverage,
+    dial_coverage_table,
     failing_checks,
     markdown_table,
     no_improve_streak,
@@ -115,6 +117,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         if screen_blocked(r)
     }
     streak = no_improve_streak(ledger, spec)
+    coverage = dial_coverage(ledger, list(free_params(spec)))
     facts = {
         "spec": spec.model_dump(),
         "free_params": list(free_params(spec)),
@@ -133,6 +136,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "parent": {"cid": parent.params.cid, "why": parent_why} if parent else None,
         "history": history,
         "cad_overrides": overrides,
+        "dial_coverage": coverage,
         "plateau_allowed_after": plateau_allowed_after(spec),
         "restart_branch": active_branch(state),
     }
@@ -150,6 +154,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
                 if parent
                 else "(the start design)"
             ),
+            "## Dial coverage (all evaluated designs; a move = a design whose value differs from its parent's)\n"
+            + dial_coverage_table(coverage),
             "## Sensitivities at the CAD base (NeuralFoil; per unit parameter; race-car Cl)\n"
             + json.dumps(sens, indent=1),
             "## The CAD agent overrode your direction last generation (you must resolve each one)\n"
