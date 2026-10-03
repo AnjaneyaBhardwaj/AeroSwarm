@@ -55,20 +55,20 @@ class ValidatorConfig(BaseModel, frozen=True):
     # round number between "flattening" and "healthy", not a fitted limit.
     stall_probe_deg: tuple[float, ...] = (1.0, 2.0)
     stall_min_dcl_dalpha: float = 0.05
-    # NeuralFoil screen before promotion to XFoil (project convention). Recalibrated in session 9
-    # against the gated XFoil sweep (scripts/gated_sweep.py, scripts/calibrate_screen_rules.py),
-    # whose ground truth is XFoil's full stall gate (margin >= 0.05 AND no TE separation at
-    # alpha+1/+2). In the promotion window (NeuralFoil Cl within 2*tol of the hard target, Cd under
-    # the cap: 804 points, 69 XFoil passes) the session-6 rule (NeuralFoil slope >= 0.05) let 50 of
-    # 118 screen passes fail XFoil (42%): NeuralFoil smooths the stall knee, and 22 of the 50 failed
-    # only on separation at the probes. A higher slope alone needs 0.075 to reach 5% (blocking 68 of
-    # 69 XFoil passes); an alpha+3 probe or a slope-drop (knee) rule never reaches 5%. Slope >= 0.0575
-    # plus suction-side TE H < 3.85 at alpha+1 and alpha+2: 2 of 41 screen passes fail XFoil (4.9%),
-    # 30 of 69 XFoil passes blocked (43%); over all 8,085 evaluable points 2.7% false passes, 10.3%
-    # of XFoil passes blocked. Held out by geometry (2-fold): 6-7% false passes, 31-55% blocked.
-    # XFoil's own threshold (stall_min_dcl_dalpha = 0.05) is unchanged.
-    screen_min_dcl_dalpha: float = 0.0575
-    screen_h_probe_max: float = 3.85
+    # NeuralFoil screen before promotion to XFoil (project convention), tuned against the gated XFoil
+    # sweep (scripts/gated_sweep.py, scripts/calibrate_screen_rules.py) whose ground truth is XFoil's
+    # full stall gate (margin >= 0.05 AND no TE separation at alpha+1/+2). Rule: NeuralFoil slope
+    # >= screen_min_dcl_dalpha over alpha..alpha+2 AND suction-side TE H < screen_h_probe_max at
+    # alpha+1 and alpha+2. Session 10, cost-weighted: a false pass costs one XFoil evaluation, a false
+    # block can lose the feasible design, so the fewest blocks with 15-20% false passes in the
+    # promotion window (NeuralFoil Cl within 2*tol of the hard target, Cd under the cap: 804 points,
+    # 69 XFoil passes): 13 of 75 screen passes fail XFoil (17%), 7 of 69 XFoil passes blocked (10%).
+    # Over all 8,085 evaluable points: 5.2% false passes, 3.9% blocked. Held out by geometry (2-fold):
+    # 9-29% false passes, 9-11% blocked. Minimising false passes + 3 x blocks picks the same setting.
+    # (Session 9's 0.0575 / 3.85 targeted <= 5% false passes and blocked 43% of window XFoil passes,
+    # including live run 2's winner.) XFoil's own threshold (stall_min_dcl_dalpha) is unchanged.
+    screen_min_dcl_dalpha: float = 0.055
+    screen_h_probe_max: float = 4.35
     # Separation: suction-side H at NeuralFoil's last station (x/c 0.984) at or above this flags
     # XFoil TE separation (Cf < 0 to the TE) with recall 0.90 and specificity 0.94 over all 1008
     # points, the best balanced accuracy of thresholds 2.0-8.0 in 0.25 steps; near the target

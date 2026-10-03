@@ -169,7 +169,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             + (v.model_dump_json(indent=1) if v else "(none)"),
             f"## Promotion candidates (within {NEAR_TARGET_FACTOR}·tol at neuralfoil, not yet run at xfoil)\n"
             + (", ".join(promo) or "(none)"),
-            "## Blocked from promotion by the NeuralFoil screen (alpha+1/+2 slope, suction-side TE H)\n"
+            "## Blocked from promotion by the NeuralFoil screen (alpha+1/+2 slope, suction-side TE H); "
+            "promote one only with screen_override = your reason\n"
             + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
             f"Generations without improvement: {streak}.",
         ]
