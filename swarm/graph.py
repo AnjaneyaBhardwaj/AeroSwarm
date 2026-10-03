@@ -46,6 +46,7 @@ from swarm.cad.build import build
 from swarm.critic.numeric import VALIDATION, NumericReport, stall_check_required, suggest_diagnosis, validate
 from swarm.critic.screen import compare_with_xfoil, surrogate_screen
 from swarm.critic.stall import measure_stall_margin
+from swarm.explore import current_parent, handle_plateau
 from swarm.ledger import (
     RunFiles,
     best_passing,
@@ -53,7 +54,6 @@ from swarm.ledger import (
     failing_checks,
     latest_per_cid,
     objective,
-    select_parent,
     usable,
 )
 from swarm.llm.client import LLMClient
@@ -135,9 +135,9 @@ def _record_for(ledger: list[EvalRecord], cid: str) -> EvalRecord | None:
     return next((r for r in latest_per_cid(ledger) if r.params.cid == cid), None)
 
 
-def _base(ledger: list[EvalRecord], spec: DesignSpec, initial: WingParams) -> tuple[WingParams, str]:
-    """The design the next CAD step modifies (`ledger.select_parent`), and why."""
-    rec, why = select_parent(ledger, spec)
+def _base(s: SwarmState, initial: WingParams) -> tuple[WingParams, str]:
+    """The design the next CAD step modifies (`explore.current_parent`), and why."""
+    rec, why = current_parent(s)
     return (rec.params, why) if rec else (initial, "baseline")
 
 
@@ -193,10 +193,10 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             return {"events": [cap_event("chief_plan", s)]}
         spec, ledger = s["spec"], s.get("ledger", [])
         gen = s.get("generation", 0) + (1 if ledger else 0)
-        sbase, why = _base(ledger, spec, initial)
+        st = {**s, "generation": gen}
+        sbase, why = _base(st, initial)
         names = free_params(spec)
         sens = neuralfoil.sensitivities(sbase, spec, names)
-        st = {**s, "generation": gen}
         events: list[dict] = []
         try:
             memo, events = chief_agent.plan(llm, st, sens)
@@ -213,9 +213,18 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             events.append(
                 {"node": "chief_plan", "gen": gen, "event": "llm_error_reused_strategy", "error": repr(e)[:300]}
             )
+        # A plateau before PLATEAU_MIN_FRACTION of the budget becomes exploration (widen or restart).
+        memo, pev, branch = handle_plateau(memo, st, sbase if ledger else None)
+        events += pev
+        if branch is not None:
+            sbase = next(r.params for r in ledger if r.params.cid == branch["anchor_cid"])
+            why = f"plateau restart: {pev[0]['why']}"
+            sens = neuralfoil.sensitivities(sbase, spec, names)
         events.append({"node": "chief_plan", "gen": gen, "event": "strategy", "strategy": memo.model_dump()})
         entry = {"gen": gen, "hypothesis": memo.hypothesis, "focus": [f.model_dump() for f in memo.focus_params]}
         entry |= {"fidelity": memo.fidelity, "promote_cid": memo.promote_cid, "screen_override": memo.screen_override}
+        if pev:
+            entry["explore"] = pev[0]["action"] + (f" from {pev[0]['anchor_cid']}" if branch else "")
         upd: dict[str, Any] = {
             "generation": gen,
             "strategy": memo,
@@ -225,6 +234,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             "pending_violation": None,
             "delta": None,
         }
+        if branch is not None:
+            upd["exploration"] = branch
         if memo.promote_cid:
             rec = next(r for r in ledger if r.params.cid == memo.promote_cid)
             upd |= {"params": rec.params, "parent": rec.params}
@@ -727,6 +738,7 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         f"- Termination: **{term}** ({TERMINATION_TEXT.get(term, term)})",
         f"- Limits: evaluations {len(ledger)} / {spec.max_evals}; est. LLM cost ${limits['cost_usd']:.4f} ({cap}); "
         f"wall clock {wall} / {spec.max_wall_hours} h",
+        *_plateau_lines(s),
         f"- Target: Cl = {spec.target_cl} ± {spec.cl_tol}, Cd ≤ {spec.cd_max}, Re = {spec.reynolds:.3e}",
         f"- LLM calls: {summary.get('calls', 0)}, tokens in/out: {summary.get('input_tokens', 0)}/"
         f"{summary.get('output_tokens', 0)}",
@@ -821,6 +833,22 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     )
 
 
+def _plateau_lines(s: SwarmState) -> list[str]:
+    """Plateau declarations that did not end the run (before PLATEAU_MIN_FRACTION of max_evals)."""
+    ev = [e for e in s.get("events", []) if e.get("event") == "plateau_deferred"]
+    if not ev:
+        return []
+    items = []
+    for e in ev:
+        what = e["action"]
+        if what in ("widen", "restart"):
+            what += f" (trust radius {e['trust_radius'][0]} → {e['trust_radius'][1]})"
+        if e["action"] == "restart":
+            what += f" from `{e['anchor_cid']}`"
+        items.append(f"gen {e['gen']} {what}")
+    return [f"- Plateau declarations deferred (allowed after {ev[0]['allowed_after']} evals): " + "; ".join(items)]
+
+
 def _screen_section(ledger: list[EvalRecord], spec: DesignSpec) -> list[str]:
     """NeuralFoil screen: promotions it blocked and how it compares with XFoil on the same geometry."""
     blocked = sorted((r for r in near_target(ledger, spec) if screen_blocked(r)), key=lambda r: r.generation)
@@ -851,8 +879,10 @@ def _screen_section(ledger: list[EvalRecord], spec: DesignSpec) -> list[str]:
             )
         lines += [
             "",
-            f"Stall: screen and XFoil both use d|Cl|/dα ≥ {VALIDATION.stall_min_dcl_dalpha} (XFoil only when its "
-            f"probe ran). Separation: screen warns at suction-side TE H ≥ {VALIDATION.screen_h_sep}.",
+            f"Stall: XFoil needs d|Cl|/dα ≥ {VALIDATION.stall_min_dcl_dalpha} (when its probe ran); the screen "
+            f"needs d|Cl|/dα ≥ {VALIDATION.screen_min_dcl_dalpha} and suction-side TE H < "
+            f"{VALIDATION.screen_h_probe_max} at alpha+1/+2. Separation: the screen warns at suction-side TE H ≥ "
+            f"{VALIDATION.screen_h_sep} at alpha.",
             "",
         ]
     return lines

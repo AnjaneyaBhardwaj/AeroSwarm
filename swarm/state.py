@@ -396,6 +396,7 @@ class SwarmState(TypedDict, total=False):
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
     history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
+    exploration: dict | None  # plateau restart branch: anchor_cid, from_gen, until_gen (swarm.explore)
     termination: (
         Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]
         | None
