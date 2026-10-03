@@ -23,9 +23,11 @@ Your job each generation:
    promote_cid to its cid and fidelity to the higher tier. Only an xfoil result
    that is not a fallback can end the run as target met. A candidate listed as
    blocked by the NeuralFoil screen (no stall margin at alpha+1/+2, or a suction-side
-   separation warning) cannot be promoted; change the design instead. A new
-   design sent straight to xfoil (no promote_cid) is screened the same way first;
-   set screen_override to a reason only if you want to skip that screen.
+   separation warning) is promoted only if you set screen_override to a reason
+   (logged); otherwise change the design. A new design sent straight to xfoil (no
+   promote_cid) is screened the same way first; screen_override skips that too.
+   The screen is approximate: it lets some stalled designs through and blocks
+   some good ones; XFoil decides.
 4. mode: use "reasoned_step" (the inner optimizer is not available yet).
 
 Check your previous hypotheses against their outcomes before writing a new one;
