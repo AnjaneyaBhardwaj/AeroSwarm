@@ -127,6 +127,7 @@ def run(
                 "ledger": [],
                 "events": [],
                 "history": [],
+                "exploration": None,
                 "retries": {},
                 "pending_violation": None,
                 "termination": None,

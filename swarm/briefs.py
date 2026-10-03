@@ -17,6 +17,7 @@ from pathlib import Path
 
 from swarm.cad.apply import allowed_interval
 from swarm.cad.heuristics import lookup_heuristics
+from swarm.explore import active_branch, current_parent, plateau_allowed_after
 from swarm.ledger import (
     best_record,
     failing_checks,
@@ -25,7 +26,6 @@ from swarm.ledger import (
     objective,
     passing,
     row,
-    select_parent,
     usable,
 )
 from swarm.state import (
@@ -104,7 +104,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
     best_x = best_record(ledger, spec, "xfoil")
     v = state.get("verdict")
     v_rec = ledger[-1] if ledger else None
-    parent, parent_why = select_parent(ledger, spec)
+    parent, parent_why = current_parent(state)
     history = _history(state.get("history", []), ledger, spec)
     overrides = pending_disagreements(state)
     cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective", "failing")
@@ -133,6 +133,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "parent": {"cid": parent.params.cid, "why": parent_why} if parent else None,
         "history": history,
         "cad_overrides": overrides,
+        "plateau_allowed_after": plateau_allowed_after(spec),
+        "restart_branch": active_branch(state),
     }
     user = "\n\n".join(
         [
@@ -172,7 +174,10 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             "## Blocked from promotion by the NeuralFoil screen (alpha+1/+2 slope, suction-side TE H); "
             "promote one only with screen_override = your reason\n"
             + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
-            f"Generations without improvement: {streak}.",
+            f"Generations without improvement: {streak}. declare_plateau ends the run only after "
+            f"{facts['plateau_allowed_after']} of {spec.max_evals} evaluations; before that it makes the run "
+            "explore instead (alternately a wider trust region, or a restart from a different region of the "
+            "ledger).",
         ]
     )
     return Brief(_system("chief", spec), user, facts)
@@ -211,6 +216,8 @@ def _history(entries: list[dict], ledger: list[EvalRecord], spec: DesignSpec) ->
             why = failing_checks(r, spec)
             status = "PASS (full)" if passing(r) else (r.verdict.status if r.verdict else res.status)
             outcome = f"{r.params.cid} at {res.fidelity}: {status}, {nums}" + (f"; failing: {why[0]}" if why else "")
+        if h.get("explore"):
+            outcome = f"(plateau deferred: {h['explore']}) {outcome}"
         focus = ", ".join(f"{f['name']} {_DIR_TEXT[f['direction']]}" for f in h["focus"])
         out.append({"gen": h["gen"], "hypothesis": h["hypothesis"][:300], "focus": focus, "outcome": outcome})
     return out

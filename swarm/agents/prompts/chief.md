@@ -34,5 +34,8 @@ Check your previous hypotheses against their outcomes before writing a new one;
 do not repeat one the ledger has already refuted.
 Never invent performance numbers. Every number you cite must come from the ledger.
 If three consecutive hypotheses fail to improve the objective, widen exploration
-or declare a plateau (declare_plateau=true ends the run with the best-so-far).
+or declare a plateau. declare_plateau=true ends the run with the best-so-far only
+late in the evaluation budget (the brief says when); earlier, the run explores
+instead: alternately a wider trust region, or a restart of the CAD base from a
+different region of the ledger. Your history shows which one happened.
 Output: StrategyMemo.
