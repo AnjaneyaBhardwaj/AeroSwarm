@@ -1,5 +1,84 @@
 # Progress
 
+## Session 10 (2026-10-03): cost-weighted screen, plateau policy, dial coverage, Optuna, benchmark v2
+
+### NeuralFoil screen re-tuned for cost, not ≤ 5% false passes (`scripts/calibrate_screen_rules.py`)
+A false pass costs one XFoil evaluation; a false block can lose the feasible design. Criterion now:
+15–20% false passes in the promotion window with the fewest blocks; a cost FP + w·FB cross-check.
+Same data as session 9 (gated sweep, 804 window points, 69 pass XFoil's gate).
+
+| rule (window) | false pass | blocks |
+|---|---|---|
+| session 6: slope ≥ 0.05 | 50/118 (42.4%) | 1/69 (1.4%) |
+| session 9: slope ≥ 0.0575, H(α+1, α+2) < 3.85 | 2/41 (4.9%) | 30/69 (43%) |
+| (a) slope only | no setting in 15–20% (0.060: 25.0% / 34.8%; 0.065: 10.0% / 60.9%) | |
+| (b) α+3 probe, best in band: ≥ 0.050 | 6/30 (20.0%) | 45/69 (65.2%) |
+| (c), (c') knee | no setting in 15–20% | |
+| **(d) slope ≥ 0.055, H(α+1, α+2) < 4.35 (new)** | **13/75 (17.3%)** | **7/69 (10.1%)** |
+| cost FP + 3·FB, family (d) | same as the new rule | |
+| cost FP + 5·FB or 10·FB, family (d): ≥ 0.050, H < 4.55 | 39/107 (36.4%) | 1/69 (1.4%) |
+
+- All 8,085 points: 165/3,158 false passes (5.2%), 122/3,115 blocks (3.9%). 2-fold split by geometry,
+  held out: 9.1% / 9.1% and 28.9% / 11.1% (false pass / blocks).
+- Live run 2's winner `abb9803ead` passes (slope 0.0589, H 3.22 / 3.57 / 4.12), as do benchmark v1's
+  winner `1449e37232` and the witness; `tests/test_screen.py` pins all three.
+- **screen_override for promotions**: the Chief may promote a screen-failed design by setting
+  `screen_override` to a reason (event `promotion_screen_override`, reason logged); without one the
+  promotion is still blocked. XFoil stays authoritative.
+
+### Plateau: no plateau termination before 80% of the budget (`swarm/explore.py`)
+`declare_plateau` ends the run only once `ceil(0.8·max_evals)` evaluations are used (32 of 40). Earlier
+it becomes exploration, alternating (event `plateau_deferred`, in the Chief's history and the report):
+- widen: trust radius ≥ 0.3 (or doubled), focus padded with the other free parameters, directions kept;
+- restart: the CAD base moves to the least-violating design ≥ 0.2 of the range (L∞) from the current
+  base and earlier anchors (else the farthest), directions free, radius ≥ 0.15; for 3 generations the
+  parent is the best design of that branch (anchor + designs first evaluated since), then normal
+  parent selection resumes. With a promotion in the same memo, the promotion is the move.
+
+### Chief brief: dial coverage (`ledger.dial_coverage`)
+Per free parameter: bounds, range explored over all evaluated designs (and share of the bounds),
+moves (designs whose value differs from their parent's; up/down; promotions are not moves), last
+move (generation, from → to). No task-specific hints.
+
+### Optuna TPE baseline (`baselines.search("optuna")`, optuna 5.0)
+Same loop as random search (shared `baselines.search`): geometry checks, NeuralFoil screen, the
+promotion rule, XFoil ladder, stall probe, validator, 40 evaluations. TPE (seeded, Optuna defaults,
+10 random start-up trials) minimizes `ledger.violation` (objective as a tie-break); the start is its
+first trial; XFoil results of promoted designs are added as trials; geometry-infeasible proposals cost
+no evaluation (told to TPE as a penalty of 1000). Random search's sample sequence is unchanged.
+`swarm/stats.py`: Wilson interval, quartiles.
+
+### Benchmark v2 (`docs/BENCHMARK.md`; runs in `runs/bench2/`, not committed) — LLM arm incomplete
+15 seeds (11, 22, …, 165), 40 evaluations, $4 / 1.5 h safety caps.
+
+| method | seeds completed | success | 95% (Wilson) | evals to target | XFoil evals / run |
+|---|---|---|---|---|---|
+| LLM | **1/15** | 1/1 | 21–100% | 19 | 5 |
+| mock | 15/15 | 0/15 | 0–20% | — | 0 |
+| random | 15/15 | 0/15 | 0–20% | — | 0 |
+| Optuna TPE | 15/15 | 2/15 (13%) | 4–38% | 24, 33 | 0.2 |
+
+- **The Anthropic API credit ran out 24 minutes into the LLM batch** ("credit balance is too low").
+  Seed 44 finished (target met at 19 evals, $1.22). Five runs aborted mid-run as `invalid_llm` at
+  14–28 evaluations (none had met the target; $9.07 between them) and nine at their first call. The
+  14 are excluded from the table and kept in `runs/bench2_aborted/`. Total LLM spend $10.29 (estimated).
+- In the six LLM runs, **the Chief overrode the screen on 24 of 26 promotions; none of the 24 passed
+  XFoil** (15 failed on the separation / stall the screen flagged, 9 came back outside the box so the
+  stall probe never ran). The winner was a screen-passed promotion.
+- No run stopped on a safety cap. No LLM run declared a plateau before it ended.
+
+### Known issues / next
+- **Finish the LLM arm** once the API credit is topped up (14 seeds; ~$3 per full run, ≤ $4 cap):
+  `uv run python scripts/benchmark.py run --methods llm --parallel 5 --seeds 11 22 33 55 66 77 88 99 110 121 132 143 154 165`,
+  then `uv run python scripts/benchmark.py report`.
+- The batch runner keeps starting runs after the API refuses on credit (each fails in ~1 s, no cost);
+  it could stop the batch on the first such error.
+- screen_override is used almost by default and was 0/24. Options (not implemented): show the run's
+  override track record in the Chief brief; mark XFoil results whose stall probe did not run as
+  "stall untested" (the Chief read box-failed XFoil runs as proof the screen over-flags).
+- NeuralFoil reads near-target designs more loaded than XFoil (9 promotions at NeuralFoil within 2·tol
+  came back at Cl −1.73 to −1.80).
+
 ## Session 9 (2026-10-02): screen recalibration, loop guards, example run, benchmark
 
 ### NeuralFoil screen recalibrated (`scripts/calibrate_screen_rules.py` on the gated sweep)

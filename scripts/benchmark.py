@@ -115,15 +115,17 @@ def cmd_report(root: str) -> None:
         "",
         "## Summary",
         "",
-        "| method | success | 95% interval (Wilson) | evals to target, successes: median [IQR] "
+        "| method | seeds completed | success | 95% interval (Wilson) | evals to target, successes: median [IQR] "
         "| est. LLM cost / run: mean (total) | XFoil evals / run: mean [min–max] | wall clock / run (mean) "
         "| stopped on a safety cap |",
-        "|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for m in METHODS:
-        rs = by[m]
+        # an invalid real-LLM run (e.g. aborted on API errors) is not a result: excluded, listed below
+        rs = [r for r in by[m] if r["termination"] != "invalid_llm"]
+        done = f"{len(rs)}/{len(SEEDS)}"
         if not rs:
-            out.append(f"| {m} | not run | | | | | | |")
+            out.append(f"| {m} | {done} | not run | | | | | | |")
             continue
         ok = [r for r in rs if r["success"]]
         lo, hi = wilson_interval(len(ok), len(rs))
@@ -135,7 +137,8 @@ def cmd_report(root: str) -> None:
         xf = [r["xfoil_evals"] for r in rs]
         caps = [f"s{r['seed']}: {r['termination']}" for r in rs if r["termination"] in ("cost_cap", "wall_clock")]
         out.append(
-            f"| {m} | {len(ok)}/{len(rs)} ({100 * len(ok) / len(rs):.0f}%) | {100 * lo:.0f}–{100 * hi:.0f}% | {ev} "
+            f"| {m} | {done} | {len(ok)}/{len(rs)} ({100 * len(ok) / len(rs):.0f}%) | {100 * lo:.0f}–{100 * hi:.0f}% "
+            f"| {ev} "
             f"| ${statistics.mean(r['cost'] for r in rs):.2f} (${sum(r['cost'] for r in rs):.2f}) "
             f"| {statistics.mean(xf):.1f} [{min(xf)}–{max(xf)}] "
             f"| {60 * statistics.mean(r['wall_h'] for r in rs):.1f} min "
