@@ -225,19 +225,24 @@ def test_critic_cannot_relabel_a_stall_failure(spec):
 # ----------------------------------------------------------- 5. direct-to-XFoil screening
 
 
-def _direct_run(spec, start, tmp_path, run_id, **memo_kw):
+# NeuralFoil at alpha 10 from the start: Cl -1.6405, Cd 0.0200, screen failed (slope 0.024, TE H 4.73)
+IN_BOX = {"target_cl": -1.64, "cd_max": 0.021}
+
+
+def _direct_run(spec, start, tmp_path, run_id, alpha=10.0, more=(), **memo_kw):
     m0 = memo(["alpha_deg"])
     m1 = memo([{"name": "alpha_deg", "direction": "+"}], fidelity="xfoil", radius=0.4, **memo_kw)
     v = Verdict(status="TARGET_MISS", diagnosis=Diagnosis(symptom="INSUFFICIENT_LOADING"), confidence=0.6)
-    llm = ScriptedClient([m0, v, m1, delta("alpha_deg", 10.0), v])  # alpha 10 fails the screen here
-    final = run(spec.model_copy(update={"max_evals": 2}), start, run_id=run_id, runs_root=tmp_path, llm=llm)
+    llm = ScriptedClient([m0, v, m1, delta("alpha_deg", alpha), v, *more])
+    s = spec.model_copy(update={"max_evals": 2 + len(more) // 3})
+    final = run(s, start, run_id=run_id, runs_root=tmp_path, llm=llm)
     events = [json.loads(x) for x in (tmp_path / run_id / "events.jsonl").read_text().splitlines()]
-    return final, events
+    return final, events, llm
 
 
 def test_direct_xfoil_design_is_screened_first(spec, start, fake_xfoil, tmp_path):
     calls = fake_xfoil()
-    final, events = _direct_run(spec, start, tmp_path, "s")
+    final, events, _ = _direct_run(spec, start, tmp_path, "s")
     out = [e for e in events if e.get("event") == "direct_xfoil_screened_out"]
     assert len(out) == 1 and out[0]["requested"] == "xfoil" and out[0]["reasons"]
     assert final["ledger"][-1].result.fidelity == "neuralfoil" and not calls  # XFoil never ran
@@ -245,10 +250,11 @@ def test_direct_xfoil_design_is_screened_first(spec, start, fake_xfoil, tmp_path
 
 def test_chief_can_override_the_screen_with_a_logged_reason(spec, start, fake_xfoil, tmp_path):
     calls = fake_xfoil()
-    final, events = _direct_run(spec, start, tmp_path, "o", screen_override="map the stall boundary at XFoil")
+    s = spec.model_copy(update=IN_BOX)
+    final, events, _ = _direct_run(s, start, tmp_path, "o", screen_override="map the stall boundary at XFoil")
     ov = [e for e in events if e.get("event") == "screen_override"]
-    assert len(ov) == 1 and ov[0]["reason"] == "map the stall boundary at XFoil"
-    assert not any(e.get("event") == "direct_xfoil_screened_out" for e in events)
+    assert len(ov) == 1 and ov[0]["reason"] == "map the stall boundary at XFoil" and ov[0]["reasons"]
+    assert not any(e.get("event") in ("direct_xfoil_screened_out", "screen_override_refused") for e in events)
     assert final["ledger"][-1].result.fidelity == "xfoil" and calls
 
 

@@ -30,6 +30,7 @@ from swarm.ledger import (
     row,
     usable,
 )
+from swarm.overrides import MAX_SCREEN_OVERRIDES, in_box, overrides_used, track_record, track_record_text
 from swarm.state import (
     FIDELITY_RANK,
     DesignSpec,
@@ -109,13 +110,15 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
     parent, parent_why = current_parent(state)
     history = _history(state.get("history", []), ledger, spec)
     overrides = pending_disagreements(state)
-    cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective", "failing")
+    cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective", "failing", "stall_probe")
     promo = [r.params.cid for r in promotable(ledger, spec)]
     blocked = {
         r.params.cid: r.screen.reasons()
+        + ["inside the target box: override allowed" if in_box(r.result, spec) else "outside the box: no override"]
         for r in sorted(near_target(ledger, spec), key=lambda r: r.generation)
         if screen_blocked(r)
     }
+    used = len(overrides_used(state))
     streak = no_improve_streak(ledger, spec)
     coverage = dial_coverage(ledger, list(free_params(spec)))
     facts = {
@@ -137,6 +140,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "history": history,
         "cad_overrides": overrides,
         "dial_coverage": coverage,
+        "screen_overrides": track_record(state),
+        "screen_overrides_left": max(0, MAX_SCREEN_OVERRIDES - used),
         "plateau_allowed_after": plateau_allowed_after(spec),
         "restart_branch": active_branch(state),
     }
@@ -178,8 +183,10 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             f"## Promotion candidates (within {NEAR_TARGET_FACTOR}·tol at neuralfoil, not yet run at xfoil)\n"
             + (", ".join(promo) or "(none)"),
             "## Blocked from promotion by the NeuralFoil screen (alpha+1/+2 slope, suction-side TE H); "
-            "promote one only with screen_override = your reason\n"
+            f"promote one only with screen_override = your reason ({max(0, MAX_SCREEN_OVERRIDES - used)} "
+            "override(s) left, only for a design inside the target box)\n"
             + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
+            "## Your screen overrides this run and what XFoil found\n" + track_record_text(state),
             f"Generations without improvement: {streak}. declare_plateau ends the run only after "
             f"{facts['plateau_allowed_after']} of {spec.max_evals} evaluations; before that it makes the run "
             "explore instead (alternately a wider trust region, or a restart from a different region of the "
@@ -222,6 +229,8 @@ def _history(entries: list[dict], ledger: list[EvalRecord], spec: DesignSpec) ->
             why = failing_checks(r, spec)
             status = "PASS (full)" if passing(r) else (r.verdict.status if r.verdict else res.status)
             outcome = f"{r.params.cid} at {res.fidelity}: {status}, {nums}" + (f"; failing: {why[0]}" if why else "")
+            if r.stall_untested:
+                outcome += "; stall untested (XFoil stall probe not run: no evidence about the screen)"
         if h.get("explore"):
             outcome = f"(plateau deferred: {h['explore']}) {outcome}"
         focus = ", ".join(f"{f['name']} {_DIR_TEXT[f['direction']]}" for f in h["focus"])

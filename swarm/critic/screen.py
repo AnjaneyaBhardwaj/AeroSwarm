@@ -65,7 +65,11 @@ def compare_with_xfoil(screen: SurrogateScreen, result: CFDResult, stall: StallM
 
     stall: screen.stall_ok vs the XFoil probe's ok (only when the probe measured a slope).
     separation: screen.sep_warning vs XFoil TE separation at the design alpha.
+    Without the XFoil stall probe the result is "stall_untested" and no evidence about the screen:
+    nothing is compared.
     """
+    if stall is None:
+        return {"disagree": [], "stall_untested": True}
     out: dict = {"disagree": []}
     if stall is not None and stall.dcl_dalpha is not None:
         out["stall"] = {

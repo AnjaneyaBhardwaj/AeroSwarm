@@ -26,9 +26,14 @@ Your job each generation:
    blocked by the NeuralFoil screen (no stall margin at alpha+1/+2, or a suction-side
    separation warning) is promoted only if you set screen_override to a reason
    (logged); otherwise change the design. A new design sent straight to xfoil (no
-   promote_cid) is screened the same way first; screen_override skips that too.
-   The screen is approximate: it lets some stalled designs through and blocks
-   some good ones; XFoil decides.
+   promote_cid) is screened the same way first; screen_override covers that too.
+   Overrides are limited: at most 2 per run, and only for a design whose NeuralFoil
+   result is inside the target box (not merely within 2·tol); otherwise the
+   override is refused and logged. Your brief shows each override and what XFoil
+   found. The screen is approximate: it lets some stalled designs through and
+   blocks some good ones; XFoil decides. An XFoil result marked stall untested
+   (its stall probe did not run, because it failed another check first) says
+   nothing about whether the screen was right.
 4. mode: use "reasoned_step" (the inner optimizer is not available yet).
 
 Check your previous hypotheses against their outcomes before writing a new one;

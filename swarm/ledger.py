@@ -189,6 +189,14 @@ def no_improve_streak(ledger: list[EvalRecord], spec: DesignSpec) -> int:
     return streak
 
 
+def _stall_probe(r: EvalRecord) -> str:
+    """XFoil stall-margin probe: ok / fail / untested (did not run); empty below XFoil."""
+    if r.stall_untested:
+        return "untested"
+    sm = r.stall_margin
+    return "" if sm is None else ("ok" if sm.ok else "fail")
+
+
 def row(r: EvalRecord, spec: DesignSpec) -> dict:
     res = r.result
     return {
@@ -202,6 +210,7 @@ def row(r: EvalRecord, spec: DesignSpec) -> dict:
         "quarantined": r.quarantined,
         "lower_fidelity": res.lower_fidelity,
         "failing": (failing_checks(r, spec) or [""])[0][:90],
+        "stall_probe": _stall_probe(r),
         "params": {k: v for k, v in r.params.model_dump().items()},
     }
 

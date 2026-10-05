@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from swarm.briefs import chief_brief, pending_disagreements
 from swarm.llm.client import LLMClient
+from swarm.overrides import override_allowed
 from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
 AVAILABLE_FIDELITIES = ("neuralfoil", "xfoil")  # of2d/of3d arrive with the OpenFOAM milestone
@@ -95,10 +96,16 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
             upd["promote_cid"] = None
         elif rec.screen is not None and not rec.screen.ok and rec.result.fidelity == "neuralfoil":
             ev = {"node": "chief_plan", "gen": gen, "cid": memo.promote_cid, "reasons": rec.screen.reasons()}
-            if memo.screen_override.strip():
-                # The Chief may overrule the screen for a promotion; XFoil decides, the reason is logged.
-                events.append(ev | {"event": "promotion_screen_override", "reason": memo.screen_override.strip()})
+            reason = memo.screen_override.strip()
+            ok, why = override_allowed(state, rec.result) if reason else (False, "")
+            if ok:
+                # The Chief may overrule the screen for a promotion (capped, in-box only); XFoil decides.
+                events.append(ev | {"event": "promotion_screen_override", "reason": reason})
             else:
+                if reason:
+                    refused = {"event": "screen_override_refused", "kind": "promotion", "reason": reason, "why": why}
+                    events.append(ev | refused)
+                    upd["screen_override"] = ""
                 # The NeuralFoil screen gates promotion; the generation explores at NeuralFoil instead.
                 events.append(ev | {"event": "promotion_blocked_by_screen"})
                 upd["promote_cid"], upd["fidelity"] = None, "neuralfoil"

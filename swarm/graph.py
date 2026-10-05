@@ -57,6 +57,7 @@ from swarm.ledger import (
     usable,
 )
 from swarm.llm.client import LLMClient
+from swarm.overrides import override_allowed, track_record
 from swarm.solvers import neuralfoil, xfoil
 from swarm.state import (
     TERMINAL_FIDELITIES,
@@ -358,20 +359,21 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         events = [{"node": "geometry_build", "gen": gen, "event": "geometry_ok", "cid": p.cid}]
         fidelity = memo.fidelity
         if fidelity != "neuralfoil" and memo.promote_cid != p.cid:
-            # A fresh design sent straight past NeuralFoil: screen it first unless the Chief said why not.
-            if memo.screen_override.strip():
-                events.append(
-                    {"node": "geometry_build", "gen": gen, "event": "screen_override", "cid": p.cid}
-                    | {"fidelity": fidelity, "reason": memo.screen_override.strip()}
-                )
-            else:
-                sc = surrogate_screen(p, spec)
-                if not sc.ok:
+            # A fresh design sent straight past NeuralFoil is screened first. If it fails, a logged
+            # screen_override sends it on, within the override rules (cap; NeuralFoil inside the box).
+            sc = surrogate_screen(p, spec)
+            if not sc.ok:
+                ev = {"node": "geometry_build", "gen": gen, "cid": p.cid, "reasons": sc.reasons()}
+                reason = memo.screen_override.strip()
+                ok, why = override_allowed(s, neuralfoil.evaluate(p, spec)) if reason else (False, "")
+                if ok:
+                    events.append(ev | {"event": "screen_override", "fidelity": fidelity, "reason": reason})
+                else:
+                    if reason:
+                        refused = {"event": "screen_override_refused", "kind": "direct to XFoil", "reason": reason}
+                        events.append(ev | refused | {"why": why})
                     fidelity = "neuralfoil"
-                    events.append(
-                        {"node": "geometry_build", "gen": gen, "event": "direct_xfoil_screened_out", "cid": p.cid}
-                        | {"requested": memo.fidelity, "reasons": sc.reasons()}
-                    )
+                    events.append(ev | {"event": "direct_xfoil_screened_out", "requested": memo.fidelity})
         return {
             "geometry": geo,
             "pending_violation": None,
@@ -783,6 +785,8 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         cd = "" if r.cd is None else f"{r.cd:.5f}"
         sm = rec.stall_margin
         stall = "" if sm is None else ("n/a" if sm.dcl_dalpha is None else f"{sm.dcl_dalpha:.3f}")
+        if rec.stall_untested:
+            stall = "untested"
         lines.append(
             f"| {rec.generation} | {rec.params.cid} | {r.fidelity}{'*' if r.lower_fidelity else ''} "
             f"| {rec.verdict.status if rec.verdict else r.status} | {cl} | {cd} | {stall} | {_screen_cell(rec)} "
@@ -792,10 +796,13 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         "",
         "`*` = lower-fidelity fallback. Only XFoil PASS rows are passing designs; a NeuralFoil PASS is a "
         "lower-tier result. NF screen = NeuralFoil stall (alpha+1/+2) and suction-side separation screen. "
+        "stall untested = an XFoil result whose stall probe did not run (it runs only for a design that clears "
+        "every other check); such a result is no evidence about the screen. "
         "All numbers above come from ledger.jsonl.",
         "",
     ]
     lines += _screen_section(ledger, spec)
+    lines += _override_section(s)
     plots = viz.get("stall_plots", {})
     xf = [r for r in ledger if r.result.fidelity in TERMINAL_FIDELITIES and usable(r)]
     if xf:
@@ -849,11 +856,23 @@ def _plateau_lines(s: SwarmState) -> list[str]:
     return [f"- Plateau declarations deferred (allowed after {ev[0]['allowed_after']} evals): " + "; ".join(items)]
 
 
+def _override_section(s: SwarmState) -> list[str]:
+    """Each screen override used or refused, and what XFoil found (`overrides.track_record`)."""
+    rec = track_record(s)
+    if not rec:
+        return []
+    lines = ["## Screen overrides", ""]
+    lines += [f"- gen {r['gen']} {r['kind']} of `{r['cid']}`: {r['outcome']}" for r in rec]
+    return lines + [""]
+
+
 def _screen_section(ledger: list[EvalRecord], spec: DesignSpec) -> list[str]:
     """NeuralFoil screen: promotions it blocked and how it compares with XFoil on the same geometry."""
     blocked = sorted((r for r in near_target(ledger, spec) if screen_blocked(r)), key=lambda r: r.generation)
-    compared = [r for r in ledger if r.screen is not None and r.result.fidelity in TERMINAL_FIDELITIES]
-    if not blocked and not compared:
+    xf = [r for r in ledger if r.screen is not None and r.result.fidelity in TERMINAL_FIDELITIES]
+    compared = [r for r in xf if not r.stall_untested]
+    untested = [r for r in xf if r.stall_untested]
+    if not blocked and not xf:
         return []
     lines = ["## NeuralFoil screen", ""]
     if blocked:
@@ -883,6 +902,12 @@ def _screen_section(ledger: list[EvalRecord], spec: DesignSpec) -> list[str]:
             f"needs d|Cl|/dα ≥ {VALIDATION.screen_min_dcl_dalpha} and suction-side TE H < "
             f"{VALIDATION.screen_h_probe_max} at alpha+1/+2. Separation: the screen warns at suction-side TE H ≥ "
             f"{VALIDATION.screen_h_sep} at alpha.",
+            "",
+        ]
+    if untested:
+        lines += [
+            f"Not evidence about the screen ({len(untested)} XFoil result(s) with the stall probe not run, "
+            "stall_untested): " + ", ".join(f"gen {r.generation} `{r.params.cid}`" for r in untested),
             "",
         ]
     return lines

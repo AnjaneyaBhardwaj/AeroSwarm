@@ -189,8 +189,10 @@ def test_compare_with_xfoil_reports_each_disagreement():
     assert compare_with_xfoil(scr(), r, bad)["disagree"] == ["stall"]
     assert compare_with_xfoil(scr(stall_ok=False), r, bad)["disagree"] == []
     sep = r.model_copy(update={"bl": BoundaryLayerSummary(te_separation_xc=0.9)})
-    assert compare_with_xfoil(scr(), sep, None)["disagree"] == ["separation"]
-    assert "stall" not in compare_with_xfoil(scr(), r, None)  # no probe, no stall comparison
+    good = bad.model_copy(update={"cls": [-1.5, -1.58, -1.66], "dcl_dalpha": 0.08, "ok": True})
+    assert compare_with_xfoil(scr(), sep, good)["disagree"] == ["separation"]
+    # no XFoil stall probe: stall_untested, nothing compared (no evidence about the screen)
+    assert compare_with_xfoil(scr(), sep, None) == {"disagree": [], "stall_untested": True}
 
 
 def test_graph_logs_screen_xfoil_disagreement(spec, start, fake_xfoil, tmp_path):
