@@ -95,3 +95,38 @@ the XFoil results they cite are ones whose stall probe never ran.
 Two reasons also misread the screen's numbers: seed 55 generation 6 gives "slope 0.091 vs 0.055
 threshold" for a screen slope of −0.091/deg (|Cl| falling), and seed 33 generation 13 calls a slope of
 −0.052/deg "only marginally below" the 0.055 threshold.
+
+## F2. Screen overrides after the fix — 3-seed pilot (commit `7e8a3d6`)
+
+Seeds 44, 33 and 55 (the pre-fix winner, and the two pre-fix runs with the most overrides), hard
+preset, 40-evaluation budget, $4 / 1.5 h safety caps, real LLM, runs in `runs/bench3/` (not committed).
+All three runs valid; none hit a safety cap; $7.88 in all.
+
+| seed | result | evals | est. cost | XFoil evals | overrides used / refused | what XFoil found for the overrides | how it met the target |
+|---|---|---|---|---|---|---|---|
+| 44 | **no pass** (plateau declared at 33) | 33 | $2.45 | 2 | 2 / 0 (gens 6, 9) | `bade791dc4`: Cd 0.02512 over the cap, stall untested; `777d7e987a`: in the box, probe ran and failed (TE separation at α+1 / α+2, slope 0.057) | — |
+| 33 | **target met** | 30 | $2.45 | 3 | 2 / 0 (gens 6, 7) | `820c35bd7d`: TE separation at alpha (x/c 0.97), stall untested; `bc60f554e0`: Cl −1.7873 outside the box, stall untested | `ace3260922` at gen 29, a screen-passed promotion (margin 0.077/deg) |
+| 55 | **target met** | 35 | $2.98 | 3 | 2 / 0 (gens 5, 9) | `502350a492`: Cl −1.7742, TE separation at alpha, stall untested; `717636a26f`: Cl −1.7694, TE separation at alpha, stall untested | `96887ecbb3` at gen 34, a screen-passed promotion (margin 0.064/deg) |
+
+- **Overrides: 6 used, 0 passed XFoil.** The stall probe ran on 1 (it failed, as the screen said); 5 are
+  stall untested. The Chief spent both of its overrides in every run, all by generation 9. After that
+  it neither attempted a third (no refusals) nor tried to promote a screen-blocked design.
+- **Both successes came from screen-passed promotions late in the run** (generations 29 and 34), as
+  did the pre-fix seed-44 win.
+- **Seed 44 did not succeed this time.** Pre-fix (benchmark v2) it met the target at 19 evaluations,
+  also through a screen-passed promotion after 3 failed overrides. One sample per seed and the LLM is
+  not deterministic, so this does not show the fix cost seed 44 its success; it also does not show the
+  fix helped seeds 33 and 55, whose pre-fix runs were cut off by the API credit at 28 and 26
+  evaluations, before the 30 and 35 these runs needed.
+- **The stall_untested label did not stop the reasoning pattern.** Seed 33's second override, with
+  the brief showing the first as "stall untested (probe not run): no evidence about the screen"
+  (`runs/bench3/llm_s33/traces.jsonl`, ts 1791216059.57):
+
+  > "bc60f554e0 is inside the target box (Cl -1.8055, within 0.03 of -1.83) with low Cd (0.01669); the
+  > NeuralFoil stall/TE-H screen has already shown false-positive behavior on this family
+  > (820c35bd7d's screen-flagged TE issue was only a marginal cf_te=-0.000027 reversal in XFoil), so
+  > promoting this thinner, more forward-loaded candidate to XFoil tests whether it avoids that
+  > marginal separation while confirming real stall margin."
+
+  The cap is what bounded the cost: 2 XFoil evaluations per run on overrides, against 3, 6 and 6 for
+  the same seeds pre-fix.

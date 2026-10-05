@@ -1,5 +1,53 @@
 # Progress
 
+## Session 11 (2026-10-05): screen-override limits, stall_untested, findings, 3-seed pilot
+
+### Screen overrides (`swarm/overrides.py`)
+- At most **2 per run** (promotions and direct-to-XFoil designs together), and only for a design whose
+  **NeuralFoil result is inside the target box** (|Cl − target| ≤ tol, Cd ≤ cd_max), not merely in the
+  2·tol promotion window. A refused override is logged (`screen_override_refused`, with why) and the
+  design stays at NeuralFoil. A direct-to-XFoil design is always screened; an override is spent only
+  if the screen fails.
+- Every Chief brief shows the **track record**: "Used k of 2", each override and what XFoil found;
+  the blocked list says which candidates are override-eligible. The run report has a "Screen
+  overrides" section. Prompt updated.
+
+### stall_untested
+`EvalRecord.stall_untested` (computed, written to ledger.jsonl): an XFoil result whose stall probe did
+not run (it runs only for a design that clears every other check). Shown in the report's ledger
+table, a `stall_probe` column in the Chief's tables, the Chief's history and the override track
+record. Excluded from evidence about the screen: `compare_with_xfoil` compares nothing without the
+probe (no `screen_xfoil_disagreement`), and the report lists such results as "not evidence".
+
+### docs/FINDINGS.md
+- F1 (pre-fix, benchmark v2): 24 of 26 XFoil evaluations were overrides, 0 passed. The probe ran on 3
+  (all failed, as the screen said); 21 are stall untested. Three quoted reasons from traces, checked
+  against the ledger: the "screen over-flags" argument cites earlier overridden designs whose probe
+  never ran. Session 10's "15 failed on what the screen flagged" counted 12 such results; corrected
+  in BENCHMARK.md and session 10 below.
+- F2: the pilot below.
+
+### Pilot with the fix (seeds 44, 33, 55; `runs/bench3/`, not committed)
+| seed | result | evals | est. cost | overrides used | passed XFoil |
+|---|---|---|---|---|---|
+| 44 | no pass (plateau at 33) | 33 | $2.45 | 2 | 0 |
+| 33 | target met | 30 | $2.45 | 2 | 0 |
+| 55 | target met | 35 | $2.98 | 2 | 0 |
+
+The Chief spent both overrides in every run by generation 9 and none passed (probe ran on 1, failed;
+5 stall untested); no refusals. Both successes were screen-passed promotions at generations 29 and 34.
+Seed 44 (pre-fix win at 19 evals) did not succeed; one sample per seed, so this says nothing either way
+about the fix. The stall_untested label did not stop the Chief citing an untested result as a screen
+false positive; the cap bounded the cost.
+
+### Next (waiting for the user)
+- Decide on the remaining 12 LLM seeds (11, 22, 66, 77, 88, 99, 110, 121, 132, 143, 154, 165) at about
+  $2.5–3 each: `uv run python scripts/benchmark.py run --methods llm --parallel 5 --root runs/bench3
+  --seeds ...`. The pre-fix LLM runs (bench2) should not be mixed with post-fix ones; the offline
+  methods in `runs/bench2/` are unaffected by this change (the baselines never override, and
+  stall_untested only labels).
+- `cmd_report` reads one root; reporting bench3 LLM with bench2 offline needs a second root option.
+
 ## Session 10 (2026-10-03): cost-weighted screen, plateau policy, dial coverage, Optuna, benchmark v2
 
 ### NeuralFoil screen re-tuned for cost, not ≤ 5% false passes (`scripts/calibrate_screen_rules.py`)
