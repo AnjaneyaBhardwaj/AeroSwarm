@@ -131,7 +131,7 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
   The other 21 are stall untested (12 with TE separation at the design alpha, 9 outside the box at
   Cl −1.73 to −1.80) and say nothing about the screen. The overrides took 24 of 137 evaluations. The
   logged reasons argue the screen over-flags, citing earlier overridden designs whose stall probe never
-  ran. Since commit `7e8a3d6`: at most 2 overrides per run, only for a NeuralFoil result inside the
+  ran. Since commit `549f1b8`: at most 2 overrides per run, only for a NeuralFoil result inside the
   box, with the track record in every Chief brief.
 - **No run stopped on a safety cap**; the most expensive LLM run reached $2.07 at 28 evaluations
   (about $0.075 per evaluation, so ~$3 for a full 40-evaluation run, under the $4 cap).

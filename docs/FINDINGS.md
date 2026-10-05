@@ -5,10 +5,10 @@ events.jsonl, traces.jsonl); run directories are not committed.
 
 ## F1. Screen overrides in benchmark v2 — PRE-FIX behaviour
 
-> **Pre-fix.** Recorded with the rules in force before commit `7e8a3d6`: any screen-blocked candidate
+> **Pre-fix.** Recorded with the rules in force before commit `549f1b8`: any screen-blocked candidate
 > within 2·tol of the target at NeuralFoil could be promoted to XFoil with a `screen_override` reason,
 > with no limit per run; the Chief saw no record of its earlier overrides; XFoil results whose stall
-> probe never ran were not labelled. Commit `7e8a3d6` caps overrides at 2 per run, allows them only
+> probe never ran were not labelled. Commit `549f1b8` caps overrides at 2 per run, allows them only
 > for a NeuralFoil result inside the target box, shows the track record in every Chief brief, and
 > labels such results `stall_untested` (no evidence about the screen).
 
@@ -96,7 +96,7 @@ Two reasons also misread the screen's numbers: seed 55 generation 6 gives "slope
 threshold" for a screen slope of −0.091/deg (|Cl| falling), and seed 33 generation 13 calls a slope of
 −0.052/deg "only marginally below" the 0.055 threshold.
 
-## F2. Screen overrides after the fix — 3-seed pilot (commit `7e8a3d6`)
+## F2. Screen overrides after the fix — 3-seed pilot (commit `549f1b8`)
 
 Seeds 44, 33 and 55 (the pre-fix winner, and the two pre-fix runs with the most overrides), hard
 preset, 40-evaluation budget, $4 / 1.5 h safety caps, real LLM, runs in `runs/bench3/` (not committed).
