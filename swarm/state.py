@@ -374,6 +374,14 @@ class EvalRecord(BaseModel):
     screen: SurrogateScreen | None = None  # NeuralFoil screen of this geometry (any fidelity)
     failed_checks: list[str] = []  # names of the numeric checks that failed (not skipped ones)
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def stall_untested(self) -> bool:
+        """A terminal-fidelity (XFoil) result whose stall-margin probe did not run (the probe runs only
+        for a design that clears every other check). Says nothing about whether the NeuralFoil
+        screen was right; excluded from any evidence about the screen."""
+        return self.result.fidelity in TERMINAL_FIDELITIES and self.stall_margin is None
+
 
 class SwarmState(TypedDict, total=False):
     spec: DesignSpec
@@ -396,6 +404,7 @@ class SwarmState(TypedDict, total=False):
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
     history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
+    exploration: dict | None  # plateau restart branch: anchor_cid, from_gen, until_gen (swarm.explore)
     termination: (
         Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]
         | None

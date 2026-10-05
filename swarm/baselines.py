@@ -6,6 +6,13 @@ Random search uses exactly the agents' evaluation path, minus the agents: the sa
 ladder, stall-margin probe and validator. Each step promotes the best promotable design if there is
 one, else evaluates a uniform random sample of the free parameters over their bounds. Every
 NeuralFoil or XFoil evaluation is one ledger record (one unit of the evaluation budget), as in a run.
+
+Optuna TPE runs the same loop with the uniform sampler replaced by a seeded TPE sampler (Optuna
+defaults otherwise). It minimizes the same constraint violation the agents' parent selection uses
+(`ledger.violation`: stall shortfall + separation + distance outside the target box, objective as a
+tie-break). The start is its first trial; an XFoil result of a promoted design is added as a trial
+at the same point, so TPE learns from the authoritative tier. A proposal that fails the geometry
+checks costs no evaluation and is told to TPE as INFEASIBLE_VALUE.
 """
 
 from __future__ import annotations
@@ -21,11 +28,14 @@ from swarm.cad.build import build
 from swarm.critic.numeric import stall_check_required, suggest_diagnosis, validate
 from swarm.critic.screen import surrogate_screen
 from swarm.critic.stall import measure_stall_margin
-from swarm.ledger import RunFiles
+from swarm.ledger import RunFiles, objective, violation
 from swarm.solvers import neuralfoil, xfoil
 from swarm.state import CFDResult, DesignSpec, EvalRecord, Verdict, WingParams, free_params, quantize
 
 RANDOM_SEARCH_LABEL = "random search (uniform over the free-parameter bounds; same screen and XFoil gate)"
+TPE_LABEL = "Optuna TPE (seeded; minimizes constraint violation; same screen and XFoil gate)"
+INFEASIBLE_VALUE = 1000.0  # TPE value for a geometry-infeasible or unsolved proposal
+MAX_GEOMETRY_TRIES = 10_000
 
 
 def _sample(rng: np.random.Generator, spec: DesignSpec, base: WingParams) -> WingParams:
@@ -89,17 +99,85 @@ def _record(gen, p, res, spec, ledger, rationale, run_dir, coords=None) -> tuple
 
 
 class _NoLLM:
-    label, kind, is_mock = RANDOM_SEARCH_LABEL, "random", True
+    def __init__(self, label: str, kind: str):
+        self.label, self.kind, self.is_mock = label, kind, True
 
 
-def random_search(
-    spec: DesignSpec, start: WingParams, seed: int, run_dir: str | Path, write_report: bool = True
+def tpe_value(rec: EvalRecord, spec: DesignSpec) -> float:
+    """What TPE minimizes: the constraint violation, objective as a small tie-break."""
+    v = violation(rec, spec)["total"]
+    if not np.isfinite(v):
+        return INFEASIBLE_VALUE
+    return float(v + 1e-3 * min(objective(rec.result, spec), 10.0))
+
+
+class _Uniform:
+    """Random search's proposer: a uniform sample of the free parameters."""
+
+    def __init__(self, spec: DesignSpec, start: WingParams, seed: int):
+        self.spec, self.start = spec, start
+        self.rng = np.random.default_rng(seed + 1_000_003)  # independent of the start sampler
+
+    def ask(self) -> WingParams:
+        return _sample(self.rng, self.spec, self.start)
+
+    def reject(self, p: WingParams) -> None:
+        pass
+
+    def tell(self, p: WingParams, rec: EvalRecord) -> None:
+        pass
+
+
+class _TPE:
+    """Optuna TPE proposer over the free parameters' bounds (ask/tell)."""
+
+    def __init__(self, spec: DesignSpec, start: WingParams, seed: int):
+        import optuna
+        from optuna.distributions import FloatDistribution
+
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        self.optuna, self.spec, self.start = optuna, spec, start
+        bounds = WingParams.bounds()
+        self.names = list(free_params(spec))
+        self.dists = {n: FloatDistribution(*bounds[n]) for n in self.names}
+        self.sampler = optuna.samplers.TPESampler(seed=seed + 1_000_003)
+        self.study = optuna.create_study(direction="minimize", sampler=self.sampler)
+        self.pending = None
+
+    def ask(self) -> WingParams:
+        self.pending = self.study.ask(self.dists)
+        upd = {n: quantize(self.pending.params[n]) for n in self.names}
+        return WingParams(**{**self.start.model_dump(), **upd})
+
+    def reject(self, p: WingParams) -> None:
+        self.study.tell(self.pending, INFEASIBLE_VALUE)
+        self.pending = None
+
+    def tell(self, p: WingParams, rec: EvalRecord) -> None:
+        value = tpe_value(rec, self.spec)
+        if self.pending is not None:
+            self.study.tell(self.pending, value)
+            self.pending = None
+        else:  # the start, or an XFoil result of a promoted design: a trial at that point
+            params = {n: getattr(p, n) for n in self.names}
+            self.study.add_trial(self.optuna.trial.create_trial(params=params, distributions=self.dists, value=value))
+
+
+METHODS = {"random": (_Uniform, RANDOM_SEARCH_LABEL, "random sample"), "optuna": (_TPE, TPE_LABEL, "tpe sample")}
+
+
+def search(
+    method: str, spec: DesignSpec, start: WingParams, seed: int, run_dir: str | Path, write_report: bool = True
 ) -> dict:
-    """Run random search under `spec`'s evaluation and wall-clock limits; returns the meta dict."""
+    """Run a baseline under `spec`'s evaluation and wall-clock limits; returns the meta dict.
+
+    Each step promotes the best promotable design to XFoil if there is one, else evaluates the
+    proposer's next geometry-feasible sample at NeuralFoil (the start first)."""
     from swarm.graph import write_report as _write_report
 
+    cls, label, why_sample = METHODS[method]
+    proposer = cls(spec, start, seed)
     files = RunFiles(run_dir)
-    rng = np.random.default_rng(seed + 1_000_003)  # independent of the start sampler
     t0 = time.time()
     ledger: list[EvalRecord] = []
     term = "eval_budget"
@@ -116,21 +194,26 @@ def random_search(
             res, why = _xfoil(p, spec, geo.coords_path, str(files.dir)), f"promotion of {p.cid} to xfoil"
         else:
             if ledger:
-                p = _sample(rng, spec, start)
-                while build(p, spec, files.dir).violations:  # infeasible geometry costs no evaluation
-                    p = _sample(rng, spec, start)
+                for _ in range(MAX_GEOMETRY_TRIES):
+                    p = proposer.ask()
+                    if not build(p, spec, files.dir).violations:
+                        break
+                    proposer.reject(p)  # infeasible geometry costs no evaluation
+                else:
+                    raise RuntimeError(f"{method}: no geometry-feasible proposal in {MAX_GEOMETRY_TRIES} tries")
             geo = build(p, spec, files.dir)
-            res, why = neuralfoil.evaluate(p, spec), "baseline" if not ledger else "random sample"
+            res, why = neuralfoil.evaluate(p, spec), "baseline" if not ledger else why_sample
         rec, rep = _record(gen, p, res, spec, ledger, why, str(files.dir), geo.coords_path)
         ledger.append(rec)
         files.append_record(rec)
+        proposer.tell(p, rec)
         gen += 1
         if rep.terminal and rep.status == "PASS":
             term = "target_met"
             break
     meta = {
-        "method": "random",
-        "llm_client": RANDOM_SEARCH_LABEL,
+        "method": method,
+        "llm_client": label,
         "is_mock": True,
         "spec": spec.model_dump(),
         "start": start.model_dump(),
@@ -138,7 +221,19 @@ def random_search(
     }
     files.write_meta(meta)
     if write_report:
-        _write_report({"spec": spec, "ledger": ledger, "started_at": t0}, files, term, _NoLLM())
+        _write_report({"spec": spec, "ledger": ledger, "started_at": t0}, files, term, _NoLLM(label, method))
     else:
         files.write_meta({"termination": term, "evals": len(ledger)})
     return {**meta, "termination": term, "evals": len(ledger), "wall_hours": (time.time() - t0) / 3600.0}
+
+
+def random_search(
+    spec: DesignSpec, start: WingParams, seed: int, run_dir: str | Path, write_report: bool = True
+) -> dict:
+    return search("random", spec, start, seed, run_dir, write_report)
+
+
+def optuna_search(
+    spec: DesignSpec, start: WingParams, seed: int, run_dir: str | Path, write_report: bool = True
+) -> dict:
+    return search("optuna", spec, start, seed, run_dir, write_report)

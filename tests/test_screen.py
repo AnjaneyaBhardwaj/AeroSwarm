@@ -107,14 +107,14 @@ def _fake_polar(monkeypatch, cls, h_te):
 
 
 def test_screen_slope_threshold_is_stricter_than_xfoils(monkeypatch):
-    assert VALIDATION.screen_min_dcl_dalpha == 0.0575 > VALIDATION.stall_min_dcl_dalpha == 0.05
-    _fake_polar(monkeypatch, [-1.80, -1.855, -1.91], [2.5, 3.0, 3.5])  # slope 0.055: XFoil's 0.05 would pass it
+    assert VALIDATION.screen_min_dcl_dalpha == 0.055 > VALIDATION.stall_min_dcl_dalpha == 0.05
+    _fake_polar(monkeypatch, [-1.80, -1.852, -1.904], [2.5, 3.0, 3.5])  # slope 0.052: XFoil's 0.05 would pass it
     s = surrogate_screen(HEALTHY, HARD_SPEC)
     assert not s.stall_ok and not s.probe_sep and not s.ok
 
 
 def test_separation_at_a_probe_alpha_fails_the_screen(monkeypatch):
-    _fake_polar(monkeypatch, [-1.80, -1.87, -1.94], [2.5, 3.2, 3.9])  # healthy slope, H 3.9 at alpha+2
+    _fake_polar(monkeypatch, [-1.80, -1.87, -1.94], [2.5, 3.2, 4.4])  # healthy slope, H 4.4 at alpha+2
     s = surrogate_screen(HEALTHY, HARD_SPEC)
     assert s.stall_ok and not s.sep_warning and s.probe_sep and not s.ok and not s.margin_ok
     assert any("alpha+1/+2" in w for w in s.reasons())
@@ -189,8 +189,10 @@ def test_compare_with_xfoil_reports_each_disagreement():
     assert compare_with_xfoil(scr(), r, bad)["disagree"] == ["stall"]
     assert compare_with_xfoil(scr(stall_ok=False), r, bad)["disagree"] == []
     sep = r.model_copy(update={"bl": BoundaryLayerSummary(te_separation_xc=0.9)})
-    assert compare_with_xfoil(scr(), sep, None)["disagree"] == ["separation"]
-    assert "stall" not in compare_with_xfoil(scr(), r, None)  # no probe, no stall comparison
+    good = bad.model_copy(update={"cls": [-1.5, -1.58, -1.66], "dcl_dalpha": 0.08, "ok": True})
+    assert compare_with_xfoil(scr(), sep, good)["disagree"] == ["separation"]
+    # no XFoil stall probe: stall_untested, nothing compared (no evidence about the screen)
+    assert compare_with_xfoil(scr(), sep, None) == {"disagree": [], "stall_untested": True}
 
 
 def test_graph_logs_screen_xfoil_disagreement(spec, start, fake_xfoil, tmp_path):
@@ -220,3 +222,34 @@ def test_blocked_list_is_sorted_by_generation(spec):
     brief = chief_brief({"spec": spec, "ledger": ledger, "generation": 6}, {})
     assert list(brief.facts["screen_blocked"]) == [b.cid, a.cid]
     assert brief.user.index(f"- {b.cid}:") < brief.user.index(f"- {a.cid}:")
+
+
+def test_known_passing_designs_are_not_blocked():
+    """XFoil passes from the live runs and the target witness must get through the screen."""
+    for p in (
+        WingParams(main_camber=0.09, main_camber_pos=0.36, main_thickness=0.13, alpha_deg=8.3487),  # live run 2
+        WingParams(main_camber=0.09, main_camber_pos=0.312, main_thickness=0.1304, alpha_deg=8.5569),  # bench s44
+        WingParams(main_camber=0.085, main_camber_pos=0.30, main_thickness=0.12, alpha_deg=9.0),  # witness
+    ):
+        s = surrogate_screen(p, HARD_SPEC)
+        assert s.ok, (p.cid, s.reasons())
+    winner = WingParams(main_camber=0.09, main_camber_pos=0.36, main_thickness=0.13, alpha_deg=8.3487)
+    assert winner.cid == "abb9803ead"
+
+
+def test_chief_can_promote_a_screen_failure_with_a_logged_reason(spec):
+    p = WingParams(main_camber=0.05, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=8.5)
+    ledger = [nf_rec(p, -1.51, screen=scr(stall_ok=False, slope=0.04))]
+    memo = StrategyMemo(
+        hypothesis="h",
+        focus_params=["alpha_deg"],
+        trust_radius=0.1,
+        fidelity="xfoil",
+        mode="reasoned_step",
+        promote_cid=p.cid,
+        screen_override="slope 0.04 is close; let XFoil decide",
+    )
+    out, events = sanitize(memo, {"spec": spec, "ledger": ledger, "generation": 2})
+    assert out.promote_cid == p.cid and out.fidelity == "xfoil"
+    assert [e["event"] for e in events] == ["promotion_screen_override"]
+    assert events[0]["reason"] == "slope 0.04 is close; let XFoil decide" and events[0]["reasons"]

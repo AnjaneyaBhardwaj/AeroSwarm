@@ -189,6 +189,14 @@ def no_improve_streak(ledger: list[EvalRecord], spec: DesignSpec) -> int:
     return streak
 
 
+def _stall_probe(r: EvalRecord) -> str:
+    """XFoil stall-margin probe: ok / fail / untested (did not run); empty below XFoil."""
+    if r.stall_untested:
+        return "untested"
+    sm = r.stall_margin
+    return "" if sm is None else ("ok" if sm.ok else "fail")
+
+
 def row(r: EvalRecord, spec: DesignSpec) -> dict:
     res = r.result
     return {
@@ -202,8 +210,65 @@ def row(r: EvalRecord, spec: DesignSpec) -> dict:
         "quarantined": r.quarantined,
         "lower_fidelity": res.lower_fidelity,
         "failing": (failing_checks(r, spec) or [""])[0][:90],
+        "stall_probe": _stall_probe(r),
         "params": {k: v for k, v in r.params.model_dump().items()},
     }
+
+
+MOVE_TOL = 1e-6
+
+
+def dial_coverage(ledger: list[EvalRecord], names: list[str]) -> list[dict]:
+    """Per parameter: the range explored over all evaluated designs, the moves (designs whose value
+    differs from their parent's, up/down), and the last move. Says nothing about which way is good."""
+    from swarm.state import WingParams
+
+    bounds = WingParams.bounds()
+    first: dict[str, EvalRecord] = {}
+    for r in ledger:
+        first.setdefault(r.params.cid, r)
+    out = []
+    for n in names:
+        lo, hi = bounds[n]
+        vals = [getattr(r.params, n) for r in first.values()]
+        moves = []
+        for r in first.values():
+            par = first.get(r.parent_cid) if r.parent_cid and r.parent_cid != r.params.cid else None
+            if par is not None and abs(getattr(r.params, n) - getattr(par.params, n)) > MOVE_TOL:
+                moves.append((r.generation, getattr(par.params, n), getattr(r.params, n)))
+        last = moves[-1] if moves else None
+        out.append(
+            {
+                "param": n,
+                "bounds": [lo, hi],
+                "explored": [min(vals), max(vals)] if vals else None,
+                "share_of_range": round((max(vals) - min(vals)) / (hi - lo), 3) if vals else 0.0,
+                "moves": len(moves),
+                "up": sum(b > a for _, a, b in moves),
+                "down": sum(b < a for _, a, b in moves),
+                "last_move": {"gen": last[0], "from": last[1], "to": last[2]} if last else None,
+            }
+        )
+    return out
+
+
+def dial_coverage_table(cov: list[dict]) -> str:
+    rows = [
+        {
+            "param": c["param"],
+            "bounds": f"{c['bounds'][0]:g}–{c['bounds'][1]:g}",
+            "explored": f"{c['explored'][0]:.4g}–{c['explored'][1]:.4g}" if c["explored"] else "",
+            "share of range": f"{100 * c['share_of_range']:.0f}%",
+            "moves (up/down)": f"{c['moves']} ({c['up']}/{c['down']})",
+            "last move": (
+                f"gen {c['last_move']['gen']}: {c['last_move']['from']:.4g} → {c['last_move']['to']:.4g}"
+                if c["last_move"]
+                else "never moved"
+            ),
+        }
+        for c in cov
+    ]
+    return markdown_table(rows, ("param", "bounds", "explored", "share of range", "moves (up/down)", "last move"))
 
 
 def markdown_table(rows: list[dict], cols: tuple[str, ...]) -> str:

@@ -42,7 +42,11 @@ from swarm.critic.numeric import VALIDATION  # noqa: E402
 from swarm.run import HARD_SPEC  # noqa: E402
 from swarm.state import WingParams  # noqa: E402
 
-FP_MAX = 0.05
+# Cost-weighted criterion (session 10): a false pass costs one XFoil evaluation, a false block may lose
+# the feasible design. Pick the fewest blocks with a false-pass rate in [FP_LO, FP_HI]; also report the
+# setting minimising false passes + W * blocks for a few weights W (XFoil evals per lost design).
+FP_LO, FP_HI = 0.15, 0.20
+WEIGHTS = (3, 5, 10)
 
 
 def neuralfoil_table(rows: list[dict]) -> dict:
@@ -97,10 +101,16 @@ def line(name: str, s: tuple[int, int, int, int]) -> str:
 
 
 def best(pts: list[dict], family: dict) -> tuple[str, tuple] | None:
-    """Fewest false blocks among settings with false-pass rate <= FP_MAX."""
+    """Fewest false blocks among settings with a false-pass rate in [FP_LO, FP_HI] (then fewer false passes)."""
     ok = [(name, score(pts, rule)) for name, rule in family.items()]
-    ok = [(n, s) for n, s in ok if s[0] and s[1] / s[0] <= FP_MAX]
-    return min(ok, key=lambda x: (x[1][3], -x[1][0])) if ok else None
+    ok = [(n, s) for n, s in ok if s[0] and FP_LO <= s[1] / s[0] <= FP_HI]
+    return min(ok, key=lambda x: (x[1][3], x[1][1])) if ok else None
+
+
+def cheapest(pts: list[dict], family: dict, w: float) -> tuple[str, tuple]:
+    """Minimum false passes + w * false blocks."""
+    scored = [(name, score(pts, rule)) for name, rule in family.items()]
+    return min(scored, key=lambda x: (x[1][1] + w * x[1][3], x[1][3]))
 
 
 def main(path: str) -> None:
@@ -142,7 +152,14 @@ def main(path: str) -> None:
         print(line(f"current: >= {cur_t} & H(a+1,a+2) < {cur_h}", score(sel, probe_h(cur_t, cur_h))))
         for fam, rules in fams.items():
             b = best(sel, rules)
-            print(line(f"{fam} best: {b[0]}", b[1]) if b else f"{fam}: no setting reaches <= {FP_MAX:.0%} false pass")
+            print(
+                line(f"{fam} best: {b[0]}", b[1]) if b else f"{fam}: no setting in {FP_LO:.0%}-{FP_HI:.0%} false pass"
+            )
+        if pop == "window":
+            for w in WEIGHTS:
+                for fam in ("(a) slope", "(d) slope+probe H"):
+                    n, sc = cheapest(sel, fams[fam], w)
+                    print(line(f"  cost FP+{w}*FB, {fam}: {n}", sc))
         if pop == "window":
             for fam in ("(a) slope", "(b) +3 probe", "(c) knee"):
                 print(f"  {fam} sweep:")

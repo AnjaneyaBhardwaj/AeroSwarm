@@ -1,11 +1,12 @@
-"""Benchmark on the hard preset: real LLM vs mock vs random search, seeded random feasible starts.
+"""Benchmark on the hard preset: real LLM vs mock vs random search vs Optuna TPE, seeded starts.
 
-    uv run python scripts/benchmark.py run --methods mock random          # offline, sequential
+    uv run python scripts/benchmark.py run --methods mock random optuna --parallel 3   # offline
     uv run python scripts/benchmark.py run --methods llm --parallel 5     # needs AEROSWARM_ANTHROPIC_API_KEY
     uv run python scripts/benchmark.py report                             # writes docs/BENCHMARK.md
 
 Every run: HARD_SPEC with max_evals 40 (the binding limit), cost cap $4 and wall clock 1.5 h as
-safety caps, start = baselines.random_start(seed). Runs go to runs/bench/<method>_s<seed>/.
+safety caps, start = baselines.random_start(seed). Runs go to runs/bench2/<method>_s<seed>/
+(runs/bench/ holds the 5-seed v1 benchmark).
 """
 
 from __future__ import annotations
@@ -18,15 +19,17 @@ import time
 from multiprocessing import Pool
 from pathlib import Path
 
-from swarm.baselines import random_search, random_start
+from swarm.baselines import random_start, search
 from swarm.briefs import near_target, screen_blocked
+from swarm.critic.numeric import VALIDATION
 from swarm.ledger import RunFiles
 from swarm.run import HARD_SPEC, run
+from swarm.stats import quartiles, wilson_interval
 
-SEEDS = (11, 22, 33, 44, 55)
-METHODS = ("llm", "mock", "random")
+SEEDS = (11, 22, 33, 44, 55, 66, 77, 88, 99, 110, 121, 132, 143, 154, 165)
+METHODS = ("llm", "mock", "random", "optuna")
 SPEC = HARD_SPEC.model_copy(update={"max_evals": 40, "max_cost_usd": 4.0, "max_wall_hours": 1.5})
-ROOT = Path("runs/bench")
+ROOT = Path("runs/bench2")
 DOC = Path("docs/BENCHMARK.md")
 
 
@@ -35,8 +38,8 @@ def one(job: tuple[str, int, str]) -> str:
     rid = f"{method}_s{seed}"
     start = random_start(seed, SPEC)
     t0 = time.time()
-    if method == "random":
-        random_search(SPEC, start, seed, Path(root) / rid)
+    if method in ("random", "optuna"):
+        search(method, SPEC, start, seed, Path(root) / rid)
     else:
         run(
             SPEC,
@@ -91,6 +94,8 @@ def _row(d: Path) -> dict | None:
         "closest": meta.get("closest_candidate_cid"),
         "failing": (meta.get("closest_candidate_failing") or [""])[0],
         "blocked": sum(e.get("event") in ("promotion_blocked_by_screen", "direct_xfoil_screened_out") for e in events),
+        "overrides": sum(e.get("event") in ("promotion_screen_override", "screen_override") for e in events),
+        "deferred": sum(e.get("event") == "plateau_deferred" for e in events),
         # NeuralFoil designs in the promotion window that the screen failed (never promotable)
         "near_blocked": sum(screen_blocked(x) for x in near_target(RunFiles(d).read_ledger(), SPEC)),
         "start": meta.get("start"),
@@ -100,31 +105,42 @@ def _row(d: Path) -> dict | None:
 def cmd_report(root: str) -> None:
     rows = [r for d in sorted(Path(root).glob("*_s*")) if (r := _row(d))]
     by = {m: sorted([r for r in rows if r["method"] == m], key=lambda r: r["seed"]) for m in METHODS}
-    out = ["# Benchmark: hard preset, LLM vs mock vs random search", ""]
+    out = ["# Benchmark: hard preset, LLM vs mock vs random search vs Optuna TPE", ""]
     out += [
         f"Target Cl {SPEC.target_cl} ± {SPEC.cl_tol}, Cd ≤ {SPEC.cd_max}, Re {SPEC.reynolds:.0e}. Budget "
         f"{SPEC.max_evals} evaluations (the binding limit); safety caps ${SPEC.max_cost_usd:.0f} estimated LLM "
-        f"cost and {SPEC.max_wall_hours} h wall clock per run. Starts: `baselines.random_start(seed)`, seeds "
-        f"{', '.join(map(str, SEEDS))}. Produced by `scripts/benchmark.py`; numbers from each run's "
-        "meta.json / ledger.jsonl.",
+        f"cost and {SPEC.max_wall_hours} h wall clock per run. Starts: `baselines.random_start(seed)`, "
+        f"{len(SEEDS)} seeds ({', '.join(map(str, SEEDS))}). Produced by `scripts/benchmark.py`; numbers from "
+        "each run's meta.json / ledger.jsonl / events.jsonl.",
         "",
         "## Summary",
         "",
-        "| method | success | evals to target (median, successes) | XFoil evals / run (mean) "
-        "| est. LLM cost / run (mean) | wall clock / run (mean) | stopped on a safety cap |",
-        "|---|---|---|---|---|---|---|",
+        "| method | seeds completed | success | 95% interval (Wilson) | evals to target, successes: median [IQR] "
+        "| est. LLM cost / run: mean (total) | XFoil evals / run: mean [min–max] | wall clock / run (mean) "
+        "| stopped on a safety cap |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for m in METHODS:
-        rs = by[m]
+        # an invalid real-LLM run (e.g. aborted on API errors) is not a result: excluded, listed below
+        rs = [r for r in by[m] if r["termination"] != "invalid_llm"]
+        done = f"{len(rs)}/{len(SEEDS)}"
         if not rs:
-            out.append(f"| {m} | not run | | | | | |")
+            out.append(f"| {m} | {done} | not run | | | | | | |")
             continue
         ok = [r for r in rs if r["success"]]
-        med = f"{statistics.median([r['evals'] for r in ok]):g}" if ok else "—"
+        lo, hi = wilson_interval(len(ok), len(rs))
+        if ok:
+            q1, med, q3 = quartiles([float(r["evals"]) for r in ok])
+            ev = f"{med:g} [{q1:g}–{q3:g}]"
+        else:
+            ev = "—"
+        xf = [r["xfoil_evals"] for r in rs]
         caps = [f"s{r['seed']}: {r['termination']}" for r in rs if r["termination"] in ("cost_cap", "wall_clock")]
         out.append(
-            f"| {m} | {len(ok)}/{len(rs)} | {med} | {statistics.mean(r['xfoil_evals'] for r in rs):.1f} "
-            f"| ${statistics.mean(r['cost'] for r in rs):.2f} "
+            f"| {m} | {done} | {len(ok)}/{len(rs)} ({100 * len(ok) / len(rs):.0f}%) | {100 * lo:.0f}–{100 * hi:.0f}% "
+            f"| {ev} "
+            f"| ${statistics.mean(r['cost'] for r in rs):.2f} (${sum(r['cost'] for r in rs):.2f}) "
+            f"| {statistics.mean(xf):.1f} [{min(xf)}–{max(xf)}] "
             f"| {60 * statistics.mean(r['wall_h'] for r in rs):.1f} min "
             f"| {', '.join(caps) or 'none'} |"
         )
@@ -133,15 +149,16 @@ def cmd_report(root: str) -> None:
         "## Per run",
         "",
         "| method | seed | termination | evals | XFoil evals | near-target designs failing the screen "
-        "| blocked promotions / direct XFoil | est. cost | wall clock | result |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| blocked promotions / direct XFoil | screen overrides | plateaus deferred | est. cost | wall clock "
+        "| result |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for m in METHODS:
         for r in by[m]:
             res = f"PASS `{r['best']}`" if r["success"] else f"closest `{r['closest']}`: {r['failing']}"
             out.append(
                 f"| {m} | {r['seed']} | {r['termination']} | {r['evals']} | {r['xfoil_evals']} | {r['near_blocked']} "
-                f"| {r['blocked']} "
+                f"| {r['blocked']} | {r['overrides']} | {r['deferred']} "
                 f"| ${r['cost']:.2f} | {60 * r['wall_h']:.1f} min | {res} |"
             )
     out += [
@@ -153,15 +170,23 @@ def cmd_report(root: str) -> None:
         "  wall clock includes some CPU contention between XFoil solves.",
         "- **mock**: the same graph with `MockClient`, a deterministic rule-based stand-in (NOT an LLM):",
         "  damped least-norm steps on the NeuralFoil sensitivities, promote the best promotable design.",
-        "- **random**: `baselines.random_search`: each evaluation promotes the best promotable design if",
+        "- **random**: `baselines.search('random')`: each evaluation promotes the best promotable design if",
         "  any (the pipeline's rule), else evaluates a uniform random sample of camber, position,",
         "  thickness and alpha over their bounds. Same geometry checks, NeuralFoil screen, XFoil ladder,",
         "  stall probe and validator as the graph.",
+        "- **optuna**: `baselines.search('optuna')`: the same loop and gates with Optuna's TPE sampler",
+        "  (seeded, Optuna defaults: 10 random start-up trials) in place of the uniform sample. It",
+        "  minimizes the constraint violation the agents' parent selection uses (`ledger.violation`),",
+        "  objective as a tie-break; the start is its first trial; XFoil results of promoted designs are",
+        "  added as trials; geometry-infeasible proposals cost no evaluation.",
         "- An evaluation is one ledger record (a NeuralFoil or an XFoil result); stall-margin probes and",
         "  ladder retries are part of the XFoil evaluation they belong to, as in a run.",
-        "- All methods use the session-9 NeuralFoil screen (slope >= 0.0575 and TE H < 3.85 at",
-        "  alpha+1/+2), which keeps false passes near 5% but blocks about 43% of XFoil-feasible designs",
-        "  near the target (docs/PROGRESS.md, session 9).",
+        f"- NeuralFoil screen (all methods): d|Cl|/dα ≥ {VALIDATION.screen_min_dcl_dalpha} and suction-side TE H "
+        f"< {VALIDATION.screen_h_probe_max} at alpha+1/+2, TE H < {VALIDATION.screen_h_sep} at alpha (session 10",
+        "  cost-weighted calibration). The Chief may promote a screen-failed design with a logged",
+        "  screen_override; the baselines never do.",
+        "- Graph runs (llm, mock): a declared plateau ends the run only after 80% of the budget; earlier",
+        "  it triggers exploration (wider trust region, or a restart from a different ledger region).",
     ]
     starts = next((by[m] for m in METHODS if by[m]), [])
     out += ["", "## Starts", "", "| seed | camber | position | thickness | alpha |", "|---|---|---|---|---|"]
