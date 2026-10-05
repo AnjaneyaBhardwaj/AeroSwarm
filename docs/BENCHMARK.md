@@ -125,14 +125,14 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
   designs per run, every one screen-failed); the mock never uses screen_override. With the plateau rule,
   13 runs end on a plateau at 32–39 evaluations (allowed from 32) after 0–18 deferred plateaus
   (widen / restart); 2 ran to the budget (seed 11 after 20 deferrals).
-- **The Chief used screen_override on 24 of the 26 promotions to XFoil in the six LLM runs, and none of
-  the 24 passed.** 15 failed on what the screen flagged (TE separation in the probe range or stall
-  margin); 9 came back from XFoil less loaded than NeuralFoil (Cl −1.73 to −1.80), outside the box,
-  so XFoil's stall gate never ran on them. Both screen-passed promotions were in seed 44; one is the
-  winner. The overrides cost about 4 XFoil evaluations per run and found nothing; every logged reason
-  argues the shortfall is marginal or that the screen over-flags. Several cite earlier overridden designs
-  that "converged cleanly" at XFoil as evidence, but those had failed the target box, so XFoil's stall
-  probe never ran on them; a few misstate the screen's numbers (slope sign, threshold).
+- **The Chief used screen_override on 24 of the 26 XFoil evaluations in the six LLM runs, and none of
+  the 24 passed XFoil** (pre-fix behaviour; details and quoted reasons in `docs/FINDINGS.md`, F1). The
+  XFoil stall probe ran on only 3 of them, and all 3 failed the stall margin, as the screen had said.
+  The other 21 are stall untested (12 with TE separation at the design alpha, 9 outside the box at
+  Cl −1.73 to −1.80) and say nothing about the screen. The overrides took 24 of 137 evaluations. The
+  logged reasons argue the screen over-flags, citing earlier overridden designs whose stall probe never
+  ran. Since commit `7e8a3d6`: at most 2 overrides per run, only for a NeuralFoil result inside the
+  box, with the track record in every Chief brief.
 - **No run stopped on a safety cap**; the most expensive LLM run reached $2.07 at 28 evaluations
   (about $0.075 per evaluation, so ~$3 for a full 40-evaluation run, under the $4 cap).
 - No LLM run declared a plateau before it ended, so the plateau rule was not exercised by the LLM here.

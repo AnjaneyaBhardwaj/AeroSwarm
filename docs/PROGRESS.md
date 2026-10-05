@@ -62,9 +62,11 @@ no evaluation (told to TPE as a penalty of 1000). Random search's sample sequenc
   Seed 44 finished (target met at 19 evals, $1.22). Five runs aborted mid-run as `invalid_llm` at
   14–28 evaluations (none had met the target; $9.07 between them) and nine at their first call. The
   14 are excluded from the table and kept in `runs/bench2_aborted/`. Total LLM spend $10.29 (estimated).
-- In the six LLM runs, **the Chief overrode the screen on 24 of 26 promotions; none of the 24 passed
-  XFoil** (15 failed on the separation / stall the screen flagged, 9 came back outside the box so the
-  stall probe never ran). The winner was a screen-passed promotion.
+- In the six LLM runs, **the Chief overrode the screen on 24 of 26 XFoil evaluations; none of the 24
+  passed XFoil**. The stall probe ran on 3 (all failed, as the screen said); 21 are stall untested.
+  (This entry first said "15 failed on what the screen flagged": that counted 12 results with TE
+  separation at alpha whose stall probe never ran; see session 11.) The winner was a screen-passed
+  promotion.
 - No run stopped on a safety cap. No LLM run declared a plateau before it ended.
 
 ### Known issues / next
