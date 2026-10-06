@@ -146,6 +146,7 @@ that reason as well as the rulebook.
 - mock: 13 of 15 runs declared a plateau at 32 evaluations (the earliest allowed); seed 88 used the budget.
 - mock_hybrid (a check of the hybrid path, not an LLM): 52 inner runs, 350 of its 600 evaluations; 4–33 warm-start
   designs per run (mean 13.8); 27 of 52 improved on the base design's value; 80 inner designs landed in the target box
-  at NeuralFoil, of which 9 passed the screen (promotable); 5 were promoted (one passed, one failed the stall probe,
-  three failed XFoil's box). Before the inner run kept the last evaluation free, two promotable designs were stranded
-  at the end of the budget (seeds 110 and 132); both are promoted in this table.
+  at NeuralFoil, of which 9 passed the screen (promotable); 5 were promoted (one passed;
+  one separated within the stall-probe range; three came back under-loaded at XFoil, Cl −1.785 to −1.791, the
+  NeuralFoil-more-loaded gap noted in session 10). Before the inner run kept the last evaluation free, two
+  promotable designs were stranded at the end of the budget (seeds 110 and 132); both are promoted in this table.
