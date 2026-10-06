@@ -119,7 +119,7 @@ def test_scenario_a_violations_fed_back_then_fallback(spec, start, tmp_path):
         memo,  # gen 1
         _delta("main_thickness", 0.25),  # bounds
         _delta("alpha_deg", 13.9),  # trust region (4 + 0.3·16 = 8.8)
-        _delta("main_thickness", 0.092),  # inside trust region, but < 0.0953: FS2026 T2.4.1 at geometry
+        _delta("main_thickness", 0.11),  # inside trust region (0.13 ± 0.03), but < 0.123: FSAE T.7.1.4 at geometry
         _verdict(),
     ]  # after the deterministic fallback
     llm = ScriptedClient(script)
@@ -131,7 +131,7 @@ def test_scenario_a_violations_fed_back_then_fallback(spec, start, tmp_path):
     assert "trust_region: alpha_deg 13.9" in cad_calls[2]["user"]
     events = [json.loads(x) for x in (tmp_path / "t4" / "events.jsonl").read_text().splitlines()]
     geo = [e for e in events if e.get("event") == "geometry_rejected"]
-    assert geo and geo[0]["violations"][0].startswith("T2.4.1")
+    assert geo and geo[0]["violations"][0].startswith("T.7.1.4")
     assert any(e.get("event") == "cad_fallback" for e in events)
     assert final["ledger"][-1].rationale.startswith("deterministic fallback")
     assert final["termination"] == "eval_budget" and not llm.responses

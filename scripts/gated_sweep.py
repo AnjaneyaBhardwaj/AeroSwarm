@@ -17,7 +17,13 @@ Gate per point (alpha = a): converged at a, a+1, a+2; no TE separation at any of
 (Cf < 0 on the suction side persisting to the TE, the wrapper's definition); stall margin =
 min secant of |Cl| over a..a+2 >= stall_min_dcl_dalpha (0.05/deg). The pipeline itself does not
 fail a design for separation at a+1/a+2 (it only records it), so the analysis counts both.
-Geometry: every point also goes through `build()` (FS2026 checks); violators never pass.
+Geometry: every point also goes through `build()` (HARD_SPEC's rulebook); violators never pass.
+Analysis (`analyze`, `propose`) keeps only sections at or above the rulebook's thickness floor
+(FSAE 2027 T.7.1.4: 5 mm leading-edge radius, t >= 0.123 on the 300 mm chord) and accepts several
+sweep files, comma-separated (the session-7 grid plus the session-12 FSAE thickness levels):
+
+    uv run python scripts/gated_sweep.py run runs_fsae gated_fsae.json 0.125,0.13,0.14,0.145
+    uv run python scripts/gated_sweep.py propose gated.json,gated_fsae.json
 """
 
 from __future__ import annotations
@@ -34,6 +40,7 @@ from pathlib import Path
 import numpy as np
 
 from swarm.cad.build import build, main_section, write_coords
+from swarm.cad.regulations import min_thickness_for_le_radius
 from swarm.critic.numeric import VALIDATION
 from swarm.run import HARD_SPEC
 from swarm.solvers import xfoil
@@ -45,6 +52,7 @@ THICK = (0.0955, 0.11, 0.12, 0.135, 0.15)
 ALPHAS = tuple(round(x, 2) for x in np.arange(4.0, 14.001, 0.25))
 WARMUP = tuple(round(x, 1) for x in np.arange(0.0, 4.0, 0.5))
 N_ITER, NPANEL = 300, 160  # the wrapper's continuation level (L2)
+T_FLOOR = min_thickness_for_le_radius(HARD_SPEC.car.chord_mm, HARD_SPEC.rulebook)
 
 
 def _script(coords: str) -> str:
@@ -103,14 +111,14 @@ def _geometry(job) -> list[dict]:
                 row = _point(m, p, t, a, rr["cl"], rr["cd"], rr["dump"], f"ladder_L{lvl}")
                 break
         out.append(row)
-    for r in out:  # FS2026 / geometry checks at the point's alpha
+    for r in out:  # geometry and rulebook checks (HARD_SPEC.rulebook) at the point's alpha
         g = build(WingParams(main_camber=m, main_camber_pos=p, main_thickness=t, alpha_deg=r["a"]), HARD_SPEC, work)
         r["violations"] = g.violations
     return out
 
 
-def run(work: str, out: str) -> None:
-    jobs = [(work, m, p, t) for m, p, t in itertools.product(CAMBER, POS, THICK)]
+def run(work: str, out: str, thick: tuple[float, ...] = THICK) -> None:
+    jobs = [(work, m, p, t) for m, p, t in itertools.product(CAMBER, POS, thick)]
     with Pool(4) as pool:
         rows = [r for rs in pool.map(_geometry, jobs, chunksize=2) for r in rs]
     Path(out).write_text(json.dumps(rows))
@@ -145,8 +153,14 @@ def in_box(r: dict, target: float, tol: float, cd_max: float) -> bool:
     return abs(abs(r["cl"]) - abs(target)) <= tol and r["cd"] <= cd_max
 
 
+def load(paths: str) -> list[dict]:
+    """Sweep rows from comma-separated files, legal sections only (t >= the rulebook's floor)."""
+    rows = [r for p in paths.split(",") for r in json.loads(Path(p).read_text())]
+    return [r for r in rows if r["t"] >= T_FLOOR]
+
+
 def analyze(path: str) -> None:
-    g = gate(json.loads(Path(path).read_text()))
+    g = gate(load(path))
     ok = [r for r in g if r["status"] == "ok"]
     gated = [r for r in g if r["passes"]]
     print(
@@ -178,27 +192,29 @@ def analyze(path: str) -> None:
             print(f"   m {m}: {abs(b['cl']):.4f} (p {b['p']} t {b['t']} a {b['a']})")
 
 
-def interior(r: dict) -> bool:
-    """Away from the bounds that bind here: camber < 0.09 (WingParams) and t > 0.0955 (FS2026 LE floor)."""
-    return r["m"] < max(CAMBER) - 1e-9 and r["t"] > min(THICK) + 1e-9
+def interior(r: dict, t_low: float) -> bool:
+    """Away from the bounds that bind here: camber < 0.09 (WingParams) and thickness above `t_low`,
+    the lowest legal grid level (the one at the rulebook's leading-edge floor)."""
+    return r["m"] < max(CAMBER) - 1e-9 and r["t"] > t_low + 1e-9
 
 
 def propose(path: str, min_points: int = 10, tol: float = HARD_SPEC.cl_tol) -> None:
     """Highest |Cl| target whose ±tol band holds >= min_points interior passing points; Cd cap
     = worst Cd among them + 5%, rounded up to 0.0005 (session 3's convention)."""
-    gated = [r for r in gate(json.loads(Path(path).read_text())) if r["passes"]]
+    gated = [r for r in gate(load(path)) if r["passes"]]
+    t_low = min(r["t"] for r in gated)
     top = max(abs(r["cl"]) for r in gated)
     for k in range(int(top * 100), 0, -1):
         t = k / 100
-        band = [r for r in gated if interior(r) and abs(abs(r["cl"]) - t) <= tol]
+        band = [r for r in gated if interior(r, t_low) and abs(abs(r["cl"]) - t) <= tol]
         if len(band) >= min_points:
             break
     cap = math.ceil(max(r["cd"] for r in band) * 1.05 / 0.0005) * 0.0005
     box = [r for r in gated if in_box(r, -t, tol, cap)]
     print(f"proposed target Cl -{t:.2f} ± {tol}, Cd <= {cap:.4f} ({t / top:.1%} of gated Cl_max {top:.4f})")
-    print(f"  {len(box)} passing grid points in the box, {sum(interior(r) for r in box)} interior:")
+    print(f"  {len(box)} passing grid points in the box, {sum(interior(r, t_low) for r in box)} interior:")
     for r in sorted(box, key=lambda r: (r["m"], r["p"], r["t"], r["a"])):
-        tag = "" if interior(r) else "  (on a bound)"
+        tag = "" if interior(r, t_low) else "  (on a bound)"
         print(
             f"   m {r['m']} p {r['p']} t {r['t']} a {r['a']}: Cl {abs(r['cl']):.4f} Cd {r['cd']:.5f} "
             f"margin {r['margin']:.3f}{tag}"
@@ -211,8 +227,8 @@ def propose(path: str, min_points: int = 10, tol: float = HARD_SPEC.cl_tol) -> N
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "run":
-        run(sys.argv[2], sys.argv[3])
+    if sys.argv[1] == "run":  # optional 4th argument: thickness levels, e.g. 0.125,0.13,0.14
+        run(sys.argv[2], sys.argv[3], tuple(float(x) for x in sys.argv[4].split(",")) if len(sys.argv) > 4 else THICK)
     elif sys.argv[1] == "propose":
         propose(sys.argv[2])
     else:

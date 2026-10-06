@@ -24,7 +24,6 @@ false pass = share of screen passes that fail XFoil's gate; false block = XFoil 
 
 from __future__ import annotations
 
-import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -69,7 +68,8 @@ def neuralfoil_table(rows: list[dict]) -> dict:
 
 
 def points(path: str) -> list[dict]:
-    gated = [g for g in gated_sweep.gate(json.loads(Path(path).read_text())) if g["margin"] is not None]
+    # legal sections only (gated_sweep.load: t >= the rulebook's floor); comma-separated files allowed
+    gated = [g for g in gated_sweep.gate(gated_sweep.load(path)) if g["margin"] is not None]
     nfd = neuralfoil_table(gated)
     out = []
     for g in gated:

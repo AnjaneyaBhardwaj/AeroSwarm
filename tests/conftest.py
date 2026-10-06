@@ -40,7 +40,7 @@ def spec() -> DesignSpec:
 
 @pytest.fixture
 def start() -> WingParams:
-    return WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
+    return WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.13, alpha_deg=4.0)  # FSAE: t >= 0.123
 
 
 @pytest.fixture

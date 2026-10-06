@@ -34,7 +34,9 @@ DEMO_SPEC = DesignSpec(
     max_evals=30,
     max_wall_hours=0.5,
 )
-DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
+# Rulebook: FSAE 2027 (DesignSpec default). T.7.1.4's 5 mm leading-edge radius needs t >= 0.123 on the
+# 300 mm chord, so both starts use t 0.13 (they were 0.12 and 0.10 under Formula Student 2026).
+DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.13, alpha_deg=4.0)
 
 # "Hard" preset: a near-stall target at a low-speed-corner Re (3e5 ≈ 15 m/s on the
 # 300 mm chord), derived from the GATED XFoil sweep (scripts/gated_sweep.py; docs/PROGRESS.md,
@@ -53,7 +55,7 @@ HARD_SPEC = DesignSpec(
     max_evals=30,
     max_wall_hours=0.5,
 )
-HARD_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.10, alpha_deg=8.0)
+HARD_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.13, alpha_deg=8.0)
 
 PRESETS: dict[str, tuple[DesignSpec, WingParams]] = {
     "default": (DEMO_SPEC, DEMO_START),

@@ -1,7 +1,7 @@
 """Benchmark baselines: seeded random feasible starts, and random search through the pipeline's gates.
 
 Random search uses exactly the agents' evaluation path, minus the agents: the same geometry build
-(FS2026 checks), NeuralFoil + numeric validator + NeuralFoil screen, the same promotion rule
+(rulebook checks), NeuralFoil + numeric validator + NeuralFoil screen, the same promotion rule
 (`briefs.promotable`: within 2*tol at NeuralFoil, under the Cd cap, screen passed), and the same XFoil
 ladder, stall-margin probe and validator. Each step promotes the best promotable design if there is
 one, else evaluates a uniform random sample of the free parameters over their bounds. Every
@@ -47,7 +47,7 @@ def _sample(rng: np.random.Generator, spec: DesignSpec, base: WingParams) -> Win
 def random_start(
     seed: int, spec: DesignSpec, template: WingParams | None = None, max_tries: int = 10_000
 ) -> WingParams:
-    """A seeded, uniformly sampled feasible start: passes the geometry/FS2026 checks and gives a
+    """A seeded, uniformly sampled feasible start: passes the geometry and rulebook checks and gives a
     physical NeuralFoil result with downforce (Cl < 0). Not necessarily near the target."""
     rng = np.random.default_rng(seed)
     base = template or WingParams(main_camber=0.04, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=4.0)

@@ -1,14 +1,17 @@
 """The hard preset's target is feasible: a witness passes the NeuralFoil screen and the full XFoil gate.
 
-Target Cl -1.83 ± 0.03, Cd <= 0.025 (docs/PROGRESS.md, session 7; scripts/gated_sweep.py).
-Witness m 0.085, p 0.30, t 0.12, alpha 9.0: interior of the passing region (camber below the
-0.09 bound, thickness above the 0.0955 floor) and surrounded by passing grid points.
+Target Cl -1.83 ± 0.03, Cd <= 0.025 (docs/PROGRESS.md, sessions 7-8 and 12; scripts/gated_sweep.py).
+Witness m 0.085, p 0.35, t 0.135, alpha 8.75 (FSAE 2027: thickness above the 0.123 floor of
+T.7.1.4's 5 mm leading-edge radius; camber below the 0.09 bound). Its alpha neighbours 8.5 and 9.0
+also pass the XFoil gate cold. The Formula Student witness (m 0.085, p 0.30, t 0.12, alpha 9.0)
+is FSAE-illegal (leading-edge radius 4.8 mm).
 """
 
 import pytest
 
 from swarm.briefs import NEAR_TARGET_FACTOR
 from swarm.cad.build import build
+from swarm.cad.regulations import min_thickness_for_le_radius
 from swarm.critic.numeric import in_target, stall_check_required, validate
 from swarm.critic.screen import surrogate_screen
 from swarm.critic.stall import measure_stall_margin
@@ -17,12 +20,14 @@ from swarm.solvers import neuralfoil, xfoil
 from swarm.solvers.xfoil import xfoil_available
 from swarm.state import WingParams
 
-WITNESS = WingParams(main_camber=0.085, main_camber_pos=0.30, main_thickness=0.12, alpha_deg=9.0)
+WITNESS = WingParams(main_camber=0.085, main_camber_pos=0.35, main_thickness=0.135, alpha_deg=8.75)
 
 
 def test_hard_spec_is_the_gated_target():
     assert (HARD_SPEC.target_cl, HARD_SPEC.cl_tol, HARD_SPEC.cd_max) == (-1.83, 0.03, 0.025)
     assert WITNESS.main_camber < WingParams.bounds()["main_camber"][1]  # interior, not on the camber bound
+    assert HARD_SPEC.rulebook == "FSAE2027_v1.0"
+    assert WITNESS.main_thickness > min_thickness_for_le_radius(HARD_SPEC.car.chord_mm)  # FSAE-legal, off the floor
 
 
 def test_witness_passes_the_neuralfoil_screen_and_is_promotable():

@@ -216,6 +216,7 @@ OLD_HARD = DesignSpec(
     speed_mps=round(speed_for_reynolds(3.0e5, 300.0), 2),
     max_evals=30,
     max_wall_hours=0.5,
+    rulebook="FS2026_v1.1",  # session 2 ran under the Formula Student rulebook (t 0.1085 is FSAE-illegal)
 )
 # 3df51198b3, the design that session 2 ended on with PASS / target_met.
 SESSION2_FINAL = WingParams(main_camber=0.09, main_camber_pos=0.3709, main_thickness=0.1085, alpha_deg=11.6191)

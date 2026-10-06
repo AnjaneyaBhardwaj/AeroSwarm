@@ -1,6 +1,7 @@
 """Attached Cl_max over the feasible single-element box at the hard preset's Re.
 
-Reproduces the numbers behind HARD_SPEC (docs/PROGRESS.md, session 3).
+Reproduces the session-3 numbers (docs/PROGRESS.md, session 3), under the Formula Student 2026
+rulebook used then; the project now uses FSAE 2027 (thickness floor 0.123, scripts/gated_sweep.py).
 
     uv run python scripts/clmax_sweep.py runs_sweep sweep.json   # XFoil, 4 processes
     uv run python scripts/clmax_sweep.py --analyze sweep.json

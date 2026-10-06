@@ -225,8 +225,8 @@ def test_critic_cannot_relabel_a_stall_failure(spec):
 # ----------------------------------------------------------- 5. direct-to-XFoil screening
 
 
-# NeuralFoil at alpha 10 from the start: Cl -1.6405, Cd 0.0200, screen failed (slope 0.024, TE H 4.73)
-IN_BOX = {"target_cl": -1.64, "cd_max": 0.021}
+# NeuralFoil at alpha 10 from the start (t 0.13): Cl -1.6677, Cd 0.0181, screen failed (slope 0.014, TE H 4.76)
+IN_BOX = {"target_cl": -1.67, "cd_max": 0.020}
 
 
 def _direct_run(spec, start, tmp_path, run_id, alpha=10.0, more=(), **memo_kw):

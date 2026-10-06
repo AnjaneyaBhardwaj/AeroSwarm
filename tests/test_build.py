@@ -57,7 +57,7 @@ def test_placed_mm_scales_and_positions(spec):
 
 
 def test_build_writes_coords_and_flags_flap_on_single_element(spec, tmp_path):
-    p = WingParams(main_camber=0.04, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=6)
+    p = WingParams(main_camber=0.04, main_camber_pos=0.4, main_thickness=0.13, alpha_deg=6)
     geo = build(p, spec, tmp_path)
     assert geo.violations == [] and geo.checks["regulations"]
     lines = open(geo.coords_path).read().splitlines()
