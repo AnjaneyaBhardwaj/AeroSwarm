@@ -727,6 +727,12 @@ The LLM layer supplies what numerical optimizers lack:
 - Deciding when to promote fidelity.
 - Recovering from infrastructure failures.
 
+Implemented (milestone 4, `swarm/optim/inner_loop.py`): Optuna TPE only (no CMA-ES), K = 3–12
+NeuralFoil evaluations (0 means 8), focus parameters only, one-sided for a "+"/"-" direction,
+warm-started from the NeuralFoil ledger records in the region; same screen and validator; every
+evaluation is a ledger record counted in `max_evals`; no LLM call inside the loop. The Chief reads a
+summary in its next brief and decides promotions as usual.
+
 Then run the ablation: **BO only vs. LLM only vs. hybrid**, measured by evaluations to target, wall-clock time, token cost, and failure-recovery rate.
 
 ---

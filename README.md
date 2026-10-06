@@ -45,5 +45,13 @@ only for a design whose NeuralFoil result is inside the target box; every brief 
 record. XFoil's own gates stay authoritative; an XFoil result whose stall probe did not run is
 labelled `stall_untested` and is not counted as evidence about the screen.
 
+Hybrid optimization (milestone 4): the Chief may set `mode="inner_optimizer"`, which hands its
+focus parameters, within the trust region around the CAD base, to Optuna TPE
+(`swarm/optim/inner_loop.py`) for 3–12 NeuralFoil evaluations, warm-started from the ledger. The
+loop is deterministic (no LLM call), uses the same geometry checks, validator and screen, and every
+evaluation is a ledger record counted in `max_evals`; it never promotes, the Chief does.
+`--no-inner-optimizer` makes an LLM-only run. Benchmark: `scripts/benchmark.py` (arms hybrid, llm,
+mock, mock_hybrid, random, optuna; `docs/BENCHMARK4.md`).
+
 Limits: 2D sections only (no endplates, tip vortices or induced drag);
 validator thresholds are project conventions to calibrate, not published limits.
