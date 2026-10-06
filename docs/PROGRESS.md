@@ -1,5 +1,55 @@
 # Progress
 
+## Session 12 (2026-10-06): rulebook switched to FSAE 2027
+
+### Rule check of the old setup (online, before the switch)
+- NACA 4-digit geometry matches the standard equations (coefficients, camber line, LE radius
+  1.1019 t²c); with our blunt-TE addition off it equals AeroSandbox's generator to ~1e-16 c.
+  Deliberate departures: a blunt TE (+0.7% c, 2.7–2.9 mm) and non-integer "digits".
+- Formula Student 2026 limits in the code (1100 / 500 mm heights, 250 mm overhang, 30 mm clearance,
+  3 / 1 mm edge radii) match search excerpts of FS-Rules 2026; formulastudent.de is blocked by the
+  environment's network policy, so the PDF itself was not read (rule numbers T8.2.3 and T2.2.1
+  unconfirmed).
+- The user added `docs/FSAE_Rules_2027_V1.pdf` (Formula SAE Rules 2027 v1.0) and chose it.
+
+### FSAE 2027 v1.0 (`swarm/cad/regulations.py`; default `DesignSpec.rulebook`)
+| Rule | Limit | Formula Student 2026 (still selectable) |
+|---|---|---|
+| T.7.7.1a | no higher than 1200 mm in the Rear Aerodynamic Zone | lower than 1100 mm |
+| T.7.7.1b | no higher than 500 mm outside it | lower than 500 mm |
+| T.7.5b | no more than 250 mm rearward of the rear tires | 250 mm |
+| T.7.1.4 | 5 mm radius on forward facing horizontal edges: **t ≥ 0.123** on 300 mm | 3 mm: t ≥ 0.0953 |
+| T.7.1.5 | other edges not sharp (project threshold 1 mm radius, 2 mm TE) | 1 mm |
+| V.1.4.1 | no ground contact (no fixed number) | 30 mm |
+
+Not checked (2D): width T.7.6 / Rear Aerodynamic Zone laterally, end plates (3 mm vertical edges),
+V.1.1 wheel keep-out. The car is still `PLACEHOLDER_CAR`.
+
+### What moved
+- Starts: default and hard presets now t 0.13 (were 0.12 / 0.10, both FSAE-illegal). Hard start:
+  NeuralFoil Cl −1.546, Cd 0.0168, screen failed; XFoil Cl −1.540.
+- Gated sweep extended to t 0.125, 0.13, 0.14, 0.145 (196 geometries, 8,036 points; 1 failed).
+  FSAE-legal grid: gated Cl_max 1.985. **Target kept at −1.83 ± 0.03, Cd ≤ 0.025**: 42 passing grid
+  points in the box, 18 interior (camber < 0.09, t > 0.125), **all 42 pass cold** through the
+  pipeline (ladder, screen-independent XFoil gate, stall probe). The strict "hardest box with ≥ 10
+  interior points" rule would give −1.84 (13 interior); −1.85 has 5.
+- Witness: m 0.085, p 0.35, t 0.135, α 8.75 (NeuralFoil Cl −1.8093, screen ok 0.056; XFoil
+  Cl −1.8241, Cd 0.02251, margin 0.082). The FS witness (t 0.12) is FSAE-illegal.
+- All 7 XFoil winners so far are FSAE-legal (t 0.130–0.1365, LE radius 5.6–6.2 mm); none used a
+  thickness below 0.123 even when Formula Student allowed it.
+- Screen on the FSAE-legal window (937 points, 84 XFoil-feasible): the current rule (slope ≥ 0.055,
+  H < 4.35) gives 17/88 false passes (19.3%), 13/84 blocked (15.5%; was 10.1%); it is still the
+  best in the 15–20% band, so unchanged. The FP + 3·FB cross-check now prefers slope ≥ 0.0525,
+  H < 4.55 (30.8% / 3.6%).
+- Tests run on FSAE (test start t 0.13); the session-2 XFoil regression keeps FS 2026.
+
+### Consequences / next
+- All benchmark results so far (bench v1, v2, the session-11 pilot) are under Formula Student
+  2026; the seeded starts change under FSAE (`random_start` rejects t < 0.123). A comparison under
+  FSAE needs fresh runs of every method (offline ones are minutes; LLM ~$2.5–3 per run).
+- Decide whether to keep −1.83 or move to −1.84, and whether to loosen the screen per the cost
+  cross-check.
+
 ## Session 11 (2026-10-05): screen-override limits, stall_untested, findings, 3-seed pilot
 
 ### Screen overrides (`swarm/overrides.py`)

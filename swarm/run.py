@@ -40,12 +40,13 @@ DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0
 
 # "Hard" preset: a near-stall target at a low-speed-corner Re (3e5 ≈ 15 m/s on the
 # 300 mm chord), derived from the GATED XFoil sweep (scripts/gated_sweep.py; docs/PROGRESS.md,
-# session 7): a design counts only if it is attached at alpha, alpha+1 and alpha+2 and keeps
-# d|Cl|/dalpha >= 0.05/deg there (the pipeline's full gate). Gated Cl_max is 1.979. With
-# Cd <= 0.025, -1.83 ± 0.03 is the hardest target (0.01 steps) whose box holds >= 10 passing
-# grid points off the binding bounds (camber < 0.09, thickness > 0.0955): 13 interior,
-# 28 in total. The old -1.78 / Cd 0.020 box held 8 passing points, 4 on the camber bound.
-# XFoil-derived: re-check when the OpenFOAM tiers arrive. The start point is unchanged.
+# sessions 7, 8 and 12): a design counts only if it is attached at alpha, alpha+1 and alpha+2 and
+# keeps d|Cl|/dalpha >= 0.05/deg there (the pipeline's full gate).
+# Under FSAE 2027 (thickness >= 0.123, sweep levels 0.125-0.15): gated Cl_max 1.985; the
+# -1.83 ± 0.03, Cd <= 0.025 box holds 42 passing grid points, 18 off the bounds (camber < 0.09,
+# thickness > 0.125), and all 42 pass cold through the pipeline. (The strict "hardest box with
+# >= 10 interior points" rule would give -1.84 with 13.) Under Formula Student 2026 the same box
+# held 28 points, 13 interior. XFoil-derived: re-check when the OpenFOAM tiers arrive.
 HARD_SPEC = DesignSpec(
     component="wing_1el",
     target_cl=-1.83,

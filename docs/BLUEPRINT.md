@@ -427,6 +427,8 @@ Keep the elements as separate bodies; never `union` them. Separate bodies give y
 
 ### Regulation compliance (Formula Student 2026)
 
+> **Project decision (session 12): the rulebook is now the Formula SAE Rules 2027 v1.0** (`docs/FSAE_Rules_2027_V1.pdf`; `swarm/cad/regulations.py`). Key differences from the table below: rear wing height ≤ 1200 mm in the Rear Aerodynamic Zone (T.7.7.1a), 5 mm radius on forward facing horizontal edges (T.7.1.4, so NACA thickness ≥ 0.123 on a 300 mm chord), no fixed static ground clearance (V.1.4.1). Formula Student 2026 remains selectable via `DesignSpec.rulebook`.
+
 Parameter bounds are tied to a real rulebook so every limit is traceable to a rule number. The source is the **Formula Student Rules 2026, v1.1** (Formula Student Germany; FS UK aligns closely). Formula SAE in North America has a separate rulebook with different numbers.
 
 | Rule | Limit | Constrains |
