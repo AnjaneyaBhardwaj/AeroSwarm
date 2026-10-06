@@ -182,8 +182,11 @@ def main(argv: list[str] | None = None) -> None:
         upd["max_cost_usd"] = a.budget_usd
     if a.max_wall_hours is not None:
         upd["max_wall_hours"] = a.max_wall_hours
-    if a.resume and (upd or a.preset != "default" or a.start_seed is not None):
-        ap.error("--resume continues the checkpointed spec; --preset/--max-evals/--budget-usd are fixed at run start")
+    if a.resume and (upd or a.preset != "default" or a.start_seed is not None or a.no_inner_optimizer):
+        ap.error(
+            "--resume continues the checkpointed run; --preset/--max-evals/--budget-usd/--no-inner-optimizer "
+            "are fixed at run start"
+        )
     spec = spec.model_copy(update=upd)
     if a.start_seed is not None:
         from swarm.baselines import random_start

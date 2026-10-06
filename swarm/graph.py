@@ -208,6 +208,9 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         except Exception as e:
             fallback("chief", "reused_strategy", e)
             prev = s.get("strategy")
+            if prev is not None and prev.mode == "inner_optimizer":
+                # no LLM chose this generation: a reused memo never starts an inner run
+                prev = prev.model_copy(update={"mode": "reasoned_step", "inner_budget": 0})
             memo = prev or StrategyMemo(
                 hypothesis="(chief unavailable) screen around best",
                 focus_params=list(names[:3]),  # direction "free"
