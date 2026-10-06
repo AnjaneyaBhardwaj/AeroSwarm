@@ -313,8 +313,35 @@ def test_benchmark_skips_finished_and_unfinished_run_directories(tmp_path):
     done = tmp_path / "llm_s11"
     done.mkdir()
     (done / "meta.json").write_text(json.dumps({"termination": "target_met"}))
-    assert "already finished, skipped" in bench.one(("llm", 11, str(tmp_path)))
+    assert "already finished, skipped" in bench.one(("llm", 11, str(tmp_path)))[0]
     partial = tmp_path / "hybrid_s11"
     partial.mkdir()
     (partial / "ledger.jsonl").write_text("{}\n")
-    assert "unfinished run directory" in bench.one(("hybrid", 11, str(tmp_path)))
+    assert "unfinished run directory" in bench.one(("hybrid", 11, str(tmp_path)))[0]
+
+
+def test_benchmark_stops_the_batch_on_an_api_account_error(tmp_path, monkeypatch):
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parent.parent / "scripts" / "benchmark.py"
+    sp = importlib.util.spec_from_file_location("bench2", path)
+    bench = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(bench)
+    d = tmp_path / "r"
+    d.mkdir()
+    fail = {"type": "llm_failure", "error": "BadRequestError: Your credit balance is too low to access the API"}
+    (d / "traces.jsonl").write_text(json.dumps({"type": "llm_call", "ok": True}) + "\n" + json.dumps(fail) + "\n")
+    assert "credit balance is too low" in bench.account_error(d)
+    (d / "traces.jsonl").write_text(json.dumps({"type": "llm_failure", "error": "APITimeoutError: timed out"}))
+    assert bench.account_error(d) is None  # transient: not a reason to stop the batch
+    calls = []
+
+    def fake_one(job):
+        calls.append(job)
+        return f"{job[0]}_s{job[1]}: invalid_llm", "credit balance is too low"
+
+    monkeypatch.setattr(bench, "one", fake_one)
+    with pytest.raises(SystemExit) as e:
+        bench.cmd_run(["hybrid"], [11, 22, 33], parallel=1, root=str(tmp_path))
+    assert e.value.code == 2 and calls == [("hybrid", 11, str(tmp_path))]
