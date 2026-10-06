@@ -142,6 +142,7 @@ the session-13 review fixes (it had 11 crashed inner runs before them; the other
   passed the screen (promotable); 3 were promoted: 1 passed (seed 99), 2 came back under-loaded at XFoil (Cl −1.785
   and −1.788, the NeuralFoil-more-loaded gap noted in session 10).
 - Hybrid pilot (seeds 33, 99, 154; real LLM): no target met in 3 runs; 100 of 119 evaluations were inner; 8 XFoil
-  evaluations, all failed (7 off the box by 0.03–0.04, 1 stall); every run spent both screen overrides by gen 5, all 6
+  evaluations, all failed (7 off the box, 1 stall; the 6 overridden designs were in the box at NeuralFoil and moved
+  0.013–0.046 at XFoil, the 2 screen-passed ones agreed with NeuralFoil but were at the box edge already); every run spent both screen overrides by gen 5, all 6
   failed; $0.26–0.68 per run. Seed 33's run is excluded (CAD validity rule, since fixed; its re-run hit the account's
   API usage limit); seeds 99 and 154 are in the per-run table. Details in docs/PROGRESS.md session 13.

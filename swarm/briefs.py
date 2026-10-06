@@ -34,6 +34,7 @@ from swarm.optim.summary import INNER_BUDGET_DEFAULT, INNER_BUDGET_MAX, INNER_BU
 from swarm.overrides import MAX_SCREEN_OVERRIDES, in_box, overrides_used, track_record, track_record_text
 from swarm.state import (
     FIDELITY_RANK,
+    TERMINAL_FIDELITIES,
     DesignSpec,
     EvalRecord,
     StrategyMemo,
@@ -147,6 +148,7 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "cad_overrides": overrides,
         "dial_coverage": coverage,
         "screen_overrides": track_record(state),
+        "xfoil_record": xfoil_record(state),
         "screen_overrides_left": max(0, MAX_SCREEN_OVERRIDES - used),
         "plateau_allowed_after": plateau_allowed_after(spec),
         "restart_branch": active_branch(state),
@@ -200,6 +202,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             "override(s) left, only for a design inside the target box)\n"
             + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
             "## Your screen overrides this run and what XFoil found\n" + track_record_text(state),
+            "## Every design evaluated at XFoil: NeuralFoil vs XFoil (ledger numbers)\n"
+            + xfoil_record_text(xfoil_record(state)),
             *(
                 [
                     "## Inner-optimizer runs (deterministic TPE at NeuralFoil inside your focus subspace; "
@@ -247,6 +251,67 @@ def mode_text(inner_allowed: bool) -> str:
 
 
 _DIR_TEXT = {"+": "increase", "-": "decrease", "free": "free"}
+
+
+def xfoil_record(state: SwarmState) -> list[dict]:
+    """Each design evaluated at XFoil (latest XFoil record per cid, in order): how it got there (screen passed
+    or overridden), its NeuralFoil Cl (the screen's Cl at alpha) against XFoil's, and the outcome."""
+    spec, ledger = state["spec"], state.get("ledger", [])
+    overridden = {
+        e["cid"] for e in state.get("events", []) if e.get("event") in ("promotion_screen_override", "screen_override")
+    }
+    inner = {r.params.cid for r in ledger if r.inner_optimizer}
+    nf = {r.params.cid: r for r in ledger if r.result.fidelity == "neuralfoil"}
+    out: dict[str, dict] = {}
+    for r in ledger:
+        res = r.result
+        if res.fidelity not in TERMINAL_FIDELITIES or res.cl is None:
+            continue
+        cid = r.params.cid
+        nf_cl = nf[cid].result.cl if cid in nf and nf[cid].result.cl is not None else None
+        if nf_cl is None and r.screen is not None and r.screen.cls:
+            nf_cl = r.screen.cls[0]
+        why = failing_checks(r, spec)
+        outcome = "PASS" if passing(r) else (why[0] if why else (r.verdict.status if r.verdict else res.status))
+        if r.stall_untested and not passing(r):
+            outcome += " (stall probe not run)"
+        out.pop(cid, None)
+        out[cid] = {
+            "gen": r.generation,
+            "cid": cid,
+            "found_by": "inner" if cid in inner else "agents",
+            "route": "screen override" if cid in overridden else "screen passed",
+            "nf_cl": None if nf_cl is None else round(nf_cl, 4),
+            "nf_in_box": "?" if nf_cl is None else ("yes" if abs(nf_cl - spec.target_cl) <= spec.cl_tol else "no"),
+            "xfoil_cl": round(res.cl, 4),
+            "dcl": None if nf_cl is None else round(res.cl - nf_cl, 4),
+            "xfoil_cd": None if res.cd is None else round(res.cd, 5),
+            "outcome": outcome[:90],
+        }
+    return list(out.values())
+
+
+def xfoil_record_text(rows: list[dict]) -> str:
+    if not rows:
+        return "(none yet)"
+    cols = ("gen", "cid", "found_by", "route", "nf_cl", "nf_in_box", "xfoil_cl", "dcl", "xfoil_cd", "outcome")
+    table = markdown_table(rows, cols)
+    lines = []
+    for route in ("screen passed", "screen override"):
+        rs = [r for r in rows if r["route"] == route]
+        if rs:
+            inb = sum(r["nf_in_box"] == "yes" for r in rs)
+            lines.append(
+                f"{route}: {len(rs)} evaluated at XFoil ({inb} with NeuralFoil Cl inside the box), "
+                f"{sum(r['outcome'] == 'PASS' for r in rs)} passed"
+            )
+    d = [r["dcl"] for r in rows if r["dcl"] is not None]
+    if d:
+        lines.append(
+            f"dcl = XFoil Cl − NeuralFoil Cl (positive = less downforce at XFoil): mean {sum(d) / len(d):+.4f}, "
+            f"range {min(d):+.4f} to {max(d):+.4f} over {len(d)} design(s)"
+        )
+    return table + "\n" + "\n".join(lines)
 
 
 def pending_disagreements(state: SwarmState) -> list[dict]:
