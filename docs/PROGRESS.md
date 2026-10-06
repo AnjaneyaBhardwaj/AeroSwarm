@@ -47,8 +47,8 @@ V.1.1 wheel keep-out. The car is still `PLACEHOLDER_CAR`.
 - All benchmark results so far (bench v1, v2, the session-11 pilot) are under Formula Student
   2026; the seeded starts change under FSAE (`random_start` rejects t < 0.123). A comparison under
   FSAE needs fresh runs of every method (offline ones are minutes; LLM ~$2.5–3 per run).
-- Decide whether to keep −1.83 or move to −1.84, and whether to loosen the screen per the cost
-  cross-check.
+- Target decision (user): **keep −1.83 ± 0.03, Cd ≤ 0.025** under FSAE (same target as the earlier
+  benchmarks; −1.84 would be the strict-rule choice). Screen: unchanged unless the user decides otherwise.
 
 ## Session 11 (2026-10-05): screen-override limits, stall_untested, findings, 3-seed pilot
 
