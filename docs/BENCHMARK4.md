@@ -9,7 +9,7 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
 | hybrid | 0/15 | not run | | | | | | |
 | llm | 0/15 | not run | | | | | | |
 | mock | 15/15 | 1/15 (7%) | 1–30% | 25 [25–25] | $0.00 ($0.00) | 0.1 [0–1] | 0.1 min | none |
-| mock_hybrid | 15/15 | 1/15 (7%) | 1–30% | 24 [24–24] | $0.00 ($0.00) | 0.3 [0–2] | 0.1 min | none |
+| mock_hybrid | 15/15 | 2/15 (13%) | 4–38% | 31.5 [28.25–34.75] | $0.00 ($0.00) | 0.3 [0–1] | 0.1 min | none |
 | random | 15/15 | 0/15 (0%) | 0–20% | — | $0.00 ($0.00) | 0.0 [0–0] | 0.1 min | none |
 | optuna | 15/15 | 1/15 (7%) | 1–30% | 19 [19–19] | $0.00 ($0.00) | 0.5 [0–2] | 0.1 min | none |
 
@@ -32,21 +32,21 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
 | mock | 143 | plateau | 35 | 0 | 15 | 0 | 0 | 0 | - | $0.00 | 0.1 min | closest `ace84f2c65`: NeuralFoil stall screen: d|Cl|/dalpha -0.005/deg < 0.055 |
 | mock | 154 | target_met | 25 | 1 | 8 | 0 | 0 | 12 | - | $0.00 | 0.1 min | PASS `9c299ae39d` |
 | mock | 165 | plateau | 32 | 0 | 9 | 0 | 0 | 7 | - | $0.00 | 0.1 min | closest `f26e320fe0`: target box: Cd 0.02518 > cd_max 0.025 |
-| mock_hybrid | 11 | eval_budget | 40 | 0 | 22 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `21b2c0452b`: NeuralFoil stall screen: d|Cl|/dalpha 0.036/deg < 0.055 |
-| mock_hybrid | 22 | eval_budget | 40 | 0 | 12 | 0 | 0 | 0 | 4 (28; 0) | $0.00 | 0.1 min | closest `e1e1de2bb0`: NeuralFoil stall screen: d|Cl|/dalpha 0.014/deg < 0.055 |
-| mock_hybrid | 33 | eval_budget | 40 | 0 | 24 | 0 | 0 | 0 | 4 (26; 0) | $0.00 | 0.1 min | closest `ac5f3e6bf3`: NeuralFoil stall screen: d|Cl|/dalpha 0.037/deg < 0.055 |
+| mock_hybrid | 11 | eval_budget | 40 | 0 | 19 | 0 | 0 | 0 | 4 (26; 0) | $0.00 | 0.1 min | closest `b6c4969a6e`: NeuralFoil stall screen: d|Cl|/dalpha 0.050/deg < 0.055 |
+| mock_hybrid | 22 | eval_budget | 40 | 0 | 7 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `29cd2a85df`: NeuralFoil stall screen: d|Cl|/dalpha 0.024/deg < 0.055 |
+| mock_hybrid | 33 | eval_budget | 40 | 0 | 20 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `b807f26df9`: NeuralFoil stall screen: d|Cl|/dalpha 0.019/deg < 0.055 |
 | mock_hybrid | 44 | eval_budget | 40 | 0 | 24 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `33f4aebeb8`: NeuralFoil stall screen: d|Cl|/dalpha 0.032/deg < 0.055 |
 | mock_hybrid | 55 | eval_budget | 40 | 0 | 20 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `f751d7f45a`: NeuralFoil stall screen: d|Cl|/dalpha 0.039/deg < 0.055 |
-| mock_hybrid | 66 | eval_budget | 40 | 0 | 14 | 0 | 0 | 0 | 4 (25; 0) | $0.00 | 0.1 min | closest `b8fb314825`: NeuralFoil stall screen: d|Cl|/dalpha 0.010/deg < 0.055 |
-| mock_hybrid | 77 | eval_budget | 40 | 0 | 19 | 0 | 0 | 0 | 4 (25; 0) | $0.00 | 0.1 min | closest `72a5fb1adf`: NeuralFoil stall screen: d|Cl|/dalpha 0.051/deg < 0.055 |
-| mock_hybrid | 88 | eval_budget | 40 | 0 | 0 | 0 | 0 | 0 | 2 (16; 0) | $0.00 | 0.1 min | closest `0c3f189e15`: target box: Cd 0.02570 > cd_max 0.025 |
-| mock_hybrid | 99 | eval_budget | 40 | 2 | 9 | 2 | 0 | 0 | 4 (26; 2) | $0.00 | 0.1 min | closest `836309ab67`: stall_margin: TE separation within the probe range (x/c 0.99 at 11.1929°) |
+| mock_hybrid | 66 | eval_budget | 40 | 0 | 13 | 0 | 0 | 0 | 4 (25; 0) | $0.00 | 0.1 min | closest `b8fb314825`: NeuralFoil stall screen: d|Cl|/dalpha 0.010/deg < 0.055 |
+| mock_hybrid | 77 | eval_budget | 40 | 0 | 16 | 0 | 0 | 0 | 4 (25; 0) | $0.00 | 0.1 min | closest `72a5fb1adf`: NeuralFoil stall screen: d|Cl|/dalpha 0.051/deg < 0.055 |
+| mock_hybrid | 88 | eval_budget | 40 | 0 | 3 | 0 | 0 | 0 | 3 (18; 0) | $0.00 | 0.1 min | closest `925e756122`: NeuralFoil stall screen: d|Cl|/dalpha 0.044/deg < 0.055 |
+| mock_hybrid | 99 | target_met | 38 | 1 | 11 | 0 | 0 | 0 | 3 (24; 1) | $0.00 | 0.1 min | PASS `1b923df507` (found by the inner optimizer) |
 | mock_hybrid | 110 | eval_budget | 40 | 1 | 23 | 1 | 0 | 0 | 4 (26; 1) | $0.00 | 0.1 min | closest `143773ec13`: target box: Cl -1.7878 is 0.0422 from -1.83 (tol 0.03) |
-| mock_hybrid | 121 | eval_budget | 40 | 0 | 14 | 0 | 0 | 0 | 4 (28; 0) | $0.00 | 0.1 min | closest `bd176e7bea`: NeuralFoil stall screen: d|Cl|/dalpha 0.045/deg < 0.055 |
+| mock_hybrid | 121 | eval_budget | 40 | 0 | 14 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `442792f280`: NeuralFoil stall screen: d|Cl|/dalpha 0.053/deg < 0.055 |
 | mock_hybrid | 132 | eval_budget | 40 | 1 | 10 | 0 | 0 | 0 | 3 (22; 1) | $0.00 | 0.1 min | closest `cda5762a43`: target box: Cl -1.7846 is 0.0454 from -1.83 (tol 0.03) |
-| mock_hybrid | 143 | eval_budget | 40 | 0 | 21 | 0 | 0 | 0 | 3 (18; 0) | $0.00 | 0.1 min | closest `43d12faa36`: NeuralFoil stall screen: d|Cl|/dalpha 0.009/deg < 0.055 |
-| mock_hybrid | 154 | target_met | 24 | 1 | 7 | 0 | 0 | 0 | 2 (16; 1) | $0.00 | 0.0 min | PASS `0a36867557` (found by the inner optimizer) |
-| mock_hybrid | 165 | eval_budget | 40 | 0 | 4 | 0 | 0 | 0 | 2 (13; 0) | $0.00 | 0.1 min | closest `6a70485682`: NeuralFoil separation warning at alpha+1/+2: suction-side TE H 4.36, 5.00 (limit 4.35) |
+| mock_hybrid | 143 | eval_budget | 40 | 0 | 19 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `b9522c6746`: NeuralFoil stall screen: d|Cl|/dalpha 0.019/deg < 0.055 |
+| mock_hybrid | 154 | target_met | 25 | 1 | 6 | 0 | 0 | 0 | 2 (16; 0) | $0.00 | 0.1 min | PASS `ba9655cf32` |
+| mock_hybrid | 165 | eval_budget | 40 | 0 | 9 | 0 | 0 | 0 | 4 (27; 0) | $0.00 | 0.1 min | closest `eb1fb66810`: NeuralFoil stall screen: d|Cl|/dalpha 0.054/deg < 0.055 |
 | random | 11 | eval_budget | 40 | 0 | 1 | 0 | 0 | 0 | - | $0.00 | 0.1 min | closest `f039c40fe3`: NeuralFoil stall screen: d|Cl|/dalpha 0.041/deg < 0.055 |
 | random | 22 | eval_budget | 40 | 0 | 0 | 0 | 0 | 0 | - | $0.00 | 0.1 min | closest `925ccc3a81`: target box: Cl -1.8650 is 0.0350 from -1.83 (tol 0.03) |
 | random | 33 | eval_budget | 40 | 0 | 0 | 0 | 0 | 0 | - | $0.00 | 0.1 min | closest `234ebbc766`: target box: Cl -1.5852 is 0.2448 from -1.83 (tol 0.03) |
@@ -102,6 +102,9 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
   minimizes the constraint violation the agents' parent selection uses (`ledger.violation`),
   objective as a tie-break; the start is its first trial; XFoil results of promoted designs are
   added as trials; geometry-infeasible proposals cost no evaluation.
+- Constraint violation (`ledger.violation`; parent selection in graph runs, Optuna's objective, the
+  inner optimizer's objective): since session 13 the screen's alpha+1/+2 TE-H warning counts as
+  separation at NeuralFoil (before, only the warning at alpha did). Not in earlier benchmarks.
 - An evaluation is one ledger record (a NeuralFoil or an XFoil result); stall-margin probes and
   ladder retries are part of the XFoil evaluation they belong to, as in a run.
 - NeuralFoil screen (all methods): d|Cl|/dα ≥ 0.055 and suction-side TE H < 4.35 at alpha+1/+2, TE H < 4.25 at alpha (session 10
@@ -133,20 +136,19 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
 
 ## Observations
 
-Offline arms only (session 13); the hybrid and llm arms wait for the user's go-ahead. All arms include the session-13
-fix to `ledger.violation` (the screen's alpha+1/+2 TE-H warning now counts as separation at NeuralFoil), which
-changes parent selection (mock) and Optuna's objective; the numbers are not comparable with docs/BENCHMARK.md for
-that reason as well as the rulebook.
+Offline arms only (session 13); the hybrid and llm arms wait for the user's go-ahead. mock_hybrid was re-run after
+the session-13 review fixes (it had 11 crashed inner runs before them; the other arms do not use the inner path).
 
-- Successes: mock 1/15 (seed 154, 25 evals), mock_hybrid 1/15 (seed 154, 24 evals, the passing design found by an
-  inner run), Optuna 1/15 (seed 77, 19 evals), random 0/15. With 15 seeds the intervals (1–30%) overlap: the
-  offline arms do not separate.
+- Successes: mock 1/15 (seed 154, 25 evals), mock_hybrid 2/15 (seed 99 at 38 evals, the passing design found by an
+  inner run; seed 154 at 25 evals, found by a reasoned step), Optuna 1/15 (seed 77, 19 evals), random 0/15. With 15
+  seeds the intervals (1–30%, 4–38%) overlap: the offline arms do not separate.
+- Budgets differ: mock declared a plateau in 13 of 15 runs (10 at 32 evaluations, the earliest allowed; s110 at
+  34, s143 at 35, s44 at 37), met the target on seed 154 at 25 and used all 40 only on seed 88; mock_hybrid never declared a plateau (its runs used
+  583 of 600 evaluations). mock vs mock_hybrid is therefore not a budget-matched comparison.
 - XFoil is rare in every arm (mean 0–0.5 XFoil evaluations per run): designs near the target at NeuralFoil mostly
   fail the screen (column "near-target designs failing the screen"), and none of these arms overrides it.
-- mock: 13 of 15 runs declared a plateau at 32 evaluations (the earliest allowed); seed 88 used the budget.
-- mock_hybrid (a check of the hybrid path, not an LLM): 52 inner runs, 350 of its 600 evaluations; 4–33 warm-start
-  designs per run (mean 13.8); 27 of 52 improved on the base design's value; 80 inner designs landed in the target box
-  at NeuralFoil, of which 9 passed the screen (promotable); 5 were promoted (one passed;
-  one separated within the stall-probe range; three came back under-loaded at XFoil, Cl −1.785 to −1.791, the
-  NeuralFoil-more-loaded gap noted in session 10). Before the inner run kept the last evaluation free, two
-  promotable designs were stranded at the end of the budget (seeds 110 and 132); both are promoted in this table.
+- mock_hybrid (a check of the hybrid path, not an LLM): 55 inner runs, none crashed, all stopped on their budget;
+  371 of its 583 evaluations; 2–33 warm-start designs per run (mean 9.7, from the parent's exact subspace only); 26
+  of 55 improved on the base design's value; 62 inner designs landed in the target box at NeuralFoil, 5 of them
+  passed the screen (promotable); 3 were promoted: 1 passed (seed 99), 2 came back under-loaded at XFoil (Cl −1.785
+  and −1.788, the NeuralFoil-more-loaded gap noted in session 10).

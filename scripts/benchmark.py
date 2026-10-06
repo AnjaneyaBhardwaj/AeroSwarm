@@ -217,6 +217,9 @@ def cmd_report(root: str) -> None:
         "  minimizes the constraint violation the agents' parent selection uses (`ledger.violation`),",
         "  objective as a tie-break; the start is its first trial; XFoil results of promoted designs are",
         "  added as trials; geometry-infeasible proposals cost no evaluation.",
+        "- Constraint violation (`ledger.violation`; parent selection in graph runs, Optuna's objective, the",
+        "  inner optimizer's objective): since session 13 the screen's alpha+1/+2 TE-H warning counts as",
+        "  separation at NeuralFoil (before, only the warning at alpha did). Not in earlier benchmarks.",
         "- An evaluation is one ledger record (a NeuralFoil or an XFoil result); stall-margin probes and",
         "  ladder retries are part of the XFoil evaluation they belong to, as in a run.",
         f"- NeuralFoil screen (all methods): d|Cl|/dα ≥ {VALIDATION.screen_min_dcl_dalpha} and suction-side TE H "
