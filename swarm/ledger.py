@@ -127,8 +127,9 @@ def violation(rec: EvalRecord, spec: DesignSpec) -> dict[str, float]:
     stall: shortfall of d|Cl|/dalpha below the threshold (XFoil probe if it ran, else the
     NeuralFoil screen; a probe that could not be solved counts as 1). separation: 1 if the
     design separates at its alpha or within the probe range (XFoil facts, else the screen's
-    warning). box: distance outside the target box, Cl in units of cl_tol plus Cd excess at
-    the objective's exchange rate (CD_PENALTY), also in units of cl_tol.
+    separation warnings at alpha or at alpha+1/+2). box: distance outside the target box, Cl in
+    units of cl_tol plus Cd excess at the objective's exchange rate (CD_PENALTY), also in units of
+    cl_tol.
     """
     r, sm, sc = rec.result, rec.stall_margin, rec.screen
     stall = 0.0
@@ -140,7 +141,7 @@ def violation(rec: EvalRecord, spec: DesignSpec) -> dict[str, float]:
     if sm is not None:
         sep = sep or any(x is not None for x in sm.te_separation_xc[1:])
     elif sc is not None and r.fidelity == "neuralfoil":
-        sep = sep or sc.sep_warning
+        sep = sep or sc.sep_warning or sc.probe_sep  # the screen's analogue of XFoil's probe-range separation
     box = float("inf")
     if r.cl is not None and r.cd is not None and math.isfinite(r.cl) and math.isfinite(r.cd):
         out = max(0.0, abs(r.cl - spec.target_cl) - spec.cl_tol) + CD_PENALTY * max(0.0, r.cd - spec.cd_max)
@@ -175,17 +176,18 @@ def select_parent(ledger: list[EvalRecord], spec: DesignSpec) -> tuple[EvalRecor
 
 
 def no_improve_streak(ledger: list[EvalRecord], spec: DesignSpec) -> int:
-    """Generations since the best objective last improved."""
-    best, streak, last_gen = float("inf"), 0, None
+    """Generations since the best objective last improved (a generation's best record counts, so an
+    inner-optimizer generation with many records is one generation)."""
+    by_gen: dict[int, float] = {}
     for r in ledger:
-        if r.generation == last_gen:
-            continue
         j = objective(r.result, spec) if usable(r) else float("inf")
+        by_gen[r.generation] = min(j, by_gen.get(r.generation, float("inf")))
+    best, streak = float("inf"), 0
+    for j in by_gen.values():
         if j < best - 1e-6:
             best, streak = j, 0
         else:
             streak += 1
-        last_gen = r.generation
     return streak
 
 
@@ -211,6 +213,7 @@ def row(r: EvalRecord, spec: DesignSpec) -> dict:
         "lower_fidelity": res.lower_fidelity,
         "failing": (failing_checks(r, spec) or [""])[0][:90],
         "stall_probe": _stall_probe(r),
+        "by": "inner" if r.inner_optimizer else "agents",
         "params": {k: v for k, v in r.params.model_dump().items()},
     }
 
