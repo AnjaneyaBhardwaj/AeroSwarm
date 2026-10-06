@@ -106,7 +106,7 @@ def test_track_record_reaches_the_next_chief_brief_and_the_report(spec, start, f
     assert "stall untested (probe not run): no evidence about the screen" in gen2
     assert "stall untested (XFoil stall probe not run: no evidence about the screen)" in gen2  # history
     report = (tmp_path / "t" / "report.md").read_text()
-    assert "## Screen overrides" in report and f"| {x.params.cid} | xfoil | TARGET_MISS |" in report
+    assert "## Screen overrides" in report and f"| {x.params.cid} | agents | xfoil | TARGET_MISS |" in report
     assert "| untested |" in report
     note = "Not evidence about the screen (1 XFoil result(s) with the stall probe not run, stall_untested)"
     assert f"{note}: gen 1 `{x.params.cid}`" in report

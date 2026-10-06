@@ -427,6 +427,8 @@ Keep the elements as separate bodies; never `union` them. Separate bodies give y
 
 ### Regulation compliance (Formula Student 2026)
 
+> **Project decision (session 12): the rulebook is now the Formula SAE Rules 2027 v1.0** (`docs/FSAE_Rules_2027_V1.pdf`; `swarm/cad/regulations.py`). Key differences from the table below: rear wing height ≤ 1200 mm in the Rear Aerodynamic Zone (T.7.7.1a), 5 mm radius on forward facing horizontal edges (T.7.1.4, so NACA thickness ≥ 0.123 on a 300 mm chord), no fixed static ground clearance (V.1.4.1). Formula Student 2026 remains selectable via `DesignSpec.rulebook`.
+
 Parameter bounds are tied to a real rulebook so every limit is traceable to a rule number. The source is the **Formula Student Rules 2026, v1.1** (Formula Student Germany; FS UK aligns closely). Formula SAE in North America has a separate rulebook with different numbers.
 
 | Rule | Limit | Constrains |
@@ -724,6 +726,12 @@ The LLM layer supplies what numerical optimizers lack:
 - Diagnosing *why* designs fail.
 - Deciding when to promote fidelity.
 - Recovering from infrastructure failures.
+
+Implemented (milestone 4, `swarm/optim/inner_loop.py`): Optuna TPE only (no CMA-ES), K = 3–12
+NeuralFoil evaluations (0 means 8), focus parameters only, one-sided for a "+"/"-" direction,
+warm-started from the NeuralFoil ledger records in the region; same screen and validator; every
+evaluation is a ledger record counted in `max_evals`; no LLM call inside the loop. The Chief reads a
+summary in its next brief and decides promotions as usual.
 
 Then run the ablation: **BO only vs. LLM only vs. hybrid**, measured by evaluations to target, wall-clock time, token cost, and failure-recovery rate.
 

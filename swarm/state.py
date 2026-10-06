@@ -35,7 +35,7 @@ class ReferenceCar(BaseModel, frozen=True):
     rear_tire_rear_x: float  # rearmost point of the rear tires
     wing_mount_x: float  # x of the main-plane leading edge
     wing_mount_z: float  # height of the main-plane leading edge
-    inner_rear_track_mm: float  # caps span for the 3D stage (T8.2.2)
+    inner_rear_track_mm: float  # caps span for the 3D stage (FSAE T.7.3.3 / T.7.6.3)
 
 
 # Placeholder geometry for a generic Formula Student car. These are NOT
@@ -65,7 +65,7 @@ class DesignSpec(BaseModel, frozen=True):
     max_evals: int = 80
     max_wall_hours: float = 4.0
     max_cost_usd: float | None = Field(None, gt=0)  # estimated LLM spend cap; None = uncapped
-    rulebook: Literal["FS2026_v1.1", "none"] = "FS2026_v1.1"
+    rulebook: Literal["FSAE2027_v1.0", "FS2026_v1.1", "none"] = "FSAE2027_v1.0"  # swarm.cad.regulations
     car: ReferenceCar = PLACEHOLDER_CAR
 
     @model_validator(mode="before")
@@ -373,6 +373,7 @@ class EvalRecord(BaseModel):
     stall_margin: StallMargin | None = None  # measured only for a candidate that would otherwise be target_met
     screen: SurrogateScreen | None = None  # NeuralFoil screen of this geometry (any fidelity)
     failed_checks: list[str] = []  # names of the numeric checks that failed (not skipped ones)
+    inner_optimizer: bool = False  # evaluated by the deterministic inner optimizer (swarm.optim), not an agent
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -404,6 +405,7 @@ class SwarmState(TypedDict, total=False):
     retries: dict[str, int]  # {"cad": n, "xfoil_level": k}
     pending_violation: str | None
     history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
+    inner_allowed: bool  # the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop)
     exploration: dict | None  # plateau restart branch: anchor_cid, from_gen, until_gen (swarm.explore)
     termination: (
         Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]

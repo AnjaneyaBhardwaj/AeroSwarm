@@ -10,8 +10,16 @@ make install   # uv sync
 make xfoil     # build headless-safe XFoil 6.99 (the apt package aborts with SIGFPE)
 make test      # offline; XFoil-binary tests skip if it is missing
 make demo      # smoke test: real LLM if AEROSWARM_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) is set, else the labelled mock (NOT an LLM)
-make demo-hard # mock, 85% of attached Cl,max at Re 3e5: the NeuralFoil screen blocks every near-stall promotion
+make demo-hard # mock, hard target Cl -1.83 ± 0.03, Cd <= 0.025 at Re 3e5 (near the gated Cl,max)
 ```
+
+Rules: the section is checked against the **Formula SAE Rules 2027 v1.0**
+([docs/FSAE_Rules_2027_V1.pdf](docs/FSAE_Rules_2027_V1.pdf)), on outlines placed on a placeholder
+car (`PLACEHOLDER_CAR`, not a real car): T.7.7.1 height (≤ 1200 mm in the Rear Aerodynamic Zone,
+≤ 500 mm outside it), T.7.5b (≤ 250 mm behind the rear tires), T.7.1.4 (5 mm radius on forward
+facing horizontal edges, so NACA thickness ≥ 0.123 on the 300 mm chord), T.7.1.5 (edges not sharp:
+the trailing edge is kept ≥ 2 mm thick) and V.1.4.1 (no ground contact). Width (T.7.6) and end
+plates need the 3D stage. `DesignSpec.rulebook = "FS2026_v1.1"` selects Formula Student 2026.
 
 Live runs: cap them. `python -m swarm.run --llm anthropic --max-evals 10 --budget-usd 2`
 stops cleanly (termination `cost_cap`) once the estimated LLM spend reaches the cap;
@@ -30,10 +38,20 @@ checks; it never calls a TARGET_MISS "best". Termination is one of `target_met`,
 `eval_budget`, `wall_clock`, `cost_cap`, `plateau`, `fatal`, `invalid_llm`.
 
 Before a NeuralFoil candidate is promoted to XFoil it must pass the NeuralFoil screen:
-d|Cl|/dα ≥ 0.05/deg over α+1 and α+2, and suction-side shape factor H < 4.25 at the TE
-(calibrated on the Re 3e5 XFoil sweep: `scripts/clmax_sweep.py` then
-`scripts/calibrate_screen.py`). XFoil's own gates stay authoritative; where the two disagree
-on the same geometry, `events.jsonl` gets a `screen_xfoil_disagreement` event.
+d|Cl|/dα ≥ 0.055/deg and suction-side TE shape factor H < 4.35 at α+1 and α+2, and H < 4.25 at α
+(cost-weighted calibration on the gated Re 3e5 XFoil sweep: `scripts/calibrate_screen_rules.py`).
+The Chief may overrule the screen with a logged `screen_override` reason, at most twice per run and
+only for a design whose NeuralFoil result is inside the target box; every brief shows its override
+record. XFoil's own gates stay authoritative; an XFoil result whose stall probe did not run is
+labelled `stall_untested` and is not counted as evidence about the screen.
+
+Hybrid optimization (milestone 4): the Chief may set `mode="inner_optimizer"`, which hands its
+focus parameters, within the trust region around the CAD base, to Optuna TPE
+(`swarm/optim/inner_loop.py`) for 3–12 NeuralFoil evaluations, warm-started from the ledger. The
+loop is deterministic (no LLM call), uses the same geometry checks, validator and screen, and every
+evaluation is a ledger record counted in `max_evals`; it never promotes, the Chief does.
+`--no-inner-optimizer` makes an LLM-only run. Benchmark: `scripts/benchmark.py` (arms hybrid, llm,
+mock, mock_hybrid, random, optuna; `docs/BENCHMARK4.md`).
 
 Limits: 2D sections only (no endplates, tip vortices or induced drag);
 validator thresholds are project conventions to calibrate, not published limits.

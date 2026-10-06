@@ -2,6 +2,8 @@
 
 Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the binding limit); safety caps $4 estimated LLM cost and 1.5 h wall clock per run. Starts: `baselines.random_start(seed)`, 15 seeds (11, 22, 33, 44, 55, 66, 77, 88, 99, 110, 121, 132, 143, 154, 165). Produced by `scripts/benchmark.py`; numbers from each run's meta.json / ledger.jsonl / events.jsonl.
 
+> **Rulebook:** every run on this page used the Formula Student 2026 rulebook (thickness floor 0.0953). Since session 12 the project uses FSAE 2027 (floor 0.123): the seeded starts, the feasible region and the witness changed, so runs made from now on are not comparable with these.
+
 ## Summary
 
 | method | seeds completed | success | 95% interval (Wilson) | evals to target, successes: median [IQR] | est. LLM cost / run: mean (total) | XFoil evals / run: mean [min–max] | wall clock / run (mean) | stopped on a safety cap |

@@ -14,7 +14,7 @@ import numpy as np
 from swarm.cad.regulations import check_regulations
 from swarm.state import DesignSpec, GeometryArtifact, ReferenceCar, WingParams
 
-# 0.7% c ≈ 2 mm on a 300 mm chord: a 1 mm edge radius (FS2026 T2.4.1).
+# 0.7% c ≈ 2 mm on a 300 mm chord: a 1 mm edge radius (not sharp: FSAE T.7.1.5; FS2026 T2.4.1).
 DEFAULT_TE_THICK = 0.007
 TE_MESH_FLOOR = 0.002  # fraction of chord; thinner TEs won't mesh at T2
 MIN_GAP = 0.003  # fraction of chord, between elements
@@ -139,8 +139,8 @@ def build(params: WingParams, spec: DesignSpec, out_dir: str | Path) -> Geometry
     coords = main_section(params)
     checks, geo_v, te = validate_section(coords)
     violations += geo_v
-    if spec.rulebook == "FS2026_v1.1":
-        reg = check_regulations(placed_mm(params, spec.car), params, spec.car)
+    if spec.rulebook != "none":
+        reg = check_regulations(placed_mm(params, spec.car), params, spec.car, spec.rulebook)
         checks["regulations"] = not reg
         violations += reg
     path = write_coords(coords, out_dir / params.cid / "coords.dat", f"aeroswarm-{params.cid}")

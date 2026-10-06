@@ -192,6 +192,16 @@ def test_without_a_pass_the_parent_has_the_least_constraint_violation(spec):
     assert parent is healthy and why.startswith("nothing passed; least constraint violation")
 
 
+def test_screen_separation_at_the_probes_counts_as_separation_at_neuralfoil(spec):
+    """The screen's alpha+1/+2 TE-H warning is the NeuralFoil analogue of XFoil's probe-range separation:
+    a design the screen fails on it is not violation-free (it was before session 13)."""
+    sc = screen().model_copy(update={"probe_h_max": 4.35, "probe_sep": True, "ok": False})
+    probe = rec(wp(8.0), -1.50, fid="neuralfoil", screen=sc)
+    clean = rec(wp(7.0), -1.50, fid="neuralfoil", screen=screen())
+    assert violation(probe, spec)["separation"] == 1 and violation(clean, spec)["total"] == 0
+    assert select_parent([probe, clean], spec)[0] is clean
+
+
 # ----------------------------------------------------------- 4. EARLY_STALL
 
 
@@ -225,8 +235,8 @@ def test_critic_cannot_relabel_a_stall_failure(spec):
 # ----------------------------------------------------------- 5. direct-to-XFoil screening
 
 
-# NeuralFoil at alpha 10 from the start: Cl -1.6405, Cd 0.0200, screen failed (slope 0.024, TE H 4.73)
-IN_BOX = {"target_cl": -1.64, "cd_max": 0.021}
+# NeuralFoil at alpha 10 from the start (t 0.13): Cl -1.6677, Cd 0.0181, screen failed (slope 0.014, TE H 4.76)
+IN_BOX = {"target_cl": -1.67, "cd_max": 0.020}
 
 
 def _direct_run(spec, start, tmp_path, run_id, alpha=10.0, more=(), **memo_kw):

@@ -6,6 +6,7 @@ python -m swarm.run --preset hard        # 85% of attached Cl,max: TE separation
 python -m swarm.run --max-evals 10 --budget-usd 2.00   # live-run caps
 python -m swarm.run --llm anthropic ...  # needs ANTHROPIC_API_KEY (startup error without); exit 3 = INVALID run
 python -m swarm.run --resume <run_id>    # resume from runs/<run_id>/ckpt.db
+python -m swarm.run --no-inner-optimizer # LLM-only: the Chief may not hand subspaces to the TPE inner loop
 """
 
 from __future__ import annotations
@@ -34,16 +35,19 @@ DEMO_SPEC = DesignSpec(
     max_evals=30,
     max_wall_hours=0.5,
 )
-DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.12, alpha_deg=4.0)
+# Rulebook: FSAE 2027 (DesignSpec default). T.7.1.4's 5 mm leading-edge radius needs t >= 0.123 on the
+# 300 mm chord, so both starts use t 0.13 (they were 0.12 and 0.10 under Formula Student 2026).
+DEMO_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.13, alpha_deg=4.0)
 
 # "Hard" preset: a near-stall target at a low-speed-corner Re (3e5 ≈ 15 m/s on the
 # 300 mm chord), derived from the GATED XFoil sweep (scripts/gated_sweep.py; docs/PROGRESS.md,
-# session 7): a design counts only if it is attached at alpha, alpha+1 and alpha+2 and keeps
-# d|Cl|/dalpha >= 0.05/deg there (the pipeline's full gate). Gated Cl_max is 1.979. With
-# Cd <= 0.025, -1.83 ± 0.03 is the hardest target (0.01 steps) whose box holds >= 10 passing
-# grid points off the binding bounds (camber < 0.09, thickness > 0.0955): 13 interior,
-# 28 in total. The old -1.78 / Cd 0.020 box held 8 passing points, 4 on the camber bound.
-# XFoil-derived: re-check when the OpenFOAM tiers arrive. The start point is unchanged.
+# sessions 7, 8 and 12): a design counts only if it is attached at alpha, alpha+1 and alpha+2 and
+# keeps d|Cl|/dalpha >= 0.05/deg there (the pipeline's full gate).
+# Under FSAE 2027 (thickness >= 0.123, sweep levels 0.125-0.15): gated Cl_max 1.985; the
+# -1.83 ± 0.03, Cd <= 0.025 box holds 42 passing grid points, 18 off the bounds (camber < 0.09,
+# thickness > 0.125), and all 42 pass cold through the pipeline. (The strict "hardest box with
+# >= 10 interior points" rule would give -1.84 with 13.) Under Formula Student 2026 the same box
+# held 28 points, 13 interior. XFoil-derived: re-check when the OpenFOAM tiers arrive.
 HARD_SPEC = DesignSpec(
     component="wing_1el",
     target_cl=-1.83,
@@ -53,7 +57,7 @@ HARD_SPEC = DesignSpec(
     max_evals=30,
     max_wall_hours=0.5,
 )
-HARD_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.10, alpha_deg=8.0)
+HARD_START = WingParams(main_camber=0.06, main_camber_pos=0.40, main_thickness=0.13, alpha_deg=8.0)
 
 PRESETS: dict[str, tuple[DesignSpec, WingParams]] = {
     "default": (DEMO_SPEC, DEMO_START),
@@ -72,7 +76,10 @@ def run(
     resume: bool = False,
     preset: str | None = None,
     start_seed: int | None = None,
+    inner_optimizer: bool = True,
 ) -> dict:
+    """`inner_optimizer`: whether the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop);
+    False makes an LLM-only run (the mode is coerced to reasoned_step and the prompt says it is disabled)."""
     if llm is None:
         preflight_llm(which)  # MissingAPIKey before any run directory exists
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
@@ -90,6 +97,7 @@ def run(
             "spec": spec.model_dump(),
             "start": start.model_dump(),
             "start_seed": start_seed,  # set when the start was sampled by baselines.random_start
+            "inner_optimizer": inner_optimizer,
         }
     )
     files.write_meta(
@@ -128,6 +136,7 @@ def run(
                 "events": [],
                 "history": [],
                 "exploration": None,
+                "inner_allowed": inner_optimizer,
                 "retries": {},
                 "pending_violation": None,
                 "termination": None,
@@ -155,6 +164,11 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--start-seed", type=int, help="start from a seeded random feasible design (recorded in meta.json)")
     ap.add_argument("--resume", metavar="RUN_ID")
     ap.add_argument("--no-faults", action="store_true", help="mock: skip the injected demo fault")
+    ap.add_argument(
+        "--no-inner-optimizer",
+        action="store_true",
+        help='LLM-only: the Chief may not choose mode "inner_optimizer" (deterministic TPE at NeuralFoil)',
+    )
     a = ap.parse_args(argv)
     if a.max_evals is not None and a.max_evals < 1:
         ap.error("--max-evals must be >= 1")
@@ -189,6 +203,7 @@ def main(argv: list[str] | None = None) -> None:
         resume=bool(a.resume),
         preset=None if a.resume else a.preset,
         start_seed=a.start_seed,
+        inner_optimizer=not a.no_inner_optimizer,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     health = meta.get("llm_health") or {}

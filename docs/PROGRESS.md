@@ -1,5 +1,129 @@
 # Progress
 
+## Session 13 (2026-10-06): milestone 4, the hybrid inner optimizer; offline benchmark 4
+
+Session 12 (FSAE 2027) was on `claude/loving-turing-kld1sk`, not on main; this branch fast-forwarded to it first.
+
+### Inner optimizer (`swarm/optim/inner_loop.py`, graph node `inner_optimize`)
+When the Chief's memo sets `mode="inner_optimizer"` (and the run allows it), the graph skips the CAD agent and the
+Critic for that generation and runs Optuna TPE (seeded from the parent cid and the generation; 3 start-up trials,
+multivariate) for `inner_budget` evaluations:
+- search space: the memo's focus_params only, within the trust region around the selected parent
+  (`explore.current_parent`, as for a CAD step), one-sided for a "+"/"-" direction; other parameters stay at the
+  parent's values; an interval narrower than 2e-4 is dropped;
+- warm start: every NeuralFoil ledger record in the region (focus parameters in the box, other free parameters
+  within the trust radius) is added as a trial;
+- objective `baselines.tpe_value` (constraint violation, objective as a tie-break), as in the Optuna baseline;
+- each evaluation goes through `baselines.record_evaluation` (renamed from `_record`): geometry/rulebook checks,
+  NeuralFoil, the numeric validator, the NeuralFoil screen; numeric verdict, no LLM call in the loop;
+- geometry-infeasible and near-duplicate proposals (`cad.apply.near_duplicate`) cost no evaluation; after 60 such
+  proposals the run stops;
+- every evaluation is a ledger record (`EvalRecord.inner_optimizer=True`, generation = the memo's, parent_cid = the
+  parent) and counts toward max_evals; the budget is clipped so the run's last evaluation stays free for a
+  promotion (`INNER_RESERVE = 1`);
+- events `inner_optimizer_started`, `inner_trial`, `inner_optimizer_finished` (summary: box, warm trials, evals, why
+  it stopped, best design with Cl/Cd/violation/screen, designs in the box, promotable designs);
+- an inner run that evaluates nothing (empty box, all repeats, no evaluations left) falls back to a reasoned CAD
+  step in the same generation (`inner_optimizer_empty`).
+
+### Chief
+- `chief.sanitize`: the mode is honoured when state `inner_allowed` is true (`run(inner_optimizer=True)` default;
+  `--no-inner-optimizer` / `inner_optimizer=False` coerce it to reasoned_step, `inner_optimizer_unavailable`); a
+  promotion that goes ahead takes precedence (`inner_optimizer_deferred`); `inner_budget` clamped to 3–12, 0 = 8
+  (`inner_budget_coerced`); fidelity forced to neuralfoil (`inner_optimizer_fidelity`).
+- Prompt: the mode paragraph is filled per run (`briefs.mode_text`): both modes described generically when
+  allowed, "disabled in this run" otherwise. No task-specific hints.
+- Brief: "Inner-optimizer runs" section (last 3 summaries, ledger numbers), the history outcome of an inner
+  generation is its summary, a `by` column (agents / inner) in the ledger tables, the Critic's verdict is labelled
+  with the last agent-evaluated record. Report: an "Inner-optimizer runs" section and a `by` column.
+- `MockClient(inner_budget=K)`: after 2 generations without improvement it uses the mode (alternating with
+  reasoned steps); the default mock (K = 0) is unchanged.
+
+### Other changes
+- **`ledger.violation` counted NeuralFoil separation only at the design alpha.** The screen's alpha+1/+2 TE-H
+  warning (`probe_sep`, the analogue of XFoil's probe-range separation, which was counted) was ignored, so a
+  design the screen failed on it scored zero violation. Found in the first smoke run: every inner run's "best"
+  was such a design. Now counted; this changes parent selection (all graph runs) and the Optuna baseline's
+  objective. The screen itself is unchanged.
+- `ledger.no_improve_streak` takes each generation's best record (it took the first record of a generation).
+
+### Benchmark 4 (`scripts/benchmark.py`, `runs/bench4/` not committed, `docs/BENCHMARK4.md`)
+Arms: hybrid (real LLM, inner optimizer allowed), llm (real LLM, disabled), mock, mock_hybrid (MockClient with
+inner_budget 8; an offline check of the hybrid path, NOT an LLM), random, optuna. 15 seeds, 40 evaluations, starts
+from `random_start` under FSAE 2027. Offline arms:
+
+| method | success | 95% (Wilson) | evals to target | XFoil evals / run |
+|---|---|---|---|---|
+| mock | 1/15 (s154) | 1–30% | 25 | 0.1 |
+| mock_hybrid | 1/15 (s154, found by an inner run) | 1–30% | 24 | 0.3 |
+| random | 0/15 | 0–20% | — | 0 |
+| optuna | 1/15 (s77) | 1–30% | 19 | 0.5 |
+
+mock_hybrid: 52 inner runs (350 of 600 evaluations), 27 improved on the base's value, 80 inner designs in the box at
+NeuralFoil, 9 of them screen-passed, 5 promoted: 1 passed XFoil, 1 separated in the probe range, 3 came back
+under-loaded (XFoil Cl −1.785 to −1.791). Offline arms take seconds per run.
+
+### Next (waiting for the user)
+- LLM arms (user's estimate ~$40–45 per 15-seed arm; key present in AEROSWARM_ANTHROPIC_API_KEY):
+  `uv run python scripts/benchmark.py run --methods hybrid llm --parallel 5`, then
+  `uv run python scripts/benchmark.py report`.
+
+### Known issues
+- The violation's separation term is binary (0/1), so TPE gets no gradient toward fixing a screen separation
+  warning; a graded term (TE H over the limit) would be the next thing to try, but it changes parent selection.
+- The batch runner still keeps starting LLM runs after the API refuses on credit.
+- CMA-ES (BLUEPRINT §3 mentions it) is not implemented; TPE only.
+
+## Session 12 (2026-10-06): rulebook switched to FSAE 2027
+
+### Rule check of the old setup (online, before the switch)
+- NACA 4-digit geometry matches the standard equations (coefficients, camber line, LE radius
+  1.1019 t²c); with our blunt-TE addition off it equals AeroSandbox's generator to ~1e-16 c.
+  Deliberate departures: a blunt TE (+0.7% c, 2.7–2.9 mm) and non-integer "digits".
+- Formula Student 2026 limits in the code (1100 / 500 mm heights, 250 mm overhang, 30 mm clearance,
+  3 / 1 mm edge radii) match search excerpts of FS-Rules 2026; formulastudent.de is blocked by the
+  environment's network policy, so the PDF itself was not read (rule numbers T8.2.3 and T2.2.1
+  unconfirmed).
+- The user added `docs/FSAE_Rules_2027_V1.pdf` (Formula SAE Rules 2027 v1.0) and chose it.
+
+### FSAE 2027 v1.0 (`swarm/cad/regulations.py`; default `DesignSpec.rulebook`)
+| Rule | Limit | Formula Student 2026 (still selectable) |
+|---|---|---|
+| T.7.7.1a | no higher than 1200 mm in the Rear Aerodynamic Zone | lower than 1100 mm |
+| T.7.7.1b | no higher than 500 mm outside it | lower than 500 mm |
+| T.7.5b | no more than 250 mm rearward of the rear tires | 250 mm |
+| T.7.1.4 | 5 mm radius on forward facing horizontal edges: **t ≥ 0.123** on 300 mm | 3 mm: t ≥ 0.0953 |
+| T.7.1.5 | other edges not sharp (project threshold 1 mm radius, 2 mm TE) | 1 mm |
+| V.1.4.1 | no ground contact (no fixed number) | 30 mm |
+
+Not checked (2D): width T.7.6 / Rear Aerodynamic Zone laterally, end plates (3 mm vertical edges),
+V.1.1 wheel keep-out. The car is still `PLACEHOLDER_CAR`.
+
+### What moved
+- Starts: default and hard presets now t 0.13 (were 0.12 / 0.10, both FSAE-illegal). Hard start:
+  NeuralFoil Cl −1.546, Cd 0.0168, screen failed; XFoil Cl −1.540.
+- Gated sweep extended to t 0.125, 0.13, 0.14, 0.145 (196 geometries, 8,036 points; 1 failed).
+  FSAE-legal grid: gated Cl_max 1.985. **Target kept at −1.83 ± 0.03, Cd ≤ 0.025**: 42 passing grid
+  points in the box, 18 interior (camber < 0.09, t > 0.125), **all 42 pass cold** through the
+  pipeline (ladder, screen-independent XFoil gate, stall probe). The strict "hardest box with ≥ 10
+  interior points" rule would give −1.84 (13 interior); −1.85 has 5.
+- Witness: m 0.085, p 0.35, t 0.135, α 8.75 (NeuralFoil Cl −1.8093, screen ok 0.056; XFoil
+  Cl −1.8241, Cd 0.02251, margin 0.082). The FS witness (t 0.12) is FSAE-illegal.
+- All 7 XFoil winners so far are FSAE-legal (t 0.130–0.1365, LE radius 5.6–6.2 mm); none used a
+  thickness below 0.123 even when Formula Student allowed it.
+- Screen on the FSAE-legal window (937 points, 84 XFoil-feasible): the current rule (slope ≥ 0.055,
+  H < 4.35) gives 17/88 false passes (19.3%), 13/84 blocked (15.5%; was 10.1%); it is still the
+  best in the 15–20% band, so unchanged. The FP + 3·FB cross-check now prefers slope ≥ 0.0525,
+  H < 4.55 (30.8% / 3.6%).
+- Tests run on FSAE (test start t 0.13); the session-2 XFoil regression keeps FS 2026.
+
+### Consequences / next
+- All benchmark results so far (bench v1, v2, the session-11 pilot) are under Formula Student
+  2026; the seeded starts change under FSAE (`random_start` rejects t < 0.123). A comparison under
+  FSAE needs fresh runs of every method (offline ones are minutes; LLM ~$2.5–3 per run).
+- Target decision (user): **keep −1.83 ± 0.03, Cd ≤ 0.025** under FSAE (same target as the earlier
+  benchmarks; −1.84 would be the strict-rule choice). Screen: unchanged unless the user decides otherwise.
+
 ## Session 11 (2026-10-05): screen-override limits, stall_untested, findings, 3-seed pilot
 
 ### Screen overrides (`swarm/overrides.py`)

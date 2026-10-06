@@ -1,7 +1,7 @@
 """Benchmark baselines: seeded random feasible starts, and random search through the pipeline's gates.
 
 Random search uses exactly the agents' evaluation path, minus the agents: the same geometry build
-(FS2026 checks), NeuralFoil + numeric validator + NeuralFoil screen, the same promotion rule
+(rulebook checks), NeuralFoil + numeric validator + NeuralFoil screen, the same promotion rule
 (`briefs.promotable`: within 2*tol at NeuralFoil, under the Cd cap, screen passed), and the same XFoil
 ladder, stall-margin probe and validator. Each step promotes the best promotable design if there is
 one, else evaluates a uniform random sample of the free parameters over their bounds. Every
@@ -47,7 +47,7 @@ def _sample(rng: np.random.Generator, spec: DesignSpec, base: WingParams) -> Win
 def random_start(
     seed: int, spec: DesignSpec, template: WingParams | None = None, max_tries: int = 10_000
 ) -> WingParams:
-    """A seeded, uniformly sampled feasible start: passes the geometry/FS2026 checks and gives a
+    """A seeded, uniformly sampled feasible start: passes the geometry and rulebook checks and gives a
     physical NeuralFoil result with downforce (Cl < 0). Not necessarily near the target."""
     rng = np.random.default_rng(seed)
     base = template or WingParams(main_camber=0.04, main_camber_pos=0.4, main_thickness=0.12, alpha_deg=4.0)
@@ -72,7 +72,10 @@ def _xfoil(p: WingParams, spec: DesignSpec, coords: str, run_dir: str) -> CFDRes
     return r
 
 
-def _record(gen, p, res, spec, ledger, rationale, run_dir, coords=None) -> tuple[EvalRecord, object]:
+def record_evaluation(gen, p, res, spec, ledger, rationale, run_dir, coords=None, **extra) -> tuple[EvalRecord, object]:
+    """One ledger record with the numeric verdict (no LLM): validator, NeuralFoil screen, and the
+    XFoil stall-margin probe when the validator asks for it. Shared by the baselines and the inner
+    optimizer (`swarm.optim.inner_loop`)."""
     rep = validate(res, p, spec, ledger)
     stall = screen = None
     if res.cl is not None and rep.ok:
@@ -95,6 +98,7 @@ def _record(gen, p, res, spec, ledger, rationale, run_dir, coords=None) -> tuple
         stall_margin=stall,
         screen=screen,
         failed_checks=[c.name for c in rep.checks if not c.ok and c.severity != "skipped"],
+        **extra,
     ), rep
 
 
@@ -203,7 +207,7 @@ def search(
                     raise RuntimeError(f"{method}: no geometry-feasible proposal in {MAX_GEOMETRY_TRIES} tries")
             geo = build(p, spec, files.dir)
             res, why = neuralfoil.evaluate(p, spec), "baseline" if not ledger else why_sample
-        rec, rep = _record(gen, p, res, spec, ledger, why, str(files.dir), geo.coords_path)
+        rec, rep = record_evaluation(gen, p, res, spec, ledger, why, str(files.dir), geo.coords_path)
         ledger.append(rec)
         files.append_record(rec)
         proposer.tell(p, rec)
