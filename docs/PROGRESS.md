@@ -95,8 +95,9 @@ from `random_start` under FSAE 2027. Offline arms (mock_hybrid after the review 
 ### Known issues
 - The violation's separation term is binary (0/1), so TPE gets no gradient toward fixing a screen separation
   warning; a graded term (TE H over the limit) would be the next thing to try, but it changes parent selection.
-- The batch runner still keeps starting LLM runs after the API refuses on credit (each fails in ~1 s, no cost;
-  the failed seeds end `invalid_llm` and must be deleted before a re-run, which now skips existing directories).
+- Fixed: the batch runner stops on the first API account error (credit, key, billing; `benchmark.account_error`),
+  exit code 2, and moves that seed's run to `<root>_aborted/` so a re-run starts it again. Runs killed in flight
+  by the stop leave unfinished directories, which a re-run skips until they are moved or deleted.
 - CMA-ES (BLUEPRINT §3 mentions it) is not implemented; TPE only.
 - `run(inner_optimizer=True)` is the default, so plain CLI LLM runs may use the mode.
 

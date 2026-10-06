@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shutil
 import statistics
 import sys
 import time
@@ -41,15 +43,34 @@ ROOT = Path("runs/bench4")
 DOC = Path("docs/BENCHMARK4.md")
 
 
-def one(job: tuple[str, int, str]) -> str:
+# An LLM failure that every later run would hit too: the batch stops instead of starting more runs.
+ACCOUNT_ERROR = re.compile(
+    r"credit balance|AuthenticationError|PermissionDeniedError|invalid x-api-key|billing", re.IGNORECASE
+)
+
+
+def account_error(run_dir: Path) -> str | None:
+    """The first API failure in the run's traces that is about the account (credit, key), if any."""
+    traces = run_dir / "traces.jsonl"
+    if not traces.exists():
+        return None
+    for line in traces.read_text().splitlines():
+        rec = json.loads(line) if line.strip() else {}
+        if rec.get("type") == "llm_failure" and ACCOUNT_ERROR.search(rec.get("error", "")):
+            return rec["error"][:200]
+    return None
+
+
+def one(job: tuple[str, int, str]) -> tuple[str, str | None]:
+    """Runs one seed; returns (summary line, account error that should stop the batch)."""
     method, seed, root = job
     rid = f"{method}_s{seed}"
     d = Path(root) / rid
     if (d / "meta.json").exists() and "termination" in json.loads((d / "meta.json").read_text()):
-        return f"{rid}: already finished, skipped (delete {d} to re-run)"
+        return f"{rid}: already finished, skipped (delete {d} to re-run)", None
     if d.exists() and any(d.iterdir()):
         # an unfinished run: appending to its ledger/events (and its checkpoint thread) would mix two runs
-        return f"{rid}: unfinished run directory {d} exists, skipped (move or delete it to re-run)"
+        return f"{rid}: unfinished run directory {d} exists, skipped (move or delete it to re-run)", None
     start = random_start(seed, SPEC)
     t0 = time.time()
     if method in ("random", "optuna"):
@@ -73,18 +94,42 @@ def one(job: tuple[str, int, str]) -> str:
     meta = json.loads(meta_p.read_text())
     meta |= {"method": method, "bench_wall_s": round(time.time() - t0, 1)}
     meta_p.write_text(json.dumps(meta, indent=2, default=str))
-    return f"{rid}: {meta['termination']} after {meta['evals']} evals, {meta['bench_wall_s']:.0f} s"
+    line = f"{rid}: {meta['termination']} after {meta['evals']} evals, {meta['bench_wall_s']:.0f} s"
+    err = account_error(d) if method in REAL_LLM and meta["termination"] == "invalid_llm" else None
+    if err:  # not a result: moved aside so a re-run starts this seed again
+        aborted = Path(f"{root}_aborted")
+        aborted.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(d), str(aborted / rid))
+        line += f" -> moved to {aborted / rid}"
+    return line, err
 
 
 def cmd_run(methods: list[str], seeds: list[int], parallel: int, root: str) -> None:
     jobs = [(m, s, root) for m in methods for s in seeds]
+    stop = None
     if parallel > 1:
         with Pool(parallel) as pool:
-            for line in pool.imap_unordered(one, jobs):
+            for line, err in pool.imap_unordered(one, jobs):
                 print(line, flush=True)
+                if err:
+                    stop = err
+                    pool.terminate()  # in-flight runs are killed; their directories stay unfinished
+                    break
     else:
         for j in jobs:
-            print(one(j), flush=True)
+            line, err = one(j)
+            print(line, flush=True)
+            if err:
+                stop = err
+                break
+    if stop:
+        print(
+            f"STOPPED: API account error ({stop}). Fix it, move or delete unfinished run directories under "
+            f"{root}, then re-run the same command (finished seeds are skipped).",
+            file=sys.stderr,
+            flush=True,
+        )
+        sys.exit(2)
 
 
 def _row(d: Path) -> dict | None:
