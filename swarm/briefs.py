@@ -200,11 +200,14 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             "override(s) left, only for a design inside the target box)\n"
             + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
             "## Your screen overrides this run and what XFoil found\n" + track_record_text(state),
-            "## Inner-optimizer runs (deterministic TPE at NeuralFoil inside your focus subspace; ledger numbers)\n"
-            + (
-                ("\n".join(f"- {inner_run_text(e)}" for e in inner[-INNER_RUNS_SHOWN:]) or "(none yet)")
+            *(
+                [
+                    "## Inner-optimizer runs (deterministic TPE at NeuralFoil inside your focus subspace; "
+                    "ledger numbers)\n"
+                    + ("\n".join(f"- {inner_run_text(e)}" for e in inner[-INNER_RUNS_SHOWN:]) or "(none yet)")
+                ]
                 if inner_allowed or inner
-                else "(disabled in this run)"
+                else []
             ),
             f"Generations without improvement: {streak}. declare_plateau ends the run only after "
             f"{facts['plateau_allowed_after']} of {spec.max_evals} evaluations; before that it makes the run "
@@ -212,7 +215,8 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             "ledger).",
         ]
     )
-    return Brief(_system("chief", spec, mode_text=mode_text(inner_allowed)), user, facts)
+    inputs = ", and the results of any inner-optimizer runs" if inner_allowed else ""
+    return Brief(_system("chief", spec, mode_text=mode_text(inner_allowed), inner_inputs=inputs), user, facts)
 
 
 INNER_RUNS_SHOWN = 3
@@ -234,7 +238,7 @@ def mode_text(inner_allowed: bool) -> str:
         "     in that region. It minimizes the constraint violation used to choose the CAD base",
         "     (stall shortfall, separation, distance outside the target box). The screen and",
         "     validator apply as usual; every inner evaluation is a ledger record and counts toward",
-        "     the evaluation budget (it leaves the last evaluation of the run free). It never",
+        "     the evaluation budget; it is not available for the run's last evaluation. It never",
         "     promotes: your next brief shows what it found, and you decide promotions as usual.",
         "     fidelity is ignored for an inner run (always neuralfoil); a promotion (promote_cid)",
         "     takes precedence over it.",

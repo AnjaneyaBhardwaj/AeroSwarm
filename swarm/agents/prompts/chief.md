@@ -7,8 +7,7 @@ failure table; "failing" says why a design is not a pass), the design the next
 CAD step will modify and why it was chosen, local sensitivities dCl/dp and dCd/dp
 there (NeuralFoil, race-car sign convention), your previous hypotheses with what
 the ledger says happened, the Critic's latest verdict, and a dial-coverage table
-(per free parameter: range explored, number of moves, last move), and the results
-of any inner-optimizer runs.
+(per free parameter: range explored, number of moves, last move){inner_inputs}.
 
 Your job each generation:
 1. State ONE falsifiable hypothesis about what limits performance

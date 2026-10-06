@@ -5,15 +5,17 @@ at NeuralFoil, deterministically (no LLM call):
 
 - search space: the memo's focus_params only, each within the trust region around the selected parent
   (`cad.apply.allowed_interval`), narrowed to one side by a "+"/"-" direction; every other parameter
-  stays at the parent's value;
-- warm start: each NeuralFoil ledger record inside that region (focus parameters in the search box,
-  the other free parameters within the trust radius of the parent) is added to the study as a trial;
+  stays at the parent's value; the box lies on the parameter grid (so a quantized value never leaves it)
+  and main_thickness starts at the rulebook's leading-edge-radius minimum;
+- warm start: each NeuralFoil ledger record in the searched subspace (focus parameters in the search box,
+  every other parameter equal to the parent's) is added to the study as a trial;
 - objective: `baselines.tpe_value` (the constraint violation parent selection uses, objective as a
   tie-break), as in the Optuna baseline;
 - each evaluation goes through the same path as the baselines (`baselines.record_evaluation`):
   geometry and rulebook checks, NeuralFoil, the numeric validator and the NeuralFoil screen. A proposal
   that fails the geometry checks, or repeats an evaluated design (`cad.apply.near_duplicate`), costs no
   evaluation and is told to TPE (INFEASIBLE_VALUE, or the earlier record's value);
+- an exception while evaluating stops the run and keeps the records made so far (`inner_optimizer_error`);
 - every evaluation is one ledger record (`EvalRecord.inner_optimizer=True`) and counts toward max_evals;
   the graph clips the budget so the last evaluation of the run stays free for a promotion.
 
@@ -23,6 +25,7 @@ Seeded from the parent cid and the generation, so a run is reproducible.
 
 from __future__ import annotations
 
+import math
 import time
 import zlib
 from dataclasses import dataclass, field
@@ -33,18 +36,28 @@ from swarm.baselines import INFEASIBLE_VALUE, record_evaluation, tpe_value
 from swarm.briefs import promotable
 from swarm.cad.apply import allowed_interval, near_duplicate
 from swarm.cad.build import build
+from swarm.cad.regulations import RULEBOOKS, min_thickness_for_le_radius
 from swarm.ledger import violation
 from swarm.overrides import in_box
 from swarm.solvers import neuralfoil
-from swarm.state import DesignSpec, EvalRecord, StrategyMemo, WingParams, free_params, quantize
+from swarm.state import PARAM_QUANTUM, DesignSpec, EvalRecord, StrategyMemo, WingParams, free_params, quantize
 
 STARTUP_TRIALS = 3  # TPE's random start-up trials (warm-start trials count toward them)
 MAX_WASTED_PROPOSALS = 60  # geometry-infeasible or repeated proposals per inner run before it stops
 MIN_WIDTH = 2e-4  # a search interval narrower than this (two quanta) is dropped
 
 
+def _on_grid(lo: float, hi: float) -> tuple[float, float]:
+    """The interval shrunk onto the PARAM_QUANTUM grid, so every quantized value inside it is inside the
+    Optuna distribution and inside the trust region (no float edge such as 1.2000000000000002)."""
+    return quantize(math.ceil(lo / PARAM_QUANTUM - 1e-6) * PARAM_QUANTUM), quantize(
+        math.floor(hi / PARAM_QUANTUM + 1e-6) * PARAM_QUANTUM
+    )
+
+
 def search_box(parent: WingParams, memo: StrategyMemo, spec: DesignSpec) -> dict[str, tuple[float, float]]:
-    """Per focus parameter: the trust-region interval around the parent, one-sided for "+"/"-"."""
+    """Per focus parameter: the trust-region interval around the parent, one-sided for "+"/"-", on the
+    parameter grid; main_thickness also starts at the rulebook's leading-edge-radius minimum."""
     box = {}
     for name in memo.focus_names:
         if name not in free_params(spec):
@@ -56,19 +69,28 @@ def search_box(parent: WingParams, memo: StrategyMemo, spec: DesignSpec) -> dict
             lo = v
         elif d == "-":
             hi = v
-        if hi - lo >= MIN_WIDTH:
+        if name == "main_thickness" and spec.rulebook in RULEBOOKS:
+            chord = spec.car.chord_mm * (1 - parent.flap_chord_ratio)
+            lo = max(lo, min_thickness_for_le_radius(chord, spec.rulebook))
+        lo, hi = _on_grid(lo, hi)
+        if hi - lo >= MIN_WIDTH - 1e-12:
             box[name] = (lo, hi)
     return box
 
 
-def in_region(p: WingParams, parent: WingParams, box: dict, radius: float, spec: DesignSpec) -> bool:
-    """Focus parameters inside the search box, every other free parameter within the trust radius."""
-    for n in free_params(spec):
-        v = getattr(p, n)
-        lo, hi = box[n] if n in box else allowed_interval(n, parent, radius)
-        if not lo - 1e-9 <= v <= hi + 1e-9:
+def in_region(p: WingParams, parent: WingParams, box: dict, spec: DesignSpec) -> bool:
+    """The searched subspace: focus parameters inside the search box, every other parameter equal to the
+    parent's (a warm-start trial only records the focus coordinates)."""
+    for n, (lo, hi) in box.items():
+        if not lo <= getattr(p, n) <= hi:
             return False
-    return True
+    other = {k: v for k, v in p.model_dump().items() if k not in box}
+    ref = parent.model_dump()
+    return all(abs(v - ref[k]) <= PARAM_QUANTUM / 2 for k, v in other.items())
+
+
+def _clip(params: dict[str, float], box: dict) -> dict[str, float]:
+    return {n: min(max(v, box[n][0]), box[n][1]) for n, v in params.items()}
 
 
 def inner_seed(parent: WingParams, gen: int) -> int:
@@ -140,13 +162,13 @@ def run_inner(
     sampler = optuna.samplers.TPESampler(seed=seed, n_startup_trials=STARTUP_TRIALS, multivariate=True)
     study = optuna.create_study(direction="minimize", sampler=sampler)
 
-    # Warm start: NeuralFoil records in the region (one per cid, the latest).
+    # Warm start: NeuralFoil records in the searched subspace (one per cid, the latest).
     warm: dict[str, EvalRecord] = {}
     for r in ledger:
-        if r.result.fidelity == "neuralfoil" and in_region(r.params, parent, box, memo.trust_radius, spec):
+        if r.result.fidelity == "neuralfoil" and in_region(r.params, parent, box, spec):
             warm[r.params.cid] = r
     for r in warm.values():
-        params = {n: getattr(r.params, n) for n in names}
+        params = _clip({n: getattr(r.params, n) for n in names}, box)
         study.add_trial(optuna.trial.create_trial(params=params, distributions=dists, value=tpe_value(r, spec)))
     parent_nf = next(
         (r for r in reversed(ledger) if r.params.cid == parent.cid and r.result.fidelity == "neuralfoil"), None
@@ -168,31 +190,36 @@ def run_inner(
             stopped = f"no new feasible design in the box after {MAX_WASTED_PROPOSALS} proposals"
             break
         trial = study.ask(dists)
-        p = WingParams(**{**parent.model_dump(), **{n: quantize(trial.params[n]) for n in names}})
+        p = WingParams(**{**parent.model_dump(), **_clip({n: quantize(trial.params[n]) for n in names}, box)})
         dup = near_duplicate(p, seen, "neuralfoil")
         if dup is not None:
             study.tell(trial, tpe_value(dup, spec))
             wasted["duplicate"] += 1
             continue
-        geo = build(p, spec, run_dir)
-        if geo.violations:
-            study.tell(trial, INFEASIBLE_VALUE)
-            wasted["geometry"] += 1
-            continue
-        res = neuralfoil.evaluate(p, spec)
         k = len(out.records) + 1
-        rec, _ = record_evaluation(
-            gen,
-            p,
-            res,
-            spec,
-            seen,
-            f"inner optimizer (TPE) evaluation {k}/{budget} around {parent.cid}",
-            run_dir,
-            geo.coords_path,
-            parent_cid=parent.cid,
-            inner_optimizer=True,
-        )
+        try:
+            geo = build(p, spec, run_dir)
+            if geo.violations:
+                study.tell(trial, INFEASIBLE_VALUE)
+                wasted["geometry"] += 1
+                continue
+            res = neuralfoil.evaluate(p, spec)
+            rec, _ = record_evaluation(
+                gen,
+                p,
+                res,
+                spec,
+                seen,
+                f"inner optimizer (TPE) evaluation {k}/{budget} around {parent.cid}",
+                run_dir,
+                geo.coords_path,
+                parent_cid=parent.cid,
+                inner_optimizer=True,
+            )
+        except Exception as e:  # keep what was evaluated so far: every evaluation stays a ledger record
+            stopped = f"error: {e!r}"[:300]
+            out.events.append(base | {"event": "inner_optimizer_error", "k": k, "cid": p.cid, "error": stopped})
+            break
         study.tell(trial, tpe_value(rec, spec))
         out.records.append(rec)
         seen.append(rec)

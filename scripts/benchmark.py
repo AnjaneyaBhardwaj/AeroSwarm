@@ -44,6 +44,12 @@ DOC = Path("docs/BENCHMARK4.md")
 def one(job: tuple[str, int, str]) -> str:
     method, seed, root = job
     rid = f"{method}_s{seed}"
+    d = Path(root) / rid
+    if (d / "meta.json").exists() and "termination" in json.loads((d / "meta.json").read_text()):
+        return f"{rid}: already finished, skipped (delete {d} to re-run)"
+    if d.exists() and any(d.iterdir()):
+        # an unfinished run: appending to its ledger/events (and its checkpoint thread) would mix two runs
+        return f"{rid}: unfinished run directory {d} exists, skipped (move or delete it to re-run)"
     start = random_start(seed, SPEC)
     t0 = time.time()
     if method in ("random", "optuna"):

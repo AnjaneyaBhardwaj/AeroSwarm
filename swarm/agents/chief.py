@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from swarm.briefs import chief_brief, pending_disagreements
 from swarm.llm.client import LLMClient
-from swarm.optim.summary import clamp_budget
+from swarm.optim.summary import INNER_RESERVE, clamp_budget
 from swarm.overrides import override_allowed
 from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
@@ -110,6 +110,7 @@ def _inner_mode(memo: StrategyMemo, state: SwarmState, upd: dict, events: list[d
     ev = {"node": "chief_plan", "gen": gen}
     if memo.mode != "inner_optimizer":
         if memo.inner_budget:
+            events.append(ev | {"event": "inner_budget_ignored", "requested": memo.inner_budget, "mode": memo.mode})
             upd["inner_budget"] = 0
         return
     if not state.get("inner_allowed", False):
@@ -118,6 +119,12 @@ def _inner_mode(memo: StrategyMemo, state: SwarmState, upd: dict, events: list[d
         return
     if upd.get("promote_cid", memo.promote_cid):
         events.append(ev | {"event": "inner_optimizer_deferred", "detail": "the promotion is this generation's move"})
+        upd["mode"], upd["inner_budget"] = "reasoned_step", 0
+        return
+    left = state["spec"].max_evals - len(state.get("ledger", []))
+    if left <= INNER_RESERVE:
+        # the run's last evaluation is kept for a promotion or a reasoned step, not an inner run
+        events.append(ev | {"event": "inner_optimizer_unavailable", "detail": f"{left} evaluation(s) left"})
         upd["mode"], upd["inner_budget"] = "reasoned_step", 0
         return
     k = clamp_budget(memo.inner_budget)
