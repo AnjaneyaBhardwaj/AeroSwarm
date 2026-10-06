@@ -333,6 +333,9 @@ def test_benchmark_stops_the_batch_on_an_api_account_error(tmp_path, monkeypatch
     fail = {"type": "llm_failure", "error": "BadRequestError: Your credit balance is too low to access the API"}
     (d / "traces.jsonl").write_text(json.dumps({"type": "llm_call", "ok": True}) + "\n" + json.dumps(fail) + "\n")
     assert "credit balance is too low" in bench.account_error(d)
+    limit = {"type": "llm_failure", "error": "BadRequestError: ... 'You have reached your specified API usage limits."}
+    (d / "traces.jsonl").write_text(json.dumps(limit) + "\n")
+    assert "usage limits" in bench.account_error(d)  # pilot seed 33, 2026-10-06
     (d / "traces.jsonl").write_text(json.dumps({"type": "llm_failure", "error": "APITimeoutError: timed out"}))
     assert bench.account_error(d) is None  # transient: not a reason to stop the batch
     calls = []

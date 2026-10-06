@@ -87,10 +87,35 @@ from `random_start` under FSAE 2027. Offline arms (mock_hybrid after the review 
   never did. Not a budget-matched comparison. The intervals overlap; the offline arms do not separate.
 - Offline arms take seconds per run.
 
+### Hybrid pilot (real LLM, `claude-sonnet-5` via AEROSWARM_MODEL; seeds 33, 99, 154; `runs/bench4/hybrid_s*`)
+| seed | termination | evals (inner) | inner runs | XFoil evals | est. cost | LLM calls |
+|---|---|---|---|---|---|---|
+| 99 | eval_budget | 40 (32) | 4 | 4 | $0.61 | 24 |
+| 154 | eval_budget | 40 (32) | 4 | 2 | $0.68 | 27 |
+| 33 | plateau at 39, labelled invalid_llm (see below) | 39 (36) | 5 | 2 | $0.26 | 12 |
+
+- No target met. The Chief chose the inner optimizer readily: 13 inner runs, almost always K = 8, 100 of 119
+  evaluations. Inner runs put 14 designs in the target box at NeuralFoil but only 1 passed the screen.
+- 8 XFoil evaluations, 7 of inner-found designs. All failed: 7 outside the box (under-loaded Cl −1.786 to −1.798 on
+  seeds 33 and 99, over-loaded −1.861 and −1.868 on seed 154), 1 failed the stall probe. The Chief spent both screen
+  overrides in every run by gen 5; all 6 failed at XFoil.
+- Cost: $0.26–0.68 per run (inner generations make no CAD or Critic call), against ~$2.5–3 per LLM-only run under
+  Formula Student 2026 (session 11).
+- Seed 33 never asked for a CAD step (only inner runs and promotions), so the CAD agent was never called and the
+  every-agent validity rule marked the run invalid_llm. Fixed: the CAD agent is exempt when inner-optimizer runs
+  took the place of every CAD step (`LLMHealth.check(not_needed=...)`); a CAD agent called and never successful
+  still invalidates. That run is in `runs/bench4_aborted/hybrid_s33_cad_rule/`.
+- The re-run of seed 33 hit the account's API limit at its 9th generation ("You have reached your specified API
+  usage limits. You will regain access on 2026-11-01 at 00:00 UTC"): `runs/bench4_aborted/hybrid_s33_usage_limit/`.
+  The batch guard did not match that wording; it does now ("usage limit"). Pilot spend about $1.83 (estimated).
+
 ### Next (waiting for the user)
-- LLM arms (user's estimate ~$40–45 per 15-seed arm; key present in AEROSWARM_ANTHROPIC_API_KEY):
-  `uv run python scripts/benchmark.py run --methods hybrid llm --parallel 5`, then
-  `uv run python scripts/benchmark.py report`. A re-run skips finished seeds.
+- The API usage limit must be raised (or wait for 2026-11-01) before any further LLM run.
+- Then: re-run hybrid seed 33, decide on the full arms (`--methods hybrid llm --parallel 5`; a re-run skips
+  finished seeds). From the pilot a hybrid arm costs about $5–10; the llm arm about $40–45 (user's estimate).
+- Pilot pattern to consider before the full arms: the inner runs find in-box designs that fail the screen, the Chief
+  overrides the screen early and every override fails (as in session 11), and screen-passed in-box designs come back
+  off-target at XFoil by 0.03–0.04 in either direction.
 
 ### Known issues
 - The violation's separation term is binary (0/1), so TPE gets no gradient toward fixing a screen separation
