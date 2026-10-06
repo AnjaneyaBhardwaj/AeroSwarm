@@ -96,9 +96,14 @@ from `random_start` under FSAE 2027. Offline arms (mock_hybrid after the review 
 
 - No target met. The Chief chose the inner optimizer readily: 13 inner runs, almost always K = 8, 100 of 119
   evaluations. Inner runs put 14 designs in the target box at NeuralFoil but only 1 passed the screen.
-- 8 XFoil evaluations, 7 of inner-found designs. All failed: 7 outside the box (under-loaded Cl −1.786 to −1.798 on
-  seeds 33 and 99, over-loaded −1.861 and −1.868 on seed 154), 1 failed the stall probe. The Chief spent both screen
-  overrides in every run by gen 5; all 6 failed at XFoil.
+- 8 XFoil evaluations, 7 of inner-found designs. All failed: 7 outside the box (Cl −1.786 to −1.798 on seeds 33 and
+  99, −1.861 and −1.868 on seed 154), 1 failed the stall probe. The Chief spent both screen overrides in every run by
+  gen 5; all 6 failed at XFoil.
+- Where the misses come from (per design, `briefs.xfoil_record` on the pilot ledgers): the 6 overridden designs were
+  inside the box at NeuralFoil and moved by 0.013–0.046 at XFoil (+0.015 on seed 33, −0.041 and −0.046 on seed 154,
+  ±0.0135 on seed 99). The 2 screen-passed promotions (seed 99) agreed with NeuralFoil within 0.003 but sat at or
+  outside the box edge already at NeuralFoil (Cl −1.8002, −1.7846: the 2·tol promotion window). The first write-up
+  of this pilot said screen-passed in-box designs came back 0.03–0.04 off; that was wrong.
 - Cost: $0.26–0.68 per run (inner generations make no CAD or Critic call), against ~$2.5–3 per LLM-only run under
   Formula Student 2026 (session 11).
 - Seed 33 never asked for a CAD step (only inner runs and promotions), so the CAD agent was never called and the
@@ -113,9 +118,28 @@ from `random_start` under FSAE 2027. Offline arms (mock_hybrid after the review 
 - The API usage limit must be raised (or wait for 2026-11-01) before any further LLM run.
 - Then: re-run hybrid seed 33, decide on the full arms (`--methods hybrid llm --parallel 5`; a re-run skips
   finished seeds). From the pilot a hybrid arm costs about $5–10; the llm arm about $40–45 (user's estimate).
-- Pilot pattern to consider before the full arms: the inner runs find in-box designs that fail the screen, the Chief
-  overrides the screen early and every override fails (as in session 11), and screen-passed in-box designs come back
-  off-target at XFoil by 0.03–0.04 in either direction.
+- Pilot pattern: the inner runs find in-box designs that fail the screen; the Chief overrides early and every
+  override fails (as in session 11), each moving 0.013–0.046 in Cl at XFoil; screen-passed promotions agreed with
+  NeuralFoil but were at the box edge or in the 2·tol window only.
+
+### Offline experiments after the pilot (user: "try the changes first and test them offline")
+- **Graded separation in `ledger.violation` (tried, reverted).** NeuralFoil separation cost 0.1 plus the relative
+  excess of the screen's TE H over its limit (at most 1) instead of 1. Offline arms with it
+  (`runs/bench4_graded/`, not committed) against `runs/bench4/`:
+
+  | arm | successes (old → graded) | in-box, screen-ok designs | in the 2·tol window, screen-ok |
+  |---|---|---|---|
+  | mock | 1 → 0 | 2 → 1 | 5 → 2 |
+  | mock_hybrid | 2 → 0 | 2 → 2 | 6 → 10 |
+  | optuna | 1 → 1 | 2 → 3 | 9 → 7 |
+  | random (does not use the score) | 0 → 0, identical ledgers | | |
+
+  No improvement: in-box designs that pass the screen stay rare whichever score guides the search. Reverted.
+- **Kept: the Chief brief lists every design evaluated at XFoil** (`briefs.xfoil_record`): found by inner/agents,
+  route (screen passed / screen override), NeuralFoil Cl and whether it was in the box, XFoil Cl, dcl = XFoil −
+  NeuralFoil, XFoil Cd, outcome, and per route how many were in the box at NeuralFoil and how many passed. Ledger
+  numbers only, no advice; shown in both LLM arms. It cannot be measured offline (the mock reads facts, not prose);
+  only a real-LLM run shows whether it changes promotions.
 
 ### Known issues
 - The violation's separation term is binary (0/1), so TPE gets no gradient toward fixing a screen separation
