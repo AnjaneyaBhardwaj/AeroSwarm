@@ -45,7 +45,7 @@ DOC = Path("docs/BENCHMARK4.md")
 
 # An LLM failure that every later run would hit too: the batch stops instead of starting more runs.
 ACCOUNT_ERROR = re.compile(
-    r"credit balance|AuthenticationError|PermissionDeniedError|invalid x-api-key|billing", re.IGNORECASE
+    r"credit balance|usage limit|AuthenticationError|PermissionDeniedError|invalid x-api-key|billing", re.IGNORECASE
 )
 
 

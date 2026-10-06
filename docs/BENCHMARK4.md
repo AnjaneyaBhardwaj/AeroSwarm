@@ -6,7 +6,7 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
 
 | method | seeds completed | success | 95% interval (Wilson) | evals to target, successes: median [IQR] | est. LLM cost / run: mean (total) | XFoil evals / run: mean [min–max] | wall clock / run (mean) | stopped on a safety cap |
 |---|---|---|---|---|---|---|---|---|
-| hybrid | 0/15 | not run | | | | | | |
+| hybrid | 2/15 | 0/2 (0%) | 0–66% | — | $0.64 ($1.28) | 3.0 [2–4] | 6.9 min | none |
 | llm | 0/15 | not run | | | | | | |
 | mock | 15/15 | 1/15 (7%) | 1–30% | 25 [25–25] | $0.00 ($0.00) | 0.1 [0–1] | 0.1 min | none |
 | mock_hybrid | 15/15 | 2/15 (13%) | 4–38% | 31.5 [28.25–34.75] | $0.00 ($0.00) | 0.3 [0–1] | 0.1 min | none |
@@ -17,6 +17,8 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
 
 | method | seed | termination | evals | XFoil evals | near-target designs failing the screen | blocked promotions / direct XFoil | screen overrides | plateaus deferred | inner runs (evals; XFoil of inner designs) | est. cost | wall clock | result |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
+| hybrid | 99 | eval_budget | 40 | 4 | 9 | 1 | 2 | 0 | 4 (32; 3) | $0.61 | 6.4 min | closest `a594078594`: stall_margin: d|Cl|/dα 0.022/deg < 0.05 (TE separation x/c 0.97 at 10.0977°, x/c 0.93 at 11.0977°) |
+| hybrid | 154 | eval_budget | 40 | 2 | 8 | 2 | 2 | 0 | 4 (32; 2) | $0.68 | 7.5 min | closest `486b9c0e3c`: target box: Cl -1.8679 is 0.0379 from -1.83 (tol 0.03) |
 | mock | 11 | plateau | 32 | 0 | 22 | 0 | 0 | 18 | - | $0.00 | 0.1 min | closest `7b2dc25927`: NeuralFoil stall screen: d|Cl|/dalpha 0.021/deg < 0.055 |
 | mock | 22 | plateau | 32 | 0 | 6 | 0 | 0 | 2 | - | $0.00 | 0.1 min | closest `54a0b376ea`: NeuralFoil stall screen: d|Cl|/dalpha 0.015/deg < 0.055 |
 | mock | 33 | plateau | 32 | 0 | 9 | 0 | 0 | 18 | - | $0.00 | 0.1 min | closest `245f0397f8`: NeuralFoil stall screen: d|Cl|/dalpha 0.018/deg < 0.055 |
@@ -118,21 +120,8 @@ Target Cl -1.83 ± 0.03, Cd ≤ 0.025, Re 3e+05. Budget 40 evaluations (the bind
 
 | seed | camber | position | thickness | alpha |
 |---|---|---|---|---|
-| 11 | 0.0603 | 0.405 | 0.1617 | 6.7852 |
-| 22 | 0.0413 | 0.5951 | 0.1652 | 11.3914 |
-| 33 | 0.0399 | 0.4274 | 0.1708 | 2.068 |
-| 44 | 0.061 | 0.4466 | 0.1755 | 4.5824 |
-| 55 | 0.0443 | 0.5013 | 0.1504 | 13.1534 |
-| 66 | 0.0414 | 0.5635 | 0.1592 | 6.4756 |
-| 77 | 0.0287 | 0.3561 | 0.1601 | -0.5472 |
-| 88 | 0.0186 | 0.4813 | 0.1489 | 9.0219 |
 | 99 | 0.0455 | 0.426 | 0.1312 | 13.555 |
-| 110 | 0.0837 | 0.405 | 0.1513 | 6.0356 |
-| 121 | 0.057 | 0.3192 | 0.1624 | 7.2916 |
-| 132 | 0.0128 | 0.5219 | 0.1545 | 12.1179 |
-| 143 | 0.0372 | 0.5907 | 0.1306 | 8.4688 |
 | 154 | 0.0817 | 0.2316 | 0.1326 | 12.0087 |
-| 165 | 0.0416 | 0.431 | 0.1571 | 13.0819 |
 
 ## Observations
 
@@ -152,3 +141,7 @@ the session-13 review fixes (it had 11 crashed inner runs before them; the other
   of 55 improved on the base design's value; 62 inner designs landed in the target box at NeuralFoil, 5 of them
   passed the screen (promotable); 3 were promoted: 1 passed (seed 99), 2 came back under-loaded at XFoil (Cl −1.785
   and −1.788, the NeuralFoil-more-loaded gap noted in session 10).
+- Hybrid pilot (seeds 33, 99, 154; real LLM): no target met in 3 runs; 100 of 119 evaluations were inner; 8 XFoil
+  evaluations, all failed (7 off the box by 0.03–0.04, 1 stall); every run spent both screen overrides by gen 5, all 6
+  failed; $0.26–0.68 per run. Seed 33's run is excluded (CAD validity rule, since fixed; its re-run hit the account's
+  API usage limit); seeds 99 and 154 are in the per-run table. Details in docs/PROGRESS.md session 13.
