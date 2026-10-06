@@ -1,12 +1,16 @@
-"""Benchmark on the hard preset: real LLM vs mock vs random search vs Optuna TPE, seeded starts.
+"""Benchmark on the hard preset (FSAE 2027): hybrid vs LLM-only vs mock vs random search vs Optuna TPE.
 
     uv run python scripts/benchmark.py run --methods mock random optuna --parallel 3   # offline
-    uv run python scripts/benchmark.py run --methods llm --parallel 5     # needs AEROSWARM_ANTHROPIC_API_KEY
-    uv run python scripts/benchmark.py report                             # writes docs/BENCHMARK.md
+    uv run python scripts/benchmark.py run --methods llm hybrid --parallel 5   # needs AEROSWARM_ANTHROPIC_API_KEY
+    uv run python scripts/benchmark.py report                             # writes docs/BENCHMARK4.md
 
-Every run: HARD_SPEC with max_evals 40 (the binding limit), cost cap $4 and wall clock 1.5 h as
-safety caps, start = baselines.random_start(seed). Runs go to runs/bench2/<method>_s<seed>/
-(runs/bench/ holds the 5-seed v1 benchmark).
+Arms: hybrid = real LLM, the Chief may hand a subspace to the inner optimizer (milestone 4); llm = real
+LLM, inner optimizer disabled (LLM-only); mock = the rule-based MockClient, inner optimizer disabled;
+mock_hybrid = MockClient that uses the inner optimizer (an offline check of the hybrid path, NOT an
+LLM); random / optuna = the baselines. Every run: HARD_SPEC with max_evals 40 (the binding limit),
+cost cap $4 and wall clock 1.5 h as safety caps, start = baselines.random_start(seed). Runs go to
+runs/bench4/<method>_s<seed>/. Earlier benchmarks (runs/bench, bench2, bench3; docs/BENCHMARK.md) ran
+under Formula Student 2026 and are not comparable.
 """
 
 from __future__ import annotations
@@ -23,14 +27,18 @@ from swarm.baselines import random_start, search
 from swarm.briefs import near_target, screen_blocked
 from swarm.critic.numeric import VALIDATION
 from swarm.ledger import RunFiles
+from swarm.llm.client import TraceLogger
+from swarm.llm.mock import MockClient
 from swarm.run import HARD_SPEC, run
 from swarm.stats import quartiles, wilson_interval
 
 SEEDS = (11, 22, 33, 44, 55, 66, 77, 88, 99, 110, 121, 132, 143, 154, 165)
-METHODS = ("llm", "mock", "random", "optuna")
+METHODS = ("hybrid", "llm", "mock", "mock_hybrid", "random", "optuna")
+REAL_LLM = ("hybrid", "llm")
+MOCK_INNER_BUDGET = 8
 SPEC = HARD_SPEC.model_copy(update={"max_evals": 40, "max_cost_usd": 4.0, "max_wall_hours": 1.5})
-ROOT = Path("runs/bench2")
-DOC = Path("docs/BENCHMARK.md")
+ROOT = Path("runs/bench4")
+DOC = Path("docs/BENCHMARK4.md")
 
 
 def one(job: tuple[str, int, str]) -> str:
@@ -41,14 +49,19 @@ def one(job: tuple[str, int, str]) -> str:
     if method in ("random", "optuna"):
         search(method, SPEC, start, seed, Path(root) / rid)
     else:
+        llm = None
+        if method == "mock_hybrid":
+            llm = MockClient(TraceLogger(RunFiles(Path(root) / rid).traces), inner_budget=MOCK_INNER_BUDGET)
         run(
             SPEC,
             start,
             run_id=rid,
             runs_root=root,
-            which="anthropic" if method == "llm" else "mock",
+            llm=llm,
+            which="anthropic" if method in REAL_LLM else "mock",
             preset="hard",
             start_seed=seed,
+            inner_optimizer=method in ("hybrid", "mock_hybrid"),
         )
     meta_p = Path(root) / rid / "meta.json"
     meta = json.loads(meta_p.read_text())
@@ -79,6 +92,7 @@ def _row(d: Path) -> dict | None:
         [json.loads(x) for x in (d / "events.jsonl").read_text().splitlines()] if (d / "events.jsonl").exists() else []
     )
     xf = sum(r["result"]["fidelity"] == "xfoil" for r in ledger)
+    inner_cids = {r["result"]["cid"] for r in ledger if r.get("inner_optimizer")}
     usage = meta.get("llm_usage") or {}
     return {
         "method": meta.get("method"),
@@ -96,6 +110,12 @@ def _row(d: Path) -> dict | None:
         "blocked": sum(e.get("event") in ("promotion_blocked_by_screen", "direct_xfoil_screened_out") for e in events),
         "overrides": sum(e.get("event") in ("promotion_screen_override", "screen_override") for e in events),
         "deferred": sum(e.get("event") == "plateau_deferred" for e in events),
+        "inner_runs": sum(e.get("event") == "inner_optimizer_finished" for e in events),
+        "inner_evals": sum(bool(r.get("inner_optimizer")) for r in ledger),
+        # XFoil evaluations of designs the inner optimizer found (promoted by the Chief), and whether the
+        # passing design was one of them
+        "inner_promoted": sum(r["result"]["fidelity"] == "xfoil" and r["result"]["cid"] in inner_cids for r in ledger),
+        "inner_found_pass": meta.get("best_passing_cid") in inner_cids,
         # NeuralFoil designs in the promotion window that the screen failed (never promotable)
         "near_blocked": sum(screen_blocked(x) for x in near_target(RunFiles(d).read_ledger(), SPEC)),
         "start": meta.get("start"),
@@ -105,13 +125,14 @@ def _row(d: Path) -> dict | None:
 def cmd_report(root: str) -> None:
     rows = [r for d in sorted(Path(root).glob("*_s*")) if (r := _row(d))]
     by = {m: sorted([r for r in rows if r["method"] == m], key=lambda r: r["seed"]) for m in METHODS}
-    out = ["# Benchmark: hard preset, LLM vs mock vs random search vs Optuna TPE", ""]
+    out = ["# Benchmark 4 (FSAE 2027): hybrid vs LLM-only vs mock vs random search vs Optuna TPE", ""]
     out += [
         f"Target Cl {SPEC.target_cl} ± {SPEC.cl_tol}, Cd ≤ {SPEC.cd_max}, Re {SPEC.reynolds:.0e}. Budget "
         f"{SPEC.max_evals} evaluations (the binding limit); safety caps ${SPEC.max_cost_usd:.0f} estimated LLM "
         f"cost and {SPEC.max_wall_hours} h wall clock per run. Starts: `baselines.random_start(seed)`, "
         f"{len(SEEDS)} seeds ({', '.join(map(str, SEEDS))}). Produced by `scripts/benchmark.py`; numbers from "
-        "each run's meta.json / ledger.jsonl / events.jsonl.",
+        "each run's meta.json / ledger.jsonl / events.jsonl. Rulebook FSAE 2027 v1.0 (thickness ≥ 0.123); "
+        "earlier benchmarks (docs/BENCHMARK.md) ran under Formula Student 2026 and are not comparable.",
         "",
         "## Summary",
         "",
@@ -149,27 +170,38 @@ def cmd_report(root: str) -> None:
         "## Per run",
         "",
         "| method | seed | termination | evals | XFoil evals | near-target designs failing the screen "
-        "| blocked promotions / direct XFoil | screen overrides | plateaus deferred | est. cost | wall clock "
-        "| result |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| blocked promotions / direct XFoil | screen overrides | plateaus deferred "
+        "| inner runs (evals; XFoil of inner designs) | est. cost | wall clock | result |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for m in METHODS:
         for r in by[m]:
             res = f"PASS `{r['best']}`" if r["success"] else f"closest `{r['closest']}`: {r['failing']}"
+            if r["inner_found_pass"]:
+                res += " (found by the inner optimizer)"
+            inner = f"{r['inner_runs']} ({r['inner_evals']}; {r['inner_promoted']})" if r["inner_runs"] else "-"
             out.append(
                 f"| {m} | {r['seed']} | {r['termination']} | {r['evals']} | {r['xfoil_evals']} | {r['near_blocked']} "
-                f"| {r['blocked']} | {r['overrides']} | {r['deferred']} "
+                f"| {r['blocked']} | {r['overrides']} | {r['deferred']} | {inner} "
                 f"| ${r['cost']:.2f} | {60 * r['wall_h']:.1f} min | {res} |"
             )
     out += [
         "",
         "## Methods",
         "",
-        "- **llm**: the agent graph with the real LLM (`--llm anthropic`, the client's default model,",
-        "  meta.json `llm_client`). Its runs were executed concurrently (one process per seed), so their",
-        "  wall clock includes some CPU contention between XFoil solves.",
+        "- **hybrid**: the agent graph with the real LLM (`--llm anthropic`, the client's default model,",
+        "  meta.json `llm_client`); the Chief may set mode `inner_optimizer`, which runs Optuna TPE",
+        "  (`swarm/optim/inner_loop.py`, deterministic, no LLM) for 3–12 NeuralFoil evaluations over its",
+        "  focus parameters within the trust region around the CAD base, warm-started from the ledger.",
+        "  Every inner evaluation is a ledger record and counts toward the 40; the Chief decides promotions.",
+        "- **llm**: the same graph and LLM with the inner optimizer disabled (LLM-only; the prompt says the",
+        "  mode is disabled). LLM runs execute concurrently (one process per seed), so their wall clock",
+        "  includes some CPU contention between XFoil solves.",
         "- **mock**: the same graph with `MockClient`, a deterministic rule-based stand-in (NOT an LLM):",
         "  damped least-norm steps on the NeuralFoil sensitivities, promote the best promotable design.",
+        f"- **mock_hybrid**: `MockClient(inner_budget={MOCK_INNER_BUDGET})` with the inner optimizer allowed:",
+        "  after two generations without improvement it hands its three most sensitive parameters (trust radius 0.15)",
+        "  to the inner optimizer, then alternates. An offline check of the hybrid path, NOT an LLM.",
         "- **random**: `baselines.search('random')`: each evaluation promotes the best promotable design if",
         "  any (the pipeline's rule), else evaluates a uniform random sample of camber, position,",
         "  thickness and alpha over their bounds. Same geometry checks, NeuralFoil screen, XFoil ladder,",
@@ -185,8 +217,9 @@ def cmd_report(root: str) -> None:
         f"< {VALIDATION.screen_h_probe_max} at alpha+1/+2, TE H < {VALIDATION.screen_h_sep} at alpha (session 10",
         "  cost-weighted calibration). The Chief may promote a screen-failed design with a logged",
         "  screen_override; the baselines never do.",
-        "- Graph runs (llm, mock): a declared plateau ends the run only after 80% of the budget; earlier",
-        "  it triggers exploration (wider trust region, or a restart from a different ledger region).",
+        "- Graph runs (hybrid, llm, mock, mock_hybrid): a declared plateau ends the run only after 80% of",
+        "  the budget; earlier it triggers exploration (wider trust region, or a restart from a different",
+        "  ledger region).",
     ]
     starts = next((by[m] for m in METHODS if by[m]), [])
     out += ["", "## Starts", "", "| seed | camber | position | thickness | alpha |", "|---|---|---|---|---|"]
