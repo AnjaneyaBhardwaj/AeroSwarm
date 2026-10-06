@@ -1,5 +1,79 @@
 # Progress
 
+## Session 13 (2026-10-06): milestone 4, the hybrid inner optimizer; offline benchmark 4
+
+Session 12 (FSAE 2027) was on `claude/loving-turing-kld1sk`, not on main; this branch fast-forwarded to it first.
+
+### Inner optimizer (`swarm/optim/inner_loop.py`, graph node `inner_optimize`)
+When the Chief's memo sets `mode="inner_optimizer"` (and the run allows it), the graph skips the CAD agent and the
+Critic for that generation and runs Optuna TPE (seeded from the parent cid and the generation; 3 start-up trials,
+multivariate) for `inner_budget` evaluations:
+- search space: the memo's focus_params only, within the trust region around the selected parent
+  (`explore.current_parent`, as for a CAD step), one-sided for a "+"/"-" direction; other parameters stay at the
+  parent's values; an interval narrower than 2e-4 is dropped;
+- warm start: every NeuralFoil ledger record in the region (focus parameters in the box, other free parameters
+  within the trust radius) is added as a trial;
+- objective `baselines.tpe_value` (constraint violation, objective as a tie-break), as in the Optuna baseline;
+- each evaluation goes through `baselines.record_evaluation` (renamed from `_record`): geometry/rulebook checks,
+  NeuralFoil, the numeric validator, the NeuralFoil screen; numeric verdict, no LLM call in the loop;
+- geometry-infeasible and near-duplicate proposals (`cad.apply.near_duplicate`) cost no evaluation; after 60 such
+  proposals the run stops;
+- every evaluation is a ledger record (`EvalRecord.inner_optimizer=True`, generation = the memo's, parent_cid = the
+  parent) and counts toward max_evals; the budget is clipped so the run's last evaluation stays free for a
+  promotion (`INNER_RESERVE = 1`);
+- events `inner_optimizer_started`, `inner_trial`, `inner_optimizer_finished` (summary: box, warm trials, evals, why
+  it stopped, best design with Cl/Cd/violation/screen, designs in the box, promotable designs);
+- an inner run that evaluates nothing (empty box, all repeats, no evaluations left) falls back to a reasoned CAD
+  step in the same generation (`inner_optimizer_empty`).
+
+### Chief
+- `chief.sanitize`: the mode is honoured when state `inner_allowed` is true (`run(inner_optimizer=True)` default;
+  `--no-inner-optimizer` / `inner_optimizer=False` coerce it to reasoned_step, `inner_optimizer_unavailable`); a
+  promotion that goes ahead takes precedence (`inner_optimizer_deferred`); `inner_budget` clamped to 3–12, 0 = 8
+  (`inner_budget_coerced`); fidelity forced to neuralfoil (`inner_optimizer_fidelity`).
+- Prompt: the mode paragraph is filled per run (`briefs.mode_text`): both modes described generically when
+  allowed, "disabled in this run" otherwise. No task-specific hints.
+- Brief: "Inner-optimizer runs" section (last 3 summaries, ledger numbers), the history outcome of an inner
+  generation is its summary, a `by` column (agents / inner) in the ledger tables, the Critic's verdict is labelled
+  with the last agent-evaluated record. Report: an "Inner-optimizer runs" section and a `by` column.
+- `MockClient(inner_budget=K)`: after 2 generations without improvement it uses the mode (alternating with
+  reasoned steps); the default mock (K = 0) is unchanged.
+
+### Other changes
+- **`ledger.violation` counted NeuralFoil separation only at the design alpha.** The screen's alpha+1/+2 TE-H
+  warning (`probe_sep`, the analogue of XFoil's probe-range separation, which was counted) was ignored, so a
+  design the screen failed on it scored zero violation. Found in the first smoke run: every inner run's "best"
+  was such a design. Now counted; this changes parent selection (all graph runs) and the Optuna baseline's
+  objective. The screen itself is unchanged.
+- `ledger.no_improve_streak` takes each generation's best record (it took the first record of a generation).
+
+### Benchmark 4 (`scripts/benchmark.py`, `runs/bench4/` not committed, `docs/BENCHMARK4.md`)
+Arms: hybrid (real LLM, inner optimizer allowed), llm (real LLM, disabled), mock, mock_hybrid (MockClient with
+inner_budget 8; an offline check of the hybrid path, NOT an LLM), random, optuna. 15 seeds, 40 evaluations, starts
+from `random_start` under FSAE 2027. Offline arms:
+
+| method | success | 95% (Wilson) | evals to target | XFoil evals / run |
+|---|---|---|---|---|
+| mock | 1/15 (s154) | 1–30% | 25 | 0.1 |
+| mock_hybrid | 1/15 (s154, found by an inner run) | 1–30% | 24 | 0.3 |
+| random | 0/15 | 0–20% | — | 0 |
+| optuna | 1/15 (s77) | 1–30% | 19 | 0.5 |
+
+mock_hybrid: 52 inner runs (350 of 600 evaluations), 27 improved on the base's value, 80 inner designs in the box at
+NeuralFoil, 9 of them screen-passed, 5 promoted: 1 passed XFoil, 1 separated in the probe range, 3 came back
+under-loaded (XFoil Cl −1.785 to −1.791). Offline arms take seconds per run.
+
+### Next (waiting for the user)
+- LLM arms (user's estimate ~$40–45 per 15-seed arm; key present in AEROSWARM_ANTHROPIC_API_KEY):
+  `uv run python scripts/benchmark.py run --methods hybrid llm --parallel 5`, then
+  `uv run python scripts/benchmark.py report`.
+
+### Known issues
+- The violation's separation term is binary (0/1), so TPE gets no gradient toward fixing a screen separation
+  warning; a graded term (TE H over the limit) would be the next thing to try, but it changes parent selection.
+- The batch runner still keeps starting LLM runs after the API refuses on credit.
+- CMA-ES (BLUEPRINT §3 mentions it) is not implemented; TPE only.
+
 ## Session 12 (2026-10-06): rulebook switched to FSAE 2027
 
 ### Rule check of the old setup (online, before the switch)
