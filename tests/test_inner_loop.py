@@ -139,14 +139,16 @@ def test_graph_inner_run_counts_toward_the_budget_and_reaches_the_next_brief(spe
     fake_xfoil()
     m0 = memo(list(free_params(spec))[:3], mode="reasoned_step", k=0)
     m1 = memo(["alpha_deg", "main_camber"], k=4)
-    # gen 0 baseline; gen 1 inner run (no CAD, no Critic); gen 2 another inner run, clipped to 1 evaluation
-    llm = ScriptedClient([m0, verdict(), m1, m1])
-    s = spec.model_copy(update={"max_evals": 6})
+    stop = memo(["alpha_deg"], mode="reasoned_step", k=0, declare_plateau=True)
+    # gen 0 baseline; gen 1 inner run (no CAD, no Critic); gen 2 inner run clipped to 1 evaluation (the 7th
+    # is kept for a promotion); gen 3 declares a plateau (allowed after 6 of 7)
+    llm = ScriptedClient([m0, verdict(), m1, m1, stop])
+    s = spec.model_copy(update={"max_evals": 7})
     final = run(s, start, run_id="h", runs_root=tmp_path, llm=llm)
-    assert len(final["ledger"]) == 6 and final["termination"] == "eval_budget"
+    assert len(final["ledger"]) == 6 and final["termination"] == "plateau" and not llm.responses
     inner = [r for r in final["ledger"] if r.inner_optimizer]
-    assert len(inner) == 5 and [r.generation for r in inner] == [1, 1, 1, 1, 2]
-    assert [c["role"] for c in llm.calls] == ["chief", "critic", "chief", "chief"]  # no LLM inside the loop
+    assert [r.generation for r in inner] == [1, 1, 1, 1, 2]
+    assert [c["role"] for c in llm.calls] == ["chief", "critic", "chief", "chief", "chief"]  # no LLM in the loop
     brief = llm.calls[-1]["user"]
     assert "## Inner-optimizer runs" in brief and "- gen 1: TPE over alpha_deg [" in brief
     assert "- gen 1: h -> inner optimizer: TPE over" in brief  # history outcome
@@ -154,6 +156,8 @@ def test_graph_inner_run_counts_toward_the_budget_and_reaches_the_next_brief(spe
     d = tmp_path / "h"
     ev = events(d)
     assert [e["event"] for e in ev if e.get("node") == "inner_optimize"].count("inner_trial") == 5
+    fin = [e for e in ev if e.get("event") == "inner_optimizer_finished"]
+    assert [(e["budget"], e["evals"]) for e in fin] == [(4, 4), (1, 1)]
     ledger = RunFiles(d).read_ledger()
     assert len(ledger) == 6 and sum(r.inner_optimizer for r in ledger) == 5
     report = (d / "report.md").read_text()
@@ -162,13 +166,22 @@ def test_graph_inner_run_counts_toward_the_budget_and_reaches_the_next_brief(spe
     assert meta["inner_optimizer"] is True
 
 
-def test_inner_run_is_clipped_to_the_remaining_budget(spec, start, fake_xfoil, tmp_path):
+def test_inner_run_leaves_the_last_evaluation_for_a_promotion(spec, start, fake_xfoil, tmp_path):
+    from swarm.state import ParamChange, ParamDelta
+
     fake_xfoil()
-    llm = ScriptedClient([memo(["alpha_deg"], mode="reasoned_step", k=0), verdict(), memo(["alpha_deg"], k=8)])
-    final = run(spec.model_copy(update={"max_evals": 3}), start, run_id="c", runs_root=tmp_path, llm=llm)
-    assert len(final["ledger"]) == 3 and final["termination"] == "eval_budget"
-    fin = [e for e in events(tmp_path / "c") if e.get("event") == "inner_optimizer_finished"]
-    assert fin[0]["budget"] == 2 and fin[0]["evals"] == 2
+    ch = ParamChange(name="alpha_deg", new_value=4.5, mechanism="m", expected_dCl_sign=-1, expected_dCd_sign=1)
+    script = [memo(["alpha_deg"], mode="reasoned_step", k=0), verdict(), memo(["alpha_deg"], k=8)]
+    script += [memo(["alpha_deg"], k=8), ParamDelta(changes=[ch]), verdict()]
+    llm = ScriptedClient(script)
+    final = run(spec.model_copy(update={"max_evals": 4}), start, run_id="c", runs_root=tmp_path, llm=llm)
+    assert len(final["ledger"]) == 4 and final["termination"] == "eval_budget" and not llm.responses
+    ev = events(tmp_path / "c")
+    fin = [e for e in ev if e.get("event") == "inner_optimizer_finished"]
+    assert [(e["budget"], e["evals"]) for e in fin] == [(2, 2), (0, 0)]
+    assert fin[1]["stopped"] == "no evaluations left (the last one is kept for a promotion)"
+    assert any(e.get("event") == "inner_optimizer_empty" for e in ev)  # the last evaluation: a CAD step
+    assert not final["ledger"][-1].inner_optimizer
 
 
 def test_llm_only_run_coerces_the_mode_and_calls_the_cad(spec, start, fake_xfoil, tmp_path):

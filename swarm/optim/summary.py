@@ -5,6 +5,7 @@ from __future__ import annotations
 INNER_BUDGET_MIN = 3
 INNER_BUDGET_MAX = 12
 INNER_BUDGET_DEFAULT = 8
+INNER_RESERVE = 1  # evaluations an inner run leaves unused at the end of the budget (for a promotion)
 
 
 def clamp_budget(k: int) -> int:

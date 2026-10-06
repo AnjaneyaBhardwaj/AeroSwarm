@@ -222,22 +222,24 @@ def mode_text(inner_allowed: bool) -> str:
     """The Chief prompt's mode paragraph: the inner optimizer is a real choice only when the run allows it."""
     if not inner_allowed:
         return '"reasoned_step" (the inner optimizer is disabled in this run).'
-    return (
-        '"reasoned_step" or "inner_optimizer".\n'
-        "   - reasoned_step: the CAD agent makes one reasoned change to the next CAD base (one\n"
-        "     evaluation at the fidelity you choose).\n"
-        f"   - inner_optimizer: a deterministic optimizer (Optuna TPE, no LLM) spends inner_budget\n"
+    lines = [
+        '"reasoned_step" or "inner_optimizer".',
+        "   - reasoned_step: the CAD agent makes one reasoned change to the next CAD base (one",
+        "     evaluation at the fidelity you choose).",
+        "   - inner_optimizer: a deterministic optimizer (Optuna TPE, no LLM) spends inner_budget",
         f"     evaluations ({INNER_BUDGET_MIN}-{INNER_BUDGET_MAX}; 0 means {INNER_BUDGET_DEFAULT}) at neuralfoil, "
-        "searching only your\n"
-        '     focus_params within the trust region around the next CAD base (one-sided for a "+" or\n'
-        '     "-" direction; other parameters stay at the base values), warm-started from ledger\n'
-        "     designs in that region. It minimizes the constraint violation used to choose the CAD\n"
-        "     base (stall shortfall, separation, distance outside the target box). The screen and\n"
-        "     validator apply as usual; every inner evaluation is a ledger record and counts toward\n"
-        "     the evaluation budget. It never promotes: your next brief shows what it found, and you\n"
-        "     decide promotions as usual. fidelity is ignored for an inner run (always neuralfoil);\n"
-        "     a promotion (promote_cid) takes precedence over it."
-    )
+        "searching only your focus_params",
+        '     within the trust region around the next CAD base (one-sided for a "+" or "-"',
+        "     direction; other parameters stay at the base values), warm-started from ledger designs",
+        "     in that region. It minimizes the constraint violation used to choose the CAD base",
+        "     (stall shortfall, separation, distance outside the target box). The screen and",
+        "     validator apply as usual; every inner evaluation is a ledger record and counts toward",
+        "     the evaluation budget (it leaves the last evaluation of the run free). It never",
+        "     promotes: your next brief shows what it found, and you decide promotions as usual.",
+        "     fidelity is ignored for an inner run (always neuralfoil); a promotion (promote_cid)",
+        "     takes precedence over it.",
+    ]
+    return "\n".join(lines)
 
 
 _DIR_TEXT = {"+": "increase", "-": "decrease", "free": "free"}

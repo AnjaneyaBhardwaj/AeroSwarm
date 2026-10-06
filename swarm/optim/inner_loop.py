@@ -14,7 +14,8 @@ at NeuralFoil, deterministically (no LLM call):
   geometry and rulebook checks, NeuralFoil, the numeric validator and the NeuralFoil screen. A proposal
   that fails the geometry checks, or repeats an evaluated design (`cad.apply.near_duplicate`), costs no
   evaluation and is told to TPE (INFEASIBLE_VALUE, or the earlier record's value);
-- every evaluation is one ledger record (`EvalRecord.inner_optimizer=True`) and counts toward max_evals.
+- every evaluation is one ledger record (`EvalRecord.inner_optimizer=True`) and counts toward max_evals;
+  the graph clips the budget so the last evaluation of the run stays free for a promotion.
 
 It never promotes: the Chief sees the result in its next brief and decides promotions as usual.
 Seeded from the parent cid and the generation, so a run is reproducible.
@@ -125,7 +126,11 @@ def run_inner(
         "seed": seed,
     }
     if not box or budget <= 0:
-        why = "empty search box (no focus parameter with room to move)" if not box else "no evaluations left"
+        why = (
+            "empty search box (no focus parameter with room to move)"
+            if not box
+            else "no evaluations left (the last one is kept for a promotion)"
+        )
         out.summary = {**head, "evals": 0, "warm_trials": 0, "stopped": why, "best": None, "promotable": []}
         out.events.append(base | {"event": "inner_optimizer_finished"} | out.summary)
         return out

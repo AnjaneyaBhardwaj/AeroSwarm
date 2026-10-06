@@ -60,7 +60,7 @@ from swarm.ledger import (
 )
 from swarm.llm.client import LLMClient
 from swarm.optim.inner_loop import run_inner
-from swarm.optim.summary import inner_run_text, inner_runs
+from swarm.optim.summary import INNER_RESERVE, inner_run_text, inner_runs
 from swarm.overrides import override_allowed, track_record
 from swarm.solvers import neuralfoil, xfoil
 from swarm.state import (
@@ -276,7 +276,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         parent = s.get("parent") or initial
         t0 = s.get("started_at")
         deadline = t0 + 3600.0 * spec.max_wall_hours if t0 else None
-        budget = min(memo.inner_budget, spec.max_evals - len(ledger))
+        # keep the last evaluation for a promotion: a design the inner run finds can still reach XFoil
+        budget = min(memo.inner_budget, spec.max_evals - len(ledger) - INNER_RESERVE)
         out = run_inner(parent, memo, spec, ledger, gen, run_dir, budget, deadline)
         for rec in out.records:
             files.append_record(rec)
