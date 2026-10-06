@@ -345,3 +345,25 @@ def test_benchmark_stops_the_batch_on_an_api_account_error(tmp_path, monkeypatch
     with pytest.raises(SystemExit) as e:
         bench.cmd_run(["hybrid"], [11, 22, 33], parallel=1, root=str(tmp_path))
     assert e.value.code == 2 and calls == [("hybrid", 11, str(tmp_path))]
+
+
+def test_a_hybrid_run_without_any_cad_step_is_valid(spec, start, fake_xfoil, tmp_path, monkeypatch):
+    """Pilot seed 33: the Chief chose only inner runs and promotions, so the CAD agent was never called; the
+    run was marked invalid_llm by the every-agent rule. A CAD agent replaced by inner runs is not a failure."""
+    from swarm.llm.client import LLMHealth
+
+    fake_xfoil()
+    stop = memo(["alpha_deg"], mode="reasoned_step", k=0, declare_plateau=True)  # allowed after 4 of 5
+    llm = ScriptedClient([memo(["alpha_deg"], mode="reasoned_step", k=0), verdict(), memo(["alpha_deg"], k=3), stop])
+    llm.is_mock = False  # enforce the real-LLM validity rules
+    final = run(spec.model_copy(update={"max_evals": 5}), start, run_id="v", runs_root=tmp_path, llm=llm)
+    meta = json.loads((tmp_path / "v" / "meta.json").read_text())
+    assert not llm.responses and final["termination"] == "plateau" and meta["llm_health"]["valid"]
+    assert meta["llm_health"]["agents"]["cad"] == {"ok": 0, "failed": 0, "fallbacks": 0}
+    health = LLMHealth()
+    health.record_call("chief", True)
+    health.record_call("critic", True)
+    assert health.check(final=True) == ["cad: no successful call (never called)"]  # without the exemption
+    assert health.check(final=True, not_needed={"cad"}) == []
+    health.record_call("cad", False)
+    assert health.check(final=True, not_needed={"cad"}) == ["cad: no successful call (all 1 call(s) failed)"]
