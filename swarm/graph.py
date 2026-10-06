@@ -626,7 +626,10 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     @node_boundary("report", files)
     def report(s: SwarmState) -> dict:
         h = health()
-        reasons = h.check(final=True) if enforced() else []
+        ran = {e.get("node") for e in s.get("events", [])}
+        # the CAD agent is not needed when inner-optimizer runs took the place of every CAD step
+        not_needed = {"cad"} if "inner_optimize" in ran and "cad_propose" not in ran else set()
+        reasons = h.check(final=True, not_needed=not_needed) if enforced() else []
         term = termination_reason(s, cost_capped=capped(s), invalid=bool(reasons))
         write_report(s, files, term, llm)
         events = [cap_event("report", s)] if term == "cost_cap" else []
