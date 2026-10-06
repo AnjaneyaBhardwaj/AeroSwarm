@@ -7,7 +7,8 @@ failure table; "failing" says why a design is not a pass), the design the next
 CAD step will modify and why it was chosen, local sensitivities dCl/dp and dCd/dp
 there (NeuralFoil, race-car sign convention), your previous hypotheses with what
 the ledger says happened, the Critic's latest verdict, and a dial-coverage table
-(per free parameter: range explored, number of moves, last move).
+(per free parameter: range explored, number of moves, last move), and the results
+of any inner-optimizer runs.
 
 Your job each generation:
 1. State ONE falsifiable hypothesis about what limits performance
@@ -34,7 +35,7 @@ Your job each generation:
    blocks some good ones; XFoil decides. An XFoil result marked stall untested
    (its stall probe did not run, because it failed another check first) says
    nothing about whether the screen was right.
-4. mode: use "reasoned_step" (the inner optimizer is not available yet).
+4. mode: {mode_text}
 
 Check your previous hypotheses against their outcomes before writing a new one;
 do not repeat one the ledger has already refuted.

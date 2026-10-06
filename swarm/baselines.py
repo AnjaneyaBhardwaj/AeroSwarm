@@ -72,7 +72,10 @@ def _xfoil(p: WingParams, spec: DesignSpec, coords: str, run_dir: str) -> CFDRes
     return r
 
 
-def _record(gen, p, res, spec, ledger, rationale, run_dir, coords=None) -> tuple[EvalRecord, object]:
+def record_evaluation(gen, p, res, spec, ledger, rationale, run_dir, coords=None, **extra) -> tuple[EvalRecord, object]:
+    """One ledger record with the numeric verdict (no LLM): validator, NeuralFoil screen, and the
+    XFoil stall-margin probe when the validator asks for it. Shared by the baselines and the inner
+    optimizer (`swarm.optim.inner_loop`)."""
     rep = validate(res, p, spec, ledger)
     stall = screen = None
     if res.cl is not None and rep.ok:
@@ -95,6 +98,7 @@ def _record(gen, p, res, spec, ledger, rationale, run_dir, coords=None) -> tuple
         stall_margin=stall,
         screen=screen,
         failed_checks=[c.name for c in rep.checks if not c.ok and c.severity != "skipped"],
+        **extra,
     ), rep
 
 
@@ -203,7 +207,7 @@ def search(
                     raise RuntimeError(f"{method}: no geometry-feasible proposal in {MAX_GEOMETRY_TRIES} tries")
             geo = build(p, spec, files.dir)
             res, why = neuralfoil.evaluate(p, spec), "baseline" if not ledger else why_sample
-        rec, rep = _record(gen, p, res, spec, ledger, why, str(files.dir), geo.coords_path)
+        rec, rep = record_evaluation(gen, p, res, spec, ledger, why, str(files.dir), geo.coords_path)
         ledger.append(rec)
         files.append_record(rec)
         proposer.tell(p, rec)

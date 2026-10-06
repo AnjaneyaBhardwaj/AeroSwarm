@@ -30,6 +30,7 @@ from swarm.ledger import (
     row,
     usable,
 )
+from swarm.optim.summary import INNER_BUDGET_DEFAULT, INNER_BUDGET_MAX, INNER_BUDGET_MIN, inner_run_text, inner_runs
 from swarm.overrides import MAX_SCREEN_OVERRIDES, in_box, overrides_used, track_record, track_record_text
 from swarm.state import (
     FIDELITY_RANK,
@@ -52,9 +53,10 @@ class Brief:
     facts: dict
 
 
-def _system(role: str, spec: DesignSpec) -> str:
+def _system(role: str, spec: DesignSpec, **extra: str) -> str:
     tpl = (PROMPTS / f"{role}.md").read_text()
     return tpl.format(
+        **extra,
         component=spec.component,
         target_cl=spec.target_cl,
         cl_tol=spec.cl_tol,
@@ -106,11 +108,15 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
     best = best_record(ledger, spec)
     best_x = best_record(ledger, spec, "xfoil")
     v = state.get("verdict")
-    v_rec = ledger[-1] if ledger else None
+    # the Critic's verdict belongs to the last agent-evaluated record (inner-optimizer records have no Critic call)
+    v_rec = next((r for r in reversed(ledger) if not r.inner_optimizer), None)
     parent, parent_why = current_parent(state)
-    history = _history(state.get("history", []), ledger, spec)
+    events = state.get("events", [])
+    history = _history(state.get("history", []), ledger, spec, events)
     overrides = pending_disagreements(state)
-    cols = ("gen", "cid", "fidelity", "status", "cl", "cd", "objective", "failing", "stall_probe")
+    cols = ("gen", "cid", "by", "fidelity", "status", "cl", "cd", "objective", "failing", "stall_probe")
+    inner_allowed = bool(state.get("inner_allowed", False))
+    inner = inner_runs(events)
     promo = [r.params.cid for r in promotable(ledger, spec)]
     blocked = {
         r.params.cid: r.screen.reasons()
@@ -144,6 +150,13 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         "screen_overrides_left": max(0, MAX_SCREEN_OVERRIDES - used),
         "plateau_allowed_after": plateau_allowed_after(spec),
         "restart_branch": active_branch(state),
+        "inner_optimizer": {
+            "allowed": inner_allowed,
+            "budget_min": INNER_BUDGET_MIN,
+            "budget_max": INNER_BUDGET_MAX,
+            "budget_default": INNER_BUDGET_DEFAULT,
+            "runs": inner[-INNER_RUNS_SHOWN:],
+        },
     }
     user = "\n\n".join(
         [
@@ -187,13 +200,44 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
             "override(s) left, only for a design inside the target box)\n"
             + ("\n".join(f"- {cid}: {'; '.join(why)}" for cid, why in blocked.items()) or "(none)"),
             "## Your screen overrides this run and what XFoil found\n" + track_record_text(state),
+            "## Inner-optimizer runs (deterministic TPE at NeuralFoil inside your focus subspace; ledger numbers)\n"
+            + (
+                ("\n".join(f"- {inner_run_text(e)}" for e in inner[-INNER_RUNS_SHOWN:]) or "(none yet)")
+                if inner_allowed or inner
+                else "(disabled in this run)"
+            ),
             f"Generations without improvement: {streak}. declare_plateau ends the run only after "
             f"{facts['plateau_allowed_after']} of {spec.max_evals} evaluations; before that it makes the run "
             "explore instead (alternately a wider trust region, or a restart from a different region of the "
             "ledger).",
         ]
     )
-    return Brief(_system("chief", spec), user, facts)
+    return Brief(_system("chief", spec, mode_text=mode_text(inner_allowed)), user, facts)
+
+
+INNER_RUNS_SHOWN = 3
+
+
+def mode_text(inner_allowed: bool) -> str:
+    """The Chief prompt's mode paragraph: the inner optimizer is a real choice only when the run allows it."""
+    if not inner_allowed:
+        return '"reasoned_step" (the inner optimizer is disabled in this run).'
+    return (
+        '"reasoned_step" or "inner_optimizer".\n'
+        "   - reasoned_step: the CAD agent makes one reasoned change to the next CAD base (one\n"
+        "     evaluation at the fidelity you choose).\n"
+        f"   - inner_optimizer: a deterministic optimizer (Optuna TPE, no LLM) spends inner_budget\n"
+        f"     evaluations ({INNER_BUDGET_MIN}-{INNER_BUDGET_MAX}; 0 means {INNER_BUDGET_DEFAULT}) at neuralfoil, "
+        "searching only your\n"
+        '     focus_params within the trust region around the next CAD base (one-sided for a "+" or\n'
+        '     "-" direction; other parameters stay at the base values), warm-started from ledger\n'
+        "     designs in that region. It minimizes the constraint violation used to choose the CAD\n"
+        "     base (stall shortfall, separation, distance outside the target box). The screen and\n"
+        "     validator apply as usual; every inner evaluation is a ledger record and counts toward\n"
+        "     the evaluation budget. It never promotes: your next brief shows what it found, and you\n"
+        "     decide promotions as usual. fidelity is ignored for an inner run (always neuralfoil);\n"
+        "     a promotion (promote_cid) takes precedence over it."
+    )
 
 
 _DIR_TEXT = {"+": "increase", "-": "decrease", "free": "free"}
@@ -215,12 +259,18 @@ def pending_disagreements(state: SwarmState) -> list[dict]:
 HISTORY_SHOWN = 8
 
 
-def _history(entries: list[dict], ledger: list[EvalRecord], spec: DesignSpec) -> list[dict]:
+def _history(
+    entries: list[dict], ledger: list[EvalRecord], spec: DesignSpec, events: list[dict] | None = None
+) -> list[dict]:
     """The Chief's last memos with each generation's outcome taken from the ledger."""
     out = []
+    inner = {e["gen"]: e for e in inner_runs(events or [])}
     for h in entries[-HISTORY_SHOWN:]:
         recs = [r for r in ledger if r.generation == h["gen"]]
-        if not recs:
+        agent_recs = [r for r in recs if not r.inner_optimizer]
+        if h["gen"] in inner and not agent_recs:
+            outcome = "inner optimizer: " + inner_run_text(inner[h["gen"]]).split(": ", 1)[1]
+        elif not recs:
             outcome = "no evaluation"
         else:
             r = recs[-1]

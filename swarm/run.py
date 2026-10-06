@@ -6,6 +6,7 @@ python -m swarm.run --preset hard        # 85% of attached Cl,max: TE separation
 python -m swarm.run --max-evals 10 --budget-usd 2.00   # live-run caps
 python -m swarm.run --llm anthropic ...  # needs ANTHROPIC_API_KEY (startup error without); exit 3 = INVALID run
 python -m swarm.run --resume <run_id>    # resume from runs/<run_id>/ckpt.db
+python -m swarm.run --no-inner-optimizer # LLM-only: the Chief may not hand subspaces to the TPE inner loop
 """
 
 from __future__ import annotations
@@ -75,7 +76,10 @@ def run(
     resume: bool = False,
     preset: str | None = None,
     start_seed: int | None = None,
+    inner_optimizer: bool = True,
 ) -> dict:
+    """`inner_optimizer`: whether the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop);
+    False makes an LLM-only run (the mode is coerced to reasoned_step and the prompt says it is disabled)."""
     if llm is None:
         preflight_llm(which)  # MissingAPIKey before any run directory exists
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
@@ -93,6 +97,7 @@ def run(
             "spec": spec.model_dump(),
             "start": start.model_dump(),
             "start_seed": start_seed,  # set when the start was sampled by baselines.random_start
+            "inner_optimizer": inner_optimizer,
         }
     )
     files.write_meta(
@@ -131,6 +136,7 @@ def run(
                 "events": [],
                 "history": [],
                 "exploration": None,
+                "inner_allowed": inner_optimizer,
                 "retries": {},
                 "pending_violation": None,
                 "termination": None,
@@ -158,6 +164,11 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--start-seed", type=int, help="start from a seeded random feasible design (recorded in meta.json)")
     ap.add_argument("--resume", metavar="RUN_ID")
     ap.add_argument("--no-faults", action="store_true", help="mock: skip the injected demo fault")
+    ap.add_argument(
+        "--no-inner-optimizer",
+        action="store_true",
+        help='LLM-only: the Chief may not choose mode "inner_optimizer" (deterministic TPE at NeuralFoil)',
+    )
     a = ap.parse_args(argv)
     if a.max_evals is not None and a.max_evals < 1:
         ap.error("--max-evals must be >= 1")
@@ -192,6 +203,7 @@ def main(argv: list[str] | None = None) -> None:
         resume=bool(a.resume),
         preset=None if a.resume else a.preset,
         start_seed=a.start_seed,
+        inner_optimizer=not a.no_inner_optimizer,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     health = meta.get("llm_health") or {}

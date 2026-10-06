@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from swarm.briefs import chief_brief, pending_disagreements
 from swarm.llm.client import LLMClient
+from swarm.optim.summary import clamp_budget
 from swarm.overrides import override_allowed
 from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
@@ -58,16 +59,6 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
             fixed.append(g)
         if fixed != list(focus_now):
             upd["focus_params"] = fixed
-    if memo.mode == "inner_optimizer":
-        events.append(
-            {
-                "node": "chief_plan",
-                "gen": gen,
-                "event": "inner_optimizer_unavailable",
-                "detail": "treated as reasoned_step until milestone 4",
-            }
-        )
-        upd["mode"], upd["inner_budget"] = "reasoned_step", 0
     if memo.fidelity not in AVAILABLE_FIDELITIES:
         events.append(
             {
@@ -109,4 +100,31 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
                 # The NeuralFoil screen gates promotion; the generation explores at NeuralFoil instead.
                 events.append(ev | {"event": "promotion_blocked_by_screen"})
                 upd["promote_cid"], upd["fidelity"] = None, "neuralfoil"
+    _inner_mode(memo, state, upd, events, gen)
     return (memo.model_copy(update=upd) if upd else memo), events
+
+
+def _inner_mode(memo: StrategyMemo, state: SwarmState, upd: dict, events: list[dict], gen: int) -> None:
+    """mode="inner_optimizer": allowed only when the run enables it and no promotion goes ahead; the
+    budget is clamped to [INNER_BUDGET_MIN, INNER_BUDGET_MAX] (0 = the default); it runs at NeuralFoil."""
+    ev = {"node": "chief_plan", "gen": gen}
+    if memo.mode != "inner_optimizer":
+        if memo.inner_budget:
+            upd["inner_budget"] = 0
+        return
+    if not state.get("inner_allowed", False):
+        events.append(ev | {"event": "inner_optimizer_unavailable", "detail": "disabled in this run"})
+        upd["mode"], upd["inner_budget"] = "reasoned_step", 0
+        return
+    if upd.get("promote_cid", memo.promote_cid):
+        events.append(ev | {"event": "inner_optimizer_deferred", "detail": "the promotion is this generation's move"})
+        upd["mode"], upd["inner_budget"] = "reasoned_step", 0
+        return
+    k = clamp_budget(memo.inner_budget)
+    if k != memo.inner_budget:
+        events.append(ev | {"event": "inner_budget_coerced", "requested": memo.inner_budget, "used": k})
+        upd["inner_budget"] = k
+    fid = upd.get("fidelity", memo.fidelity)
+    if fid != "neuralfoil":
+        events.append(ev | {"event": "inner_optimizer_fidelity", "requested": fid, "used": "neuralfoil"})
+        upd["fidelity"] = "neuralfoil"

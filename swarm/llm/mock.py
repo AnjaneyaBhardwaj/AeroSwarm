@@ -27,6 +27,7 @@ from swarm.state import (
     quantize,
 )
 
+INNER_AFTER_STREAK = 2
 MOCK_LABEL = "mock (deterministic rule-based stand-in for tests/demos; NOT an LLM)"
 
 
@@ -39,9 +40,12 @@ class MockClient:
     is_mock = True
     label = MOCK_LABEL
 
-    def __init__(self, trace, inject_faults: bool = False):
+    def __init__(self, trace, inject_faults: bool = False, inner_budget: int = 0):
         self.trace = trace
         self.inject_faults = inject_faults
+        # > 0: when the run allows it, hand the focus subspace to the inner optimizer after
+        # INNER_AFTER_STREAK generations without improvement (0 = never; the default mock is unchanged)
+        self.inner_budget = inner_budget
         self._injected: set[str] = set()
 
     def structured(self, role, system, user, schema, facts=None):
@@ -118,6 +122,22 @@ class MockClient:
         ranked = sorted((p for p in free if p in sens), key=lambda p: -abs(sens[p][key]) * rng[p])
         focus = ranked[:3] or free[:3]
         err = ref["cl"] - spec["target_cl"]
+        inner = f.get("inner_optimizer") or {}
+        last_mode = (f.get("last_strategy") or {}).get("mode")
+        if (
+            self.inner_budget > 0
+            and inner.get("allowed")
+            and streak >= INNER_AFTER_STREAK
+            and last_mode != "inner_optimizer"
+        ):
+            return StrategyMemo(
+                hypothesis=f"No improvement in {streak} generations; inner optimizer over {', '.join(focus)}.",
+                focus_params=focus,
+                trust_radius=0.15,
+                fidelity="neuralfoil",
+                mode="inner_optimizer",
+                inner_budget=self.inner_budget,
+            )
         radius = 0.3 if streak >= 3 else (0.08 if abs(err) <= 3 * tol else 0.15)
         if cd_over:
             hyp = (

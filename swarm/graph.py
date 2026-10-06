@@ -2,6 +2,8 @@
 
 START → chief_plan ─┬─► cad_propose ⇄ (tool errors / geometry violations, ≤3 tries, then fallback)
                     ├─► geometry_build (baseline or promotion: no CAD step)
+                    ├─► inner_optimize (mode "inner_optimizer": deterministic TPE at NeuralFoil, K ledger
+                    │                   records, no LLM) → chief_plan | report | cad_propose (nothing evaluated)
                     └─► report
 cad_propose → geometry_build → cfd_solve → numeric_validate ─┬─► critic
                                    ▲                         └─► cfd_recover (numerical failure)
@@ -57,6 +59,8 @@ from swarm.ledger import (
     usable,
 )
 from swarm.llm.client import LLMClient
+from swarm.optim.inner_loop import run_inner
+from swarm.optim.summary import inner_run_text, inner_runs
 from swarm.overrides import override_allowed, track_record
 from swarm.solvers import neuralfoil, xfoil
 from swarm.state import (
@@ -224,6 +228,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         events.append({"node": "chief_plan", "gen": gen, "event": "strategy", "strategy": memo.model_dump()})
         entry = {"gen": gen, "hypothesis": memo.hypothesis, "focus": [f.model_dump() for f in memo.focus_params]}
         entry |= {"fidelity": memo.fidelity, "promote_cid": memo.promote_cid, "screen_override": memo.screen_override}
+        entry |= {"mode": memo.mode, "inner_budget": memo.inner_budget}
         if pev:
             entry["explore"] = pev[0]["action"] + (f" from {pev[0]['anchor_cid']}" if branch else "")
         upd: dict[str, Any] = {
@@ -256,7 +261,46 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             return "report"
         if s.get("params") is not None:  # baseline or promotion
             return "geometry_build"
+        if memo and memo.mode == "inner_optimizer":
+            return "inner_optimize"
         return "cad_propose"
+
+    # ------------------------------------------------------------ inner optimizer
+    @node_boundary("inner_optimize", files)
+    def inner_optimize(s: SwarmState) -> dict:
+        """Deterministic TPE inside the Chief's subspace at NeuralFoil (swarm.optim.inner_loop). No LLM
+        call. Records go to the ledger; the Chief reads the summary next generation. If the run
+        evaluates nothing, this generation falls back to a reasoned CAD step."""
+        spec, ledger, memo = s["spec"], s.get("ledger", []), s["strategy"]
+        gen = s.get("generation", 0)
+        parent = s.get("parent") or initial
+        t0 = s.get("started_at")
+        deadline = t0 + 3600.0 * spec.max_wall_hours if t0 else None
+        budget = min(memo.inner_budget, spec.max_evals - len(ledger))
+        out = run_inner(parent, memo, spec, ledger, gen, run_dir, budget, deadline)
+        for rec in out.records:
+            files.append_record(rec)
+        upd: dict[str, Any] = {"ledger": out.records, "events": out.events}
+        if not out.records:
+            upd["strategy"] = memo.model_copy(update={"mode": "reasoned_step", "inner_budget": 0})
+            upd["events"] = out.events + [
+                {
+                    "node": "inner_optimize",
+                    "gen": gen,
+                    "event": "inner_optimizer_empty",
+                    "action": "reasoned CAD step instead",
+                    "why": out.summary["stopped"],
+                }
+            ]
+        return upd
+
+    def route_after_inner(s: SwarmState) -> str:
+        if s.get("termination") == "fatal" or aborted(s) or _budget_spent(s) or capped(s):
+            return "report"
+        memo = s.get("strategy")
+        if memo is not None and memo.mode != "inner_optimizer":  # nothing evaluated: CAD step instead
+            return "cad_propose"
+        return "chief_plan"
 
     # ------------------------------------------------------------ cad
     @node_boundary("cad_propose", files)
@@ -588,6 +632,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     for name, fn in [
         ("chief_plan", chief_plan),
         ("cad_propose", cad_propose),
+        ("inner_optimize", inner_optimize),
         ("geometry_build", geometry_build),
         ("cfd_solve", cfd_solve),
         ("numeric_validate", numeric_validate),
@@ -597,7 +642,10 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     ]:
         g.add_node(name, fn)
     g.add_edge(START, "chief_plan")
-    g.add_conditional_edges("chief_plan", route_after_chief, ["report", "geometry_build", "cad_propose"])
+    g.add_conditional_edges(
+        "chief_plan", route_after_chief, ["report", "geometry_build", "cad_propose", "inner_optimize"]
+    )
+    g.add_conditional_edges("inner_optimize", route_after_inner, ["report", "cad_propose", "chief_plan"])
     g.add_conditional_edges("cad_propose", route_after_cad, ["geometry_build", "cad_propose", "report"])
     g.add_conditional_edges("geometry_build", route_after_geometry, ["cad_propose", "cfd_solve", "report"])
     g.add_edge("cfd_solve", "numeric_validate")
@@ -776,8 +824,8 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     lines += [
         "## Ledger",
         "",
-        "| gen | cid | fidelity | status | Cl | Cd | stall d\\|Cl\\|/dα | NF screen | quarantined |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| gen | cid | by | fidelity | status | Cl | Cd | stall d\\|Cl\\|/dα | NF screen | quarantined |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for rec in ledger:
         r = rec.result
@@ -788,13 +836,16 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
         if rec.stall_untested:
             stall = "untested"
         lines.append(
-            f"| {rec.generation} | {rec.params.cid} | {r.fidelity}{'*' if r.lower_fidelity else ''} "
+            f"| {rec.generation} | {rec.params.cid} | {'inner' if rec.inner_optimizer else 'agents'} "
+            f"| {r.fidelity}{'*' if r.lower_fidelity else ''} "
             f"| {rec.verdict.status if rec.verdict else r.status} | {cl} | {cd} | {stall} | {_screen_cell(rec)} "
             f"| {rec.quarantined} |"
         )
     lines += [
         "",
-        "`*` = lower-fidelity fallback. Only XFoil PASS rows are passing designs; a NeuralFoil PASS is a "
+        "by: agents = proposed by the CAD agent (or a baseline/promotion); inner = evaluated by the deterministic "
+        "inner optimizer. `*` = lower-fidelity fallback. Only XFoil PASS rows are passing designs; "
+        "a NeuralFoil PASS is a "
         "lower-tier result. NF screen = NeuralFoil stall (alpha+1/+2) and suction-side separation screen. "
         "stall untested = an XFoil result whose stall probe did not run (it runs only for a design that clears "
         "every other check); such a result is no evidence about the screen. "
@@ -803,6 +854,7 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     ]
     lines += _screen_section(ledger, spec)
     lines += _override_section(s)
+    lines += _inner_section(s)
     plots = viz.get("stall_plots", {})
     xf = [r for r in ledger if r.result.fidelity in TERMINAL_FIDELITIES and usable(r)]
     if xf:
@@ -854,6 +906,17 @@ def _plateau_lines(s: SwarmState) -> list[str]:
             what += f" from `{e['anchor_cid']}`"
         items.append(f"gen {e['gen']} {what}")
     return [f"- Plateau declarations deferred (allowed after {ev[0]['allowed_after']} evals): " + "; ".join(items)]
+
+
+def _inner_section(s: SwarmState) -> list[str]:
+    """Each inner-optimizer run (deterministic TPE at NeuralFoil) and what it found (ledger numbers)."""
+    runs = inner_runs(s.get("events", []))
+    if not runs:
+        return []
+    n = sum(r.inner_optimizer for r in s.get("ledger", []))
+    lines = ["## Inner-optimizer runs", "", f"{len(runs)} run(s), {n} ledger evaluation(s) in total.", ""]
+    lines += [f"- {inner_run_text(e)}" for e in runs]
+    return lines + [""]
 
 
 def _override_section(s: SwarmState) -> list[str]:
