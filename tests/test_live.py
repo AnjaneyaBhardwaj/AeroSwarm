@@ -79,3 +79,18 @@ def test_mock_run_streams_the_export(setup):
     idx = client.get("/runs/index.json").json()["runs"]
     assert any(e["file"] == f"live/live_{rid}.json" for e in idx)
     assert client.get(f"/runs/live/live_{rid}.json").status_code == 200
+
+
+def test_stop_ends_the_run_with_its_own_label(setup):
+    client, _, _ = setup
+    r = client.post("/api/runs", json={"start": START, "llm": "mock", "max_evals": 40, "inner_optimizer": False})
+    rid = r.json()["run_id"]
+    assert client.post(f"/api/runs/{rid}/stop").json()["run_id"] == rid
+    with client.stream("GET", f"/api/runs/{rid}/stream") as s:
+        events = _sse(s.iter_lines())
+    final = events[-1]
+    assert final[0] == "done", final
+    assert final[1]["termination"] == "stopped" and final[1]["evals"] < 40
+    phases = [d for k, d in events if k == "progress"]
+    assert all("phase" in p for p in phases)
+    assert client.post("/api/runs/nope/stop").status_code == 404

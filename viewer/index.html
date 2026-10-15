@@ -58,6 +58,7 @@
         <div id="live-check" class="live-check"></div>
         <div id="live-est" class="live-est"></div>
         <button id="live-go" class="go">Run live from the dials</button>
+        <button id="live-stop" class="pill stop" hidden>Stop run</button>
         <div id="live-status" class="live-status" aria-live="polite"></div>
       </div>
     </div>
@@ -106,6 +107,7 @@
       <h2 id="h-feed" data-tip-key="feed">Agent decisions</h2>
       <span class="hint">verbatim from traces.jsonl</span>
     </div>
+    <div id="now" class="now" hidden><span class="spin" aria-hidden="true"></span><span id="now-text"></span></div>
     <div id="feed" class="feed" aria-live="polite"></div>
   </section>
 </main>

@@ -18,6 +18,8 @@ the estimated LLM spend reaches the cap, no further LLM call is made: an
 in-flight candidate is still solved and recorded with the deterministic
 numeric verdict, then the run goes to `report` with termination "cost_cap".
 The overshoot is therefore at most the one call that crossed the cap.
+A stop request (`TraceLogger.request_stop`, the live viewer's Stop button) takes the same path and ends the run
+with termination "stopped".
 
 LLM validity (`LLMHealth` on the client's trace; real LLMs only): the run aborts at the
 first routing boundary after more than `MAX_FAILED_CALLS` LLM calls have failed, with no
@@ -153,9 +155,13 @@ def _base(s: SwarmState, initial: WingParams) -> tuple[WingParams, str]:
 def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     run_dir = str(files.dir)
 
+    def stopped() -> bool:
+        return bool(getattr(getattr(llm, "trace", None), "stop_requested", False))
+
     def capped(s: SwarmState) -> bool:
+        """No further LLM call: the cost cap is reached, or a stop was requested."""
         trace = getattr(llm, "trace", None)
-        return trace is not None and trace.over_budget(s["spec"].max_cost_usd)
+        return trace is not None and (trace.over_budget(s["spec"].max_cost_usd) or stopped())
 
     def health():
         return getattr(getattr(llm, "trace", None), "health", None)
@@ -707,9 +713,11 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         # the CAD agent is not needed when inner-optimizer runs took the place of every CAD step
         not_needed = {"cad"} if "inner_optimize" in ran and "cad_propose" not in ran else set()
         reasons = h.check(final=True, not_needed=not_needed) if enforced() else []
-        term = termination_reason(s, cost_capped=capped(s), invalid=bool(reasons))
+        term = termination_reason(s, cost_capped=capped(s), invalid=bool(reasons), stopped=stopped())
         write_report(s, files, term, llm)
         events = [cap_event("report", s)] if term == "cost_cap" else []
+        if term == "stopped":
+            events.append({"node": "report", "gen": s.get("generation", 0), "event": "stopped_by_user"})
         return {"termination": term, "events": events + [{"node": "report", "event": "terminated", "reason": term}]}
 
     g = StateGraph(SwarmState)
@@ -774,7 +782,7 @@ def route_after_critic_fn(s: SwarmState, cost_capped: bool = False, aborted: boo
     }[v.status]
 
 
-def termination_reason(s: SwarmState, cost_capped: bool = False, invalid: bool = False) -> str:
+def termination_reason(s: SwarmState, cost_capped: bool = False, invalid: bool = False, stopped: bool = False) -> str:
     """Which limit ended the run. eval_budget (max_evals), wall_clock (max_wall_hours) and
     cost_cap (max_cost_usd) are separate labels; "unknown" means no rule explains the stop."""
     if s.get("termination") == "fatal":
@@ -783,6 +791,8 @@ def termination_reason(s: SwarmState, cost_capped: bool = False, invalid: bool =
         return "invalid_llm"
     if s.get("verdict") and target_met(s):
         return "target_met"
+    if stopped:
+        return "stopped"
     if cost_capped:
         return "cost_cap"
     memo = s.get("strategy")
@@ -800,6 +810,7 @@ TERMINATION_TEXT = {
     "eval_budget": "evaluation budget (max_evals) used up",
     "wall_clock": "wall-clock limit (max_wall_hours) reached",
     "cost_cap": "estimated LLM cost reached the cap (max_cost_usd)",
+    "stopped": "stopped on request (the live viewer's Stop button)",
     "plateau": "the Chief declared a plateau",
     "fatal": "too many node errors",
     "invalid_llm": "the real-LLM run failed its validity rules",

@@ -90,6 +90,9 @@ def test_termination_labels_name_the_limit(spec):
     assert termination_reason(_state(s, n=3, started=time.time()), cost_capped=True) == "cost_cap"
     assert termination_reason(_state(s, n=1, started=time.time())) == "unknown"
     assert termination_reason(_state(s, n=3, started=time.time()), invalid=True) == "invalid_llm"
+    # the live viewer's Stop button takes the cost-cap path but keeps its own label
+    stop = termination_reason(_state(s, n=1, started=time.time()), cost_capped=True, stopped=True)
+    assert stop == "stopped"
 
 
 # ----------------------------------------------------------- report.md / meta.json

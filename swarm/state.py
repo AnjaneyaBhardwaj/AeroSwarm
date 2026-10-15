@@ -420,7 +420,17 @@ class SwarmState(TypedDict, total=False):
     of2d_allowed: bool  # the Chief may promote XFoil-evaluated designs to OpenFOAM (swarm.solvers.openfoam)
     exploration: dict | None  # plateau restart branch: anchor_cid, from_gen, until_gen (swarm.explore)
     termination: (
-        Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]
+        Literal[
+            "target_met",
+            "eval_budget",
+            "wall_clock",
+            "cost_cap",
+            "stopped",
+            "plateau",
+            "fatal",
+            "invalid_llm",
+            "unknown",
+        ]
         | None
     )
     started_at: float

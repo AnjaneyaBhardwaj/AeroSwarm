@@ -14,7 +14,9 @@ API:
   GET  /api/health                  LLM availability, defaults, caps, per-model cost estimate
   POST /api/check                   {start} -> the geometry and rulebook violations a run would refuse
   POST /api/runs                    {start, max_evals, budget_usd, llm, model, inner_optimizer} -> {run_id}
-  GET  /api/runs/{id}/stream        Server-Sent Events: run, generation, progress, done | error
+  POST /api/runs/{id}/stop          end the run at the next step boundary (termination "stopped")
+  GET  /api/runs/{id}/stream        Server-Sent Events: run, generation, progress (with what is happening now),
+                                    done | error
   GET  /runs/index.json             committed gallery + finished live runs
 
 Every live run is capped: at most MAX_EVALS evaluations and MAX_BUDGET_USD estimated LLM spend (the run stops
@@ -199,6 +201,15 @@ def create_app(
         lr.thread.start()
         return {"run_id": run_id, "estimate_usd": _estimate(req)}
 
+    @app.post("/api/runs/{run_id}/stop")
+    def stop_run(run_id: str) -> dict:
+        lr = runs.get(run_id)
+        if lr is None:
+            raise HTTPException(404, f"no live run {run_id}")
+        if not lr.finished.is_set():
+            lr.trace.request_stop()
+        return {"run_id": run_id, "stopping": not lr.finished.is_set()}
+
     @app.get("/api/runs/{run_id}/stream")
     async def stream(run_id: str) -> StreamingResponse:
         lr = runs.get(run_id)
@@ -229,6 +240,38 @@ def _estimate(req: StartRequest) -> float | None:
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, separators=(',', ':'))}\n\n"
+
+
+# What the run is doing now, from the node of its newest event (the graph writes a node's events when it returns).
+NEXT_STEP = {
+    "chief_plan": "The CAD agent is choosing the change",
+    "cad_propose": "Building the geometry and checking the rules",
+    "geometry_build": "The solver is running",
+    "cfd_solve": "Checking the solver result",
+    "cfd_recover": "The solver is retrying with safer settings",
+    "numeric_validate": "The Critic is reviewing the result",
+    "inner_optimize": "Optuna is searching (no LLM)",
+}
+
+
+def _phase(lr: LiveRun) -> dict:
+    """{"gen", "phase"}: the generation in progress and a plain description of its current step."""
+    if lr.trace.stop_requested and not lr.finished.is_set():
+        return {"gen": None, "phase": "Stopping after the current step"}
+    last = None
+    try:
+        lines = (lr.dir / "events.jsonl").read_text().splitlines()
+        last = json.loads(lines[-1]) if lines else None
+    except (OSError, ValueError):
+        pass
+    if last is None:
+        return {"gen": 0, "phase": "The Chief is planning the first step"}
+    gen, node = last.get("gen", 0), last.get("node")
+    if node == "critic":
+        return {"gen": gen + 1, "phase": "The Chief is planning the next step"}
+    if node == "report":
+        return {"gen": gen, "phase": "Writing the report and the Optuna comparison"}
+    return {"gen": gen, "phase": NEXT_STEP.get(node, "Working")}
 
 
 def _snapshot(lr: LiveRun) -> dict | None:
@@ -271,6 +314,7 @@ async def _events(lr: LiveRun, poll_s: float):
                     "llm_calls": t["calls"],
                     "elapsed_s": round(time.time() - lr.started, 1),
                     "finished": finished,
+                    **_phase(lr),
                 },
             )
         if finished:

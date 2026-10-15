@@ -28,6 +28,8 @@ spend an API key. Before a run, the dials are checked against the run's own geom
 - Caps per run: evaluations (default 15, max 40), estimated LLM cost (default $1, max $5; the run stops with
   termination `cost_cap`), 30 minutes wall clock, one run at a time. The page shows the estimate before the
   run starts and the spend while it runs. Default model `claude-sonnet-5-5`, hybrid (Optuna inner loop) on.
+- While a run goes, a line above the feed says what is happening now (which agent or solver is working); Stop
+  ends it at the next step boundary with termination `stopped` (it is still saved).
 - A finished run is saved to `runs/live/<id>/` and exported, with its Optuna comparison, to
   `viewer/runs/live/` (git-ignored); it joins the gallery through the server's merged `runs/index.json`. To
   publish one, export it into `viewer/runs/` with `scripts/export_run.py runs/live/<id>`.

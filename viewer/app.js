@@ -1138,6 +1138,12 @@ function attachLive(runId) {
   S.live.attached = true;
   S.live.gens = new Set();
   $("#live-go").disabled = true;
+  const stop = $("#live-stop");
+  stop.hidden = false;
+  stop.disabled = false;
+  stop.textContent = "Stop run";
+  stop.onclick = () => stopLiveRun(runId);
+  showNow("Starting the run…");
   const chip = $("#source-chip");
   chip.textContent = "Live run";
   chip.classList.add("live");
@@ -1158,6 +1164,7 @@ function attachLive(runId) {
   });
   es.addEventListener("progress", (e) => {
     const p = JSON.parse(e.data);
+    showNow(p.finished ? "" : p.gen != null ? `Generation ${p.gen} in progress: ${p.phase.charAt(0).toLowerCase()}${p.phase.slice(1)}…` : `${p.phase}…`);
     const mm = Math.floor(p.elapsed_s / 60), ss = String(Math.floor(p.elapsed_s % 60)).padStart(2, "0");
     liveStatus(`${p.evals} evaluations · $${p.cost_usd.toFixed(2)} of $${(S.live.budget ?? 0).toFixed(2)} · ${p.llm_calls} LLM calls · ${mm}:${ss}`);
   });
@@ -1210,11 +1217,32 @@ function detachLive() {
     const id = S.live.runId;
     S.live.attached = false;
     endLiveChip("Recorded run");
+    $("#live-go").disabled = true;
     liveStatus(`Run ${id} keeps going on the server and joins the gallery when it ends.`, "Back to it", () => attachLive(id));
   }
 }
 
+async function stopLiveRun(runId) {
+  const b = $("#live-stop");
+  b.disabled = true;
+  b.textContent = "Stopping…";
+  try {
+    await fetch(`api/runs/${encodeURIComponent(runId)}/stop`, { method: "POST" });
+  } catch (e) {
+    b.disabled = false;
+    b.textContent = "Stop run";
+    liveStatus(`Could not reach the server to stop the run (${e.message}).`);
+  }
+}
+
+function showNow(text) {
+  $("#now").hidden = !text;
+  $("#now-text").textContent = text || "";
+}
+
 function endLiveChip(text) {
+  $("#live-stop").hidden = true;
+  showNow("");
   const chip = $("#source-chip");
   chip.textContent = text;
   chip.classList.remove("live");

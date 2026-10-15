@@ -78,10 +78,20 @@ OpenFOAM work) until the viewer is done.
 - Fixed: `[hidden]` now always hides (the intro's `display: grid` had kept a closed intro over the page); phone header
   no longer overflows.
 
+### Stop button and "now" line (same session)
+- `TraceLogger.request_stop()`; the graph's `capped()` is also true once a stop is requested, so a stop takes the
+  cost-cap path (no further LLM call; an in-flight candidate is still solved and recorded) and ends with the new
+  termination `stopped` (`termination_reason(..., stopped=True)`, event `stopped_by_user`). `POST
+  /api/runs/{id}/stop`; the page's Stop button. Tested in `test_report.py` and `test_live.py` (a mock run stopped
+  early ends `stopped` and is saved).
+- `progress` events carry `gen` and `phase` (from the newest event's node: "The CAD agent is choosing the change",
+  "The solver is running", "The Critic is reviewing the result", ...); the page shows it above the feed with a
+  spinner, so a real-LLM generation (30-60 s) never looks frozen.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
-- No cancel button: a started run ends at its caps. The page shows the mock's label but not a per-agent health
-  summary during the run (it is in the final export's meta).
+- Live runs need the local server; the hosted Artifact page cannot reach any server (its frame blocks outside
+  requests). Options are with the user.
 
 ### Next
 - Part 4: GitHub Pages workflow and a replay GIF at the top of the README; export the bench3 runs.
