@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import shutil
 import statistics
 import sys
@@ -31,7 +30,7 @@ from swarm.critic.numeric import VALIDATION
 from swarm.evals.recovery import ladder_stats
 from swarm.evals.signs import score as score_signs
 from swarm.ledger import RunFiles
-from swarm.llm.client import TraceLogger
+from swarm.llm.client import ACCOUNT_ERROR, TraceLogger
 from swarm.llm.mock import MockClient
 from swarm.run import HARD_SPEC, run
 from swarm.stats import quartiles, wilson_interval
@@ -43,12 +42,6 @@ MOCK_INNER_BUDGET = 8
 SPEC = HARD_SPEC.model_copy(update={"max_evals": 40, "max_cost_usd": 4.0, "max_wall_hours": 1.5})
 ROOT = Path("runs/bench4")
 DOC = Path("docs/BENCHMARK4.md")
-
-
-# An LLM failure that every later run would hit too: the batch stops instead of starting more runs.
-ACCOUNT_ERROR = re.compile(
-    r"credit balance|usage limit|AuthenticationError|PermissionDeniedError|invalid x-api-key|billing", re.IGNORECASE
-)
 
 
 def account_error(run_dir: Path) -> str | None:

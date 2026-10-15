@@ -5,3 +5,4 @@ __pycache__/
 .ruff_cache/
 runs/*
 !runs/examples/
+evals/critic_traces_*.jsonl

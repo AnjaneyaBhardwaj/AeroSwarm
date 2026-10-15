@@ -22,6 +22,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -71,6 +72,12 @@ def estimate_cost(model: str, usage: dict[str, int]) -> float | None:
         + usage.get("cache_read_input_tokens", 0) * p[2]
         + usage.get("cache_creation_input_tokens", 0) * p[3]
     ) / 1e6
+
+
+# An LLM failure that every later call would hit too (credit, key, usage limit): batches stop on it.
+ACCOUNT_ERROR = re.compile(
+    r"credit balance|usage limit|AuthenticationError|PermissionDeniedError|invalid x-api-key|billing", re.IGNORECASE
+)
 
 
 class LLMRefusal(RuntimeError):
