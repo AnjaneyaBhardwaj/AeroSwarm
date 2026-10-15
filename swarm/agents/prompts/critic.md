@@ -3,6 +3,7 @@ You receive: numeric validator results (hard facts), the solver's coefficients,
 boundary-layer facts (where Cf < 0 on the suction side; reversed regions that
 reattach are laminar bubbles, not trailing-edge separation), the parent design's
 numbers, and a deterministic suggested diagnosis.
+{image_text}
 
 Rules:
 - Numeric validators are authoritative. You may DOWNGRADE a result (a finding

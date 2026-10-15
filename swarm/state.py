@@ -218,7 +218,7 @@ class Diagnosis(BaseModel):
 class Finding(BaseModel):
     observation: str
     location: str
-    source: Literal["numeric", "boundary_layer", "cp", "residuals", "contour", "streamlines"]
+    source: Literal["numeric", "boundary_layer", "cp", "section", "residuals", "contour", "streamlines"]
     consistent_with_numeric: bool
     severity: Literal["info", "suspect", "fatal"] = "info"
 
@@ -374,6 +374,7 @@ class EvalRecord(BaseModel):
     screen: SurrogateScreen | None = None  # NeuralFoil screen of this geometry (any fidelity)
     failed_checks: list[str] = []  # names of the numeric checks that failed (not skipped ones)
     inner_optimizer: bool = False  # evaluated by the deterministic inner optimizer (swarm.optim), not an agent
+    critic_images: dict[str, str] = {}  # image -> path the vision Critic was shown (swarm.critic.render)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -406,6 +407,7 @@ class SwarmState(TypedDict, total=False):
     pending_violation: str | None
     history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
     inner_allowed: bool  # the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop)
+    vision_allowed: bool  # the Critic is shown rendered images (swarm.critic.render)
     exploration: dict | None  # plateau restart branch: anchor_cid, from_gen, until_gen (swarm.explore)
     termination: (
         Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]

@@ -1,5 +1,51 @@
 # Progress
 
+## Session 14, continued: milestone 3, the vision Critic (built; its LLM evaluation waits on the API)
+
+PR #11 (milestone 2) was merged before the two doc commits that followed it; the branch was rebased onto main
+with them.
+
+### Images (`swarm/critic/render.py`)
+Three deterministic images per Critic call: fixed axes and ranges, candidate solid over parent dashed, key
+numbers in the title. BLUEPRINT's four images (Cp, residuals, contour, streamlines) are OpenFOAM's; at T0/T1:
+- `cp`: -Cp(x/c) on both surfaces;
+- `boundary_layer`: suction-side H with the screen's limit, and Cf at XFoil (reversed flow shaded);
+- `section`: the section in the car frame with the rulebook's lines (placeholder car).
+Surface data from XFoil's BL dump (Cp = 1 - Ue²) or one NeuralFoil call (32 stations). About 0.4 s and
+~500 input tokens per image.
+
+### Wiring
+- `LLMClient.structured(..., images={name: path})`; `AnthropicClient` sends a text label and a base64 PNG per
+  image after the brief; traces keep paths and hashes, not bytes. Clients declare `sees_images`; the graph
+  renders only for those (the rule-based mock cannot see, so mock runs render nothing and stay fast).
+- Critic prompt: an image paragraph when vision is on, "No images in this run" otherwise; `Finding.source`
+  may be "section"; `merge_verdict` unchanged (a fatal finding vetoes; nothing rescues a failed check).
+  `EvalRecord.critic_images` records what the Critic was shown; event `critic_render_failed` if rendering
+  fails (the Critic still runs on the numbers).
+- `run(vision=True)` / `--no-vision`; meta.json `vision`. **Vision is on by default**, so the LLM benchmark
+  arms will use it (about $0.25 more per 40-evaluation run).
+
+### Critic failure zoo (`swarm/evals/critic_zoo.py`, `scripts/critic_eval.py`, `evals/critic_zoo.json`, `docs/CRITIC_EVAL.md`)
+26 labelled cases (11 trust: clean XFoil / NeuralFoil near the target, separated-but-converged; 15 flag:
+40-panel solves, wrong solution branch, Cl/Cd scaled by 0.6, stale images, a suction-side bump, sign flip,
+Cd / 5), each with the parent and (XFoil) the same design's NeuralFoil record, as a run would have. Cached as
+surface data; images re-rendered. Arms: numeric (validators only), llm_text, llm_vision; hard flag = NON_PHYSICAL
+/ NUMERICAL_FAILURE or a fatal finding, soft adds a fidelity-gap / confidence doubt or a suspect finding marked
+inconsistent with the numbers (design checks such as TE separation do not count).
+- Numeric arm (offline): hard precision 100% (3/3), recall 20% (3/15); soft 100% / 53%.
+- 7 bad cases are invisible to every numeric check (coarse panels, stale images, surface kink): what vision
+  must add. LLM arms not run (API limit); ~$1.5–2 for both.
+
+### Tests
+`tests/test_vision.py` (10: rendering, request payload and trace, graph wiring with an image-capable mock,
+--no-vision, veto/no-rescue) and `tests/test_critic_zoo.py` (6: committed cases, numeric arm reproduces the
+committed results, images only in the vision arm via a scripted client, errors not scored, doc regenerated).
+
+### Next
+- After 2026-11-01: `uv run python scripts/critic_eval.py run --arms llm_text llm_vision`, then `report`.
+  Decide from it whether vision stays on for the benchmark's LLM arms (run this before them).
+- The benchmark LLM arms after that.
+
 ## Session 14 (2026-10-15): milestone 2 finished: failure zoo, recovery statistics, sign scoring
 
 Main was 6 commits behind `claude/intelligent-hopper-xn7qea` (session 13's last commits); the user merged them
@@ -46,17 +92,21 @@ exhausted ladder), sign scoring (joint/mixed/deadband/no parent/other fidelity/q
 fake solver, and the committed cache (matches the case list, counts add up, the doc is regenerated from it).
 
 ### Next (waiting for the user)
-- **Decide on the panel count** (finding 4 in docs/FAILURE_ZOO.md). Options: keep 160 and note the bias; or move
-  L0–L2 to 320 panels and re-derive the gated sweep, target box and screen calibration (all benchmarks would then
-  need re-running). The witness design moves from −1.824 to −1.845, still inside the box.
+- **Panel count: decided, keep 160** (user, 2026-10-15). Measured against 320 on the 46 FSAE-legal zoo cases
+  at L0: 320 converged 44 vs 42, ~0.26 s vs ~0.05 s per solve, Cl 0.006–0.022 more downforce in the target
+  region (320 is within 0.004 of 400). Results stay consistent with the target, gated sweep and screen (all at
+  160); a reported Cl is "XFoil at 160 panels" and carries a ~0.016 under-prediction of downforce.
 - Optional: a ladder that does not stop at the first converged level above some alpha (e.g. also run L2 and
   take continuation when they disagree). No FSAE-legal zoo case needs it; it only matters at the domain edge.
 - LLM runs still wait on the API usage limit (resets 2026-11-01): hybrid seed 33, then the full arms.
+- Deferred by the user ("later"): FSAE rules not checked in 2D (T.7.6 width / T.7.3.3 inboard of the rear
+  tires, T.7.1.4's 3 mm vertical-edge radius on end plates, V.1.1 wheel keep-out) need a span parameter,
+  end-plate geometry and wheel positions; and `PLACEHOLDER_CAR` should be replaced with the team's car numbers.
 - Milestone 3 (vision Critic) is next in the build order. The Critic's own failure zoo (leaky STL, wrong Aref,
   coarse mesh; BLUEPRINT §3) belongs with OpenFOAM (milestone 5).
 
 ### Known issues
-- XFoil at 160 panels under-predicts downforce by ~0.016 in the target region (see Next).
+- XFoil at 160 panels under-predicts downforce by ~0.016 in the target region (kept by decision; see Next).
 - CMA-ES (BLUEPRINT §3) is not implemented; TPE only.
 
 ## Session 13 (2026-10-06): milestone 4, the hybrid inner optimizer; offline benchmark 4

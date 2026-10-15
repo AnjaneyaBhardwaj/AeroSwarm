@@ -16,6 +16,7 @@ import time
 import numpy as np
 
 from swarm.cad.heuristics import HEURISTICS
+from swarm.llm.client import image_record
 from swarm.state import (
     Diagnosis,
     Finding,
@@ -38,6 +39,7 @@ def _sign(x: float, eps: float = 1e-9) -> int:
 class MockClient:
     kind = "mock"
     is_mock = True
+    sees_images = False  # rule-based: it cannot read images, so the graph does not render them
     label = MOCK_LABEL
 
     def __init__(self, trace, inject_faults: bool = False, inner_budget: int = 0):
@@ -48,11 +50,12 @@ class MockClient:
         self.inner_budget = inner_budget
         self._injected: set[str] = set()
 
-    def structured(self, role, system, user, schema, facts=None):
+    def structured(self, role, system, user, schema, facts=None, images=None):
+        """`images` are accepted and recorded but never read: the mock cannot see, and makes no image findings."""
         if facts is None:
             raise ValueError("MockClient needs the brief facts")
         t0 = time.perf_counter()
-        extra = {"mock": True}
+        extra = {"mock": True, **image_record(images)}
         if schema is StrategyMemo:
             out = self._chief(facts)
         elif schema is ParamDelta:

@@ -264,7 +264,7 @@ class BackedClient(AnthropicClient):
         sdk = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(parse=self._parse)))
         super().__init__(trace, model="claude-opus-5-5", sdk_client=sdk)
 
-    def structured(self, role, system, user, schema, facts=None):
+    def structured(self, role, system, user, schema, facts=None, images=None):
         self._role, self._facts = role, facts
         return super().structured(role, system, user, schema, facts=facts)
 

@@ -25,7 +25,10 @@ def merge_verdict(numeric: NumericReport, llm: Verdict) -> Verdict:
     return llm.model_copy(update={"status": numeric.status})
 
 
-def review(llm: LLMClient, state: SwarmState, parent_rec: EvalRecord | None) -> Verdict:
+def review(
+    llm: LLMClient, state: SwarmState, parent_rec: EvalRecord | None, images: dict[str, str] | None = None
+) -> Verdict:
+    """`images`: {name: PNG path} from swarm.critic.render (vision Critic); None/empty = numbers only."""
     numeric: NumericReport = state["numeric"]
     suggested = suggest_diagnosis(
         state["result"],
@@ -34,8 +37,11 @@ def review(llm: LLMClient, state: SwarmState, parent_rec: EvalRecord | None) -> 
         stall=state.get("stall"),
         screen=state.get("screen"),
     )
-    b = critic_brief(state, suggested, parent_rec)
-    raw = llm.structured("critic", b.system, b.user, Verdict, facts=b.facts)
+    b = critic_brief(state, suggested, parent_rec, images)
+    if images:
+        raw = llm.structured("critic", b.system, b.user, Verdict, facts=b.facts, images=images)
+    else:
+        raw = llm.structured("critic", b.system, b.user, Verdict, facts=b.facts)
     v = merge_verdict(numeric, raw)
     # TE separation is TARGET_MISS with a separation diagnosis, whatever the LLM labelled it.
     if any(c.name == "te_separation" and not c.ok for c in numeric.checks) and not v.diagnosis.symptom.startswith(
