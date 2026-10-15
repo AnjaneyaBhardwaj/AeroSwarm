@@ -68,5 +68,10 @@ nothing. What did help is deterministic: the validator checks the reported Cl ag
 the solver's own surface Cp, and an XFoil Cp for non-physical local spikes (`swarm/critic/surface.py`); with
 them the numeric validators alone catch 10 of the zoo's 15 bad cases with no false alarm.
 
+OpenFOAM tier (milestone 5, in progress): `swarm/solvers/openfoam` meshes a structured 2D O-grid, runs
+simpleFoam (k-omega SST) and integrates the forces from the fields (`of2d` results). Validated on NACA 0012 at
+Re 6e6 (`scripts/of_validate.py`, `docs/OPENFOAM.md`). It is not wired into the graph yet; at the project's
+Re 3e5, fully turbulent SST disagrees with XFoil (transition), which a transition model must address first.
+
 Limits: 2D sections only (no endplates, tip vortices or induced drag);
 validator thresholds are project conventions to calibrate, not published limits.

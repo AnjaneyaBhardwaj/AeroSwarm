@@ -1,0 +1,301 @@
+{
+ "meta": {
+  "date": "2026-10-15",
+  "openfoam": "ESI v1912 (Ubuntu package)",
+  "mesh": {
+   "n_surface": 240,
+   "n_base": 6,
+   "first_cell": 2e-05,
+   "growth": 1.12,
+   "max_step": 4.0,
+   "farfield": 100.0,
+   "smoothing": 12,
+   "span": 0.1
+  }
+ },
+ "rows": [
+  {
+   "name": "naca0012_a0",
+   "kind": "naca0012",
+   "alpha": 0.0,
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.12,
+    "alpha_deg": 0.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "status": "converged",
+   "signature": null,
+   "cl": -1.2622573454282785e-05,
+   "cd": 0.008014699069846358,
+   "upright_cl": 1.2622573454282785e-05,
+   "residual_drop_orders": {
+    "p": 7.878,
+    "U": 7.004
+   },
+   "coeff_rel_std": {
+    "cl": 0.35331905732896735,
+    "cd": 3.6211726820061563e-07
+   },
+   "yplus": [
+    0.0999476180448568,
+    2.26931812872832,
+    3.278488821340562
+   ],
+   "te_sep": null,
+   "mesh": {
+    "cells": 30750,
+    "max_non_ortho": 38.025247,
+    "max_skewness": 1.1243191,
+    "ok": true,
+    "farfield": 100.0
+   },
+   "reference": null,
+   "xfoil": null,
+   "wall_s": 141.8
+  },
+  {
+   "name": "naca0012_a10",
+   "kind": "naca0012",
+   "alpha": 10.0,
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.12,
+    "alpha_deg": 10.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "status": "converged",
+   "signature": null,
+   "cl": -1.0915640557536197,
+   "cd": 0.01378287716786439,
+   "upright_cl": 1.0915640557536197,
+   "residual_drop_orders": {
+    "p": 7.668,
+    "U": 7.005
+   },
+   "coeff_rel_std": {
+    "cl": 3.8558124138206576e-05,
+    "cd": 0.00010817807321778026
+   },
+   "yplus": [
+    0.3401002991575935,
+    2.5005455828569856,
+    8.017936410005808
+   ],
+   "te_sep": null,
+   "mesh": {
+    "cells": 30750,
+    "max_non_ortho": 38.025247,
+    "max_skewness": 1.1243191,
+    "ok": true,
+    "farfield": 100.0
+   },
+   "reference": {
+    "cl": 1.078,
+    "cd": 0.0124,
+    "source": "CFL3D SST via help.sim-flow.com/validation/naca-0012-airfoil"
+   },
+   "xfoil": null,
+   "wall_s": 167.8
+  },
+  {
+   "name": "naca0012_a14",
+   "kind": "naca0012",
+   "alpha": 14.0,
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.12,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "status": "converged",
+   "signature": null,
+   "cl": -1.3641280862272842,
+   "cd": 0.024509940026410455,
+   "upright_cl": 1.3641280862272842,
+   "residual_drop_orders": {
+    "p": 5.605,
+    "U": 4.62
+   },
+   "coeff_rel_std": {
+    "cl": 0.01012600761214876,
+    "cd": 0.026725152480651104
+   },
+   "yplus": [
+    0.10604730318616713,
+    2.445405968447321,
+    9.562204600860946
+   ],
+   "te_sep": null,
+   "mesh": {
+    "cells": 30750,
+    "max_non_ortho": 38.025247,
+    "max_skewness": 1.1243191,
+    "ok": true,
+    "farfield": 100.0
+   },
+   "reference": null,
+   "xfoil": null,
+   "wall_s": 200.6
+  },
+  {
+   "name": "project_618ca96878",
+   "kind": "project",
+   "params": {
+    "main_camber": 0.085,
+    "main_camber_pos": 0.35,
+    "main_thickness": 0.135,
+    "alpha_deg": 8.75,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "status": "converged",
+   "signature": null,
+   "cl": -1.4388014211986844,
+   "cd": 0.043573782252251204,
+   "upright_cl": 1.4388014211986844,
+   "residual_drop_orders": {
+    "p": 7.133,
+    "U": 6.859
+   },
+   "coeff_rel_std": {
+    "cl": 0.00010003811069208352,
+    "cd": 0.00023892552175873384
+   },
+   "yplus": [
+    0.015493364896066624,
+    0.1599687259131057,
+    0.4778887986140872
+   ],
+   "te_sep": 0.7059955279411343,
+   "mesh": {
+    "cells": 30750,
+    "max_non_ortho": 38.809826,
+    "max_skewness": 0.75148277,
+    "ok": true,
+    "farfield": 100.0
+   },
+   "reference": null,
+   "xfoil": {
+    "cl": -1.8241,
+    "cd": 0.02251,
+    "te_sep": null
+   },
+   "wall_s": 207.3
+  },
+  {
+   "name": "project_86a41d00a3",
+   "kind": "project",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 4.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "status": "converged",
+   "signature": null,
+   "cl": -0.9874068861300279,
+   "cd": 0.021015015813061935,
+   "upright_cl": 0.9874068861300279,
+   "residual_drop_orders": {
+    "p": 7.62,
+    "U": 7.002
+   },
+   "coeff_rel_std": {
+    "cl": 2.6755160277066237e-05,
+    "cd": 3.601072179746067e-05
+   },
+   "yplus": [
+    0.011195974985470326,
+    0.15506675273476903,
+    0.3799886972746595
+   ],
+   "te_sep": 0.916939758424959,
+   "mesh": {
+    "cells": 30750,
+    "max_non_ortho": 38.89508,
+    "max_skewness": 0.75060269,
+    "ok": true,
+    "farfield": 100.0
+   },
+   "reference": null,
+   "xfoil": {
+    "cl": -1.1578,
+    "cd": 0.01262,
+    "te_sep": null
+   },
+   "wall_s": 133.9
+  },
+  {
+   "name": "project_28cf0c0ce7",
+   "kind": "project",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 2.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "status": "converged",
+   "signature": null,
+   "cl": -0.6253769350001599,
+   "cd": 0.01650459169652098,
+   "upright_cl": 0.6253769350001599,
+   "residual_drop_orders": {
+    "p": 7.613,
+    "U": 7.005
+   },
+   "coeff_rel_std": {
+    "cl": 4.1687216429416065e-05,
+    "cd": 3.8830109461935575e-05
+   },
+   "yplus": [
+    0.009165205331787047,
+    0.15265358908799145,
+    0.32144887052106846
+   ],
+   "te_sep": null,
+   "mesh": {
+    "cells": 30750,
+    "max_non_ortho": 38.850883,
+    "max_skewness": 0.74654939,
+    "ok": true,
+    "farfield": 100.0
+   },
+   "reference": null,
+   "xfoil": {
+    "cl": -0.7165,
+    "cd": 0.00975,
+    "te_sep": null
+   },
+   "wall_s": 110.8
+  }
+ ]
+}

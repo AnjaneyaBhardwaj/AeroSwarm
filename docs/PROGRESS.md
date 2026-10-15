@@ -1,5 +1,61 @@
 # Progress
 
+## Session 15 (2026-10-15): milestone 5 part 1, the OpenFOAM T2 tier (mesh, case, solve, forces, validation)
+
+PR #13 merged. The user chose to finish the remaining milestones before running benchmark 4 (offline arms free,
+hybrid ~$5-10, LLM-only ~$40-45; the API works again). Milestone 5 split in three parts: (1) T2 tier and
+validation (this session), (2) monitor + recovery ladder + the CFD agent's RecoveryAction, (3) mesh independence
+and graph integration. The user stopped work after part 1.
+
+### Environment
+- No Docker daemon (client only); dl.openfoam.org / dl.openfoam.com are blocked by the network policy. Ubuntu's
+  `openfoam` package (ESI v1912) installs; binaries on PATH, needs `WM_PROJECT_DIR=/usr/share/openfoam`.
+  Added to `.claude/hooks/session-start.sh` (idempotent; reports `openfoam_missing` if it cannot install).
+- `kOmegaSSTLM` (transition) is in this build.
+
+### Code (`swarm/solvers/openfoam/`)
+- `mesh.py`: structured O-grid around the section (blunt base included), written straight to polyMesh (no
+  snappyHexMesh). Near the wall it marches along smoothed normals (self-repairing: a layer that would fold is
+  re-marched with more smoothing); once a layer is star-shaped about an interior point it blends to pure rays,
+  which cannot fold. `quality()` (non-orthogonality, folds) in Python. Default: 240 cells around, first cell
+  2e-5 c, growth 1.12, far field 100 c, ~31k cells. Wall geometry saved per case (`wall_geometry.npz`).
+- `case.py`: simpleFoam, k-omega SST, non-dimensional (chord 1, |U| 1, nu 1/Re), freestream at alpha,
+  freestreamVelocity / freestreamPressure far field, low-Re wall treatment; `SolverOverrides` (bounded) is all an
+  agent may set. p with PCG/DIC (GAMG diverges in v1912 on this mesh); k and omega first-order convection.
+- `forces.py`: Cl, Cd, Cm, surface Cp / Cf and y+ from the written fields (every function object aborts in the
+  v1912 package with an "sha1" IOstream error); history over the last 8 written times (every 50 iterations).
+- `exec.py`: allowlisted applications (simpleFoam, potentialFoam, checkMesh), argv only, own process group,
+  streamed log with an `on_line` kill hook and a timeout. Native, not containerised (see Environment).
+- `monitor.py`: divergence monitor (FPE / NaN, solver blow-up, residual blow-up and growth, persistent
+  bounding) with `post_mortem`; replayed on real crash logs it kills 2 iterations before the FPE. Part 2 will
+  build the recovery ladder on it.
+- `solver.py`: `evaluate(params, spec, run_dir, overrides, mesh)` -> `CFDResult(fidelity="of2d")` with residual
+  drop orders, Cl/Cd relative std over the last 300 iterations, y+ (min, mean, max), checkMesh numbers, and the
+  suction-side TE separation from Cf (excluding the TE corner cell).
+- `swarm/critic/surface.py`: surface data at of2d, so the Cp-integral / Cp-spike checks apply at T2.
+
+### Validation (`scripts/of_validate.py`, `evals/openfoam_validation.json`, `docs/OPENFOAM.md`)
+- NACA 0012, Re 6e6, alpha 10: Cl 1.0916 / Cd 0.0138 vs CFL3D SST 1.078 / 0.0124 (+1.3% / +11%); far field
+  carries most of the drag error (30 c gave Cd 0.0166).
+- **Re 3e5 (hard preset): fully turbulent SST disagrees with XFoil far beyond the 0.1 fidelity gap.** Witness
+  (m 0.085, p 0.35, t 0.135, alpha 8.75): OpenFOAM Cl -1.44, Cd 0.0436, TE separation from x/c 0.71; XFoil
+  -1.82, 0.0225, attached. Model form (transition), not numerics: clean mesh, y+ < 0.5, residuals down 7 orders.
+
+### Tests
+`tests/test_openfoam.py` (32): O-grid on every FSAE-legal corner of the parameter box (no folds, non-orthogonality
+< 60), polyMesh bookkeeping, wall normals, an exact force check on a synthetic pressure field, case files,
+bounded overrides, monitor on recorded v1912 crash / healthy logs, log parsers, allowlist, missing OpenFOAM.
+Fixtures: `tests/fixtures/openfoam/` (log excerpts). 337 tests pass without OpenFOAM, XFoil, network or key.
+
+### Next (tomorrow, per the user)
+- **Transition first:** try `kOmegaSSTLM` on the Re 3e5 designs against XFoil; without it T2 is not a credible
+  terminal fidelity for the hard preset.
+- Part 2: recovery ladder L1-L5 on `SolverOverrides` / re-mesh, classification by the monitor's signature,
+  `RecoveryAction` schema and the CFD agent (LLM chooses the level; code forbids repeats, bounds the ladder).
+- Part 3: mesh-independence study (n_surface, first cell, growth, far field), then wiring `of2d` into the graph
+  for top candidates (promotion from XFoil, fidelity-gap handling, validator checks for residuals / mesh / y+).
+- Then benchmark 4 on the finished system.
+
 ## Session 14, continued: milestone 3, the vision Critic and its evaluation
 
 PR #11 (milestone 2) was merged before the two doc commits that followed it; the branch was rebased onto main

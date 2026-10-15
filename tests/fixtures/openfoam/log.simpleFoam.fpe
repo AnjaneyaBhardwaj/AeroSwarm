@@ -1,0 +1,60 @@
+smoothSolver:  Solving for omega, Initial residual = 2.0850698e-06, Final residual = 7.6632606e-09, No Iterations 1
+bounding omega, min: -2.5943216e+10 max: 2.0588175e+11 average: 4.0960075e+08
+smoothSolver:  Solving for k, Initial residual = 3.0397698e-06, Final residual = 5.0599838e-08, No Iterations 1
+bounding k, min: -194949.59 max: 4665434.5 average: 2746.6246
+ExecutionTime = 3.9 s  ClockTime = 4 s
+
+Time = 45
+
+smoothSolver:  Solving for Ux, Initial residual = 0.41391706, Final residual = 0.014671065, No Iterations 27
+smoothSolver:  Solving for Uy, Initial residual = 0.62497282, Final residual = 0.045875268, No Iterations 25
+DICPCG:  Solving for p, Initial residual = 1, Final residual = 0.047372511, No Iterations 78
+time step continuity errors : sum local = 4.624053e+27, global = 2.8764567e+26, cumulative = 2.8764567e+26
+smoothSolver:  Solving for omega, Initial residual = 0.00010105533, Final residual = 6.39175e-06, No Iterations 1
+bounding omega, min: -9.1115803e+09 max: 1.6239183e+11 average: 4.138868e+08
+smoothSolver:  Solving for k, Initial residual = 5.9562867e-05, Final residual = 5.23869e-06, No Iterations 1
+bounding k, min: -318993.86 max: 3836395.3 average: 2688.7533
+ExecutionTime = 4.01 s  ClockTime = 4 s
+
+Time = 46
+
+smoothSolver:  Solving for Ux, Initial residual = 0.3676827, Final residual = 8.9777844e+15, No Iterations 1000
+smoothSolver:  Solving for Uy, Initial residual = 0.55431545, Final residual = 2.4235931e+15, No Iterations 1000
+DICPCG:  Solving for p, Initial residual = 1, Final residual = 2.6888118e+09, No Iterations 2000
+time step continuity errors : sum local = 1.2999648e+70, global = -2.1371952e+59, cumulative = -2.1371952e+59
+smoothSolver:  Solving for omega, Initial residual = 0.00035440421, Final residual = 1.6642752e-09, No Iterations 1
+bounding omega, min: -1.4572093e+09 max: 1.0659451e+11 average: 4.1673423e+08
+smoothSolver:  Solving for k, Initial residual = 0.048064569, Final residual = 2.8986419e-14, No Iterations 2
+bounding k, min: -156008.86 max: 2954311 average: 2793.5968
+ExecutionTime = 6.41 s  ClockTime = 7 s
+
+Time = 47
+
+smoothSolver:  Solving for Ux, Initial residual = 0.63926636, Final residual = 0.021277562, No Iterations 11
+smoothSolver:  Solving for Uy, Initial residual = 0.55776468, Final residual = 0.014053984, No Iterations 12
+DICPCG:  Solving for p, Initial residual = 1, Final residual = 0.042539047, No Iterations 65
+time step continuity errors : sum local = 1.1741601e+78, global = -7.8587063e+76, cumulative = -7.8587063e+76
+smoothSolver:  Solving for omega, Initial residual = 0.0048161334, Final residual = 0.00039593487, No Iterations 1
+bounding omega, min: -5.6121465e+09 max: 7.4035597e+10 average: 4.1527637e+08
+smoothSolver:  Solving for k, Initial residual = 0.00012292198, Final residual = 1.5328934e-06, No Iterations 2
+bounding k, min: -112885.47 max: 2433157.1 average: 2913.0026
+ExecutionTime = 6.51 s  ClockTime = 7 s
+
+Time = 48
+
+smoothSolver:  Solving for Ux, Initial residual = 0.3240739, Final residual = 9.4799799e+58, No Iterations 1000
+smoothSolver:  Solving for Uy, Initial residual = 0.36721573, Final residual = 1.8929232e+59, No Iterations 1000
+#0  Foam::error::printStack(Foam::Ostream&) at ??:?
+#1  Foam::sigFpe::sigHandler(int) at ??:?
+#2  ? in /lib/x86_64-linux-gnu/libc.so.6
+#3  ? at ??:?
+#4  Foam::freestreamPressureFvPatchScalarField::updateCoeffs() at ??:?
+#5  ? at ??:?
+#6  ? at ??:?
+#7  Foam::fv::gaussLaplacianScheme<double, double>::fvmLaplacian(Foam::GeometricField<double, Foam::fvsPatchField, Foam::surfaceMesh> const&, Foam::GeometricField<double, Foam::fvPatchField, Foam::volMesh> const&) at ??:?
+#8  ? at ??:?
+#9  ? in /usr/bin/simpleFoam
+#10  ? in /usr/bin/simpleFoam
+#11  ? in /lib/x86_64-linux-gnu/libc.so.6
+#12  __libc_start_main in /lib/x86_64-linux-gnu/libc.so.6
+#13  ? in /usr/bin/simpleFoam

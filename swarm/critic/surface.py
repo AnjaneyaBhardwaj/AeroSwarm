@@ -9,7 +9,8 @@ coefficients inconsistent with that plot, nor a local spike from a geometry defe
   x/c 0.05. Clean XFoil solutions: at most 0.035 on 118 random designs plus the zoo cases; a 0.4% c bump:
   0.54-0.67. NeuralFoil's station spacing (0.03 c) cannot resolve it, so it is XFoil only.
 
-Surface data: XFoil from the result's boundary-layer dump (Ue/Vinf, Cf, H at every panel node; Cp = 1 - Ue²);
+Surface data: OpenFOAM (of2d) from the wall-adjacent cells (swarm.solvers.openfoam.forces); XFoil from the
+result's boundary-layer dump (Ue/Vinf, Cf, H at every panel node; Cp = 1 - Ue²);
 NeuralFoil from one surrogate call (Ue/Vinf and H at 32 stations per side). The solver runs the section
 upright; the upright upper surface is the suction side of the race-car wing.
 """
@@ -33,7 +34,23 @@ def surface_data(params: WingParams, spec: DesignSpec | None, result: CFDResult 
         return None
     if result.fidelity == "xfoil":
         return _xfoil_surface(result)
+    if result.fidelity == "of2d":
+        return _openfoam_surface(params, spec, result)
     return _neuralfoil_surface(params, spec)
+
+
+def _openfoam_surface(params: WingParams, spec: DesignSpec, result: CFDResult) -> dict | None:
+    from swarm.solvers.openfoam import forces
+
+    case = result.artifacts.get("case")
+    if not case or not Path(case).exists():
+        return None
+    dirs = forces.time_dirs(case)
+    if not dirs:
+        return None
+    span = forces.span_of(case)
+    c = forces.coefficients(case, dirs[-1][1], params.alpha_deg, spec.reynolds, span)
+    return forces.surface(c, c["cl"])
 
 
 def _xfoil_surface(result: CFDResult) -> dict | None:
