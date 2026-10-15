@@ -98,7 +98,7 @@ def dump_surface(s: dict | None) -> dict | None:
 def state_for(case: dict, spec: DesignSpec) -> tuple[dict, EvalRecord | None]:
     """The Critic's inputs as the graph would build them."""
     ledger = [_record(case["params"], case["other_tier"])] if case["other_tier"] is not None else []
-    rep = validate(case["result"], case["params"], spec, ledger)
+    rep = validate(case["result"], case["params"], spec, ledger, surface=case["surface"])
     par = case["parent"]
     parent_rec = _record(par["params"], par["result"]) if par else None
     state = {"spec": spec, "params": case["params"], "result": case["result"], "numeric": rep}

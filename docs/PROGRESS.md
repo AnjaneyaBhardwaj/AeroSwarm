@@ -46,11 +46,22 @@ inconsistent with the numbers (design checks such as TE separation do not count)
 --no-vision, veto/no-rescue) and `tests/test_critic_zoo.py` (6: committed cases, numeric arm reproduces the
 committed results, images only in the vision arm via a scripted client, errors not scored, doc regenerated).
 
+### After the evaluation (user: "yes" to both proposals)
+- **Vision off by default**: `run(vision=False)`, CLI `--vision` (was `--no-vision`). The benchmark's LLM arms
+  therefore run without images.
+- **Two deterministic surface checks** in the numeric validator (`swarm/critic/surface.py`; `ValidatorConfig`
+  `cp_integral_tol_*`, `cp_spike_max`), fed by the graph, `baselines.record_evaluation` (baselines and the inner
+  optimizer) and the Critic zoo; `baselines.random_start` is unchanged, so the seeded starts are identical.
+  - `cp_integral`: Cl integrated from the solver's surface Cp vs the reported Cl (XFoil 0.02 + 1%, NeuralFoil
+    0.05 + 12%); fatal.
+  - `cp_smoothness` (XFoil): no narrow (< 0.04 c) suction-side -Cp spike above 0.15; fatal.
+  - Calibrated on 59 + 118 random XFoil designs and 300 NeuralFoil designs; never fired on the 263 converged
+    XFoil zoo solutions or the 60 offline benchmark-4 runs (re-run: outcomes unchanged).
+- Critic zoo, numeric arm: hard recall 3/15 → **10/15**, precision 100%. Still missed: coarse panels (3), wrong
+  branch (2): converged, self-consistent solutions; catching them needs a second solve.
+
 ### Next (waiting for the user)
-- **Decide whether vision stays on by default** (it is on; it costs ~$0.25 per run and measured no benefit).
-- Proposed: a deterministic Cp-integral consistency check (Cl from the surface Cp against the reported Cl) and a
-  Cp smoothness check; they would catch the reference-scaled, stale and kink cases without an LLM.
-- The benchmark LLM arms (hybrid seed 33, then the full arms): the API works again.
+- The benchmark LLM arms (hybrid seed 33, then `--methods hybrid llm --parallel 5`): the API works again.
 
 ## Session 14 (2026-10-15): milestone 2 finished: failure zoo, recovery statistics, sign scoring
 

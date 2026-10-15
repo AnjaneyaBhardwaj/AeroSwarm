@@ -60,12 +60,13 @@ against the measured change from the parent), both from the ledger. The XFoil fa
 (`scripts/failure_zoo.py`, cached in `evals/xfoil_zoo.json`, `docs/FAILURE_ZOO.md`) solves stress cases
 at every ladder level and reports recovery rates and level-to-level disagreement.
 
-Vision Critic (milestone 3): the Critic is also shown three deterministic images (`swarm/critic/render.py`):
-Cp(x/c), the suction-side boundary layer, and the section in the car frame, candidate over parent. Images
-can only downgrade a result (a fatal image finding makes it NON_PHYSICAL), never rescue a failed numeric
-check. `--no-vision` turns them off; the rule-based mock never gets them. The Critic is evaluated on a
-labelled failure zoo (`scripts/critic_eval.py`, `docs/CRITIC_EVAL.md`): precision and recall for the numeric
-validators alone, the LLM Critic without images, and with images.
+Vision Critic (milestone 3): with `--vision` the Critic is also shown three deterministic images
+(`swarm/critic/render.py`): Cp(x/c), the suction-side boundary layer, and the section in the car frame,
+candidate over parent. Images can only downgrade a result, never rescue a failed numeric check. It is off by
+default: on the labelled Critic failure zoo (`scripts/critic_eval.py`, `docs/CRITIC_EVAL.md`) the images added
+nothing. What did help is deterministic: the validator checks the reported Cl against the Cl integrated from
+the solver's own surface Cp, and an XFoil Cp for non-physical local spikes (`swarm/critic/surface.py`); with
+them the numeric validators alone catch 10 of the zoo's 15 bad cases with no false alarm.
 
 Limits: 2D sections only (no endplates, tip vortices or induced drag);
 validator thresholds are project conventions to calibrate, not published limits.

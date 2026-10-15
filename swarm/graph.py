@@ -49,6 +49,7 @@ from swarm.critic.numeric import VALIDATION, NumericReport, stall_check_required
 from swarm.critic.render import render as render_critic
 from swarm.critic.screen import compare_with_xfoil, surrogate_screen
 from swarm.critic.stall import measure_stall_margin
+from swarm.critic.surface import surface_for_checks
 from swarm.evals.recovery import report_section as ladder_section
 from swarm.evals.signs import report_section as signs_section
 from swarm.explore import current_parent, handle_plateau
@@ -472,20 +473,21 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     def numeric_validate(s: SwarmState) -> dict:
         res, p, spec, ledger = s.get("result"), s["params"], s["spec"], s.get("ledger", [])
         gen = s.get("generation", 0)
-        rep = validate(res, p, spec, ledger)
+        surface = surface_for_checks(p, spec, res)  # Cp-integral and Cp-spike checks
+        rep = validate(res, p, spec, ledger, surface=surface)
         stall, screen, events = None, None, []
         if res is not None and rep.ok:
             # NeuralFoil screen (one surrogate call): a check at NeuralFoil, a comparison at XFoil.
             screen = surrogate_screen(p, spec)
             if res.fidelity == "neuralfoil":
-                rep = validate(res, p, spec, ledger, screen=screen)
+                rep = validate(res, p, spec, ledger, screen=screen, surface=surface)
         if stall_check_required(res, rep):
             # Only a candidate that clears every other check pays for the two extra solves.
             coords = s["geometry"].coords_path
             stall = measure_stall_margin(
                 res, p.alpha_deg, lambda a, lvl: xfoil.evaluate(p, spec, coords, run_dir, lvl, alpha_deg=a)
             )
-            rep = validate(res, p, spec, ledger, stall=stall)
+            rep = validate(res, p, spec, ledger, stall=stall, surface=surface)
             events.append(
                 {"node": "numeric_validate", "gen": gen, "event": "stall_margin", "cid": p.cid} | stall.model_dump()
             )

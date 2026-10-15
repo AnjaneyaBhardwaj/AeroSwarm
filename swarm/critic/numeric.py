@@ -74,6 +74,15 @@ class ValidatorConfig(BaseModel, frozen=True):
     # points, the best balanced accuracy of thresholds 2.0-8.0 in 0.25 steps; near the target
     # (169 points) it flags 94 of 104 separated and 7 of 65 attached points. Re 3e5 only.
     screen_h_sep: float = 4.25
+    # Surface consistency (session 14, swarm.critic.surface; docs/CRITIC_EVAL.md). The reported Cl must match
+    # the Cl integrated from the solver's own surface Cp within abs + rel * |Cl|. Calibration: XFoil
+    # |difference| <= 0.0044 on 59 random FSAE-legal designs (tolerance 0.02 + 1%); NeuralFoil within ±10%
+    # on 300 designs (its stations miss part of the leading-edge peak; tolerance 0.05 + 12%). A narrow
+    # (< 0.04 c) suction-side -Cp spike aft of x/c 0.05 is a geometry or solver defect: clean XFoil <= 0.035
+    # (118 designs plus the zoo), a 0.4% c bump 0.54-0.67; limit 0.15. XFoil only (NeuralFoil cannot resolve it).
+    cp_integral_tol_xfoil: tuple[float, float] = (0.02, 0.01)
+    cp_integral_tol_neuralfoil: tuple[float, float] = (0.05, 0.12)
+    cp_spike_max: float = 0.15
 
 
 VALIDATION = ValidatorConfig()
@@ -163,7 +172,10 @@ def validate(
     cfg: ValidatorConfig = VALIDATION,
     stall: StallMargin | None = None,
     screen: SurrogateScreen | None = None,
+    surface: dict | None = None,
 ) -> NumericReport:
+    """`surface`: the result's surface data (swarm.critic.surface.surface_data); with it, the reported Cl is
+    checked against the integrated surface pressure and (XFoil) the suction side for a non-physical spike."""
     if result is None:
         c = Check(name="result_present", ok=False, message="no solver result", failure_class="NUMERICAL_FAILURE")
         return NumericReport(checks=[c], failure_class="NUMERICAL_FAILURE")
@@ -260,6 +272,8 @@ def validate(
                 failure_class="NON_PHYSICAL",
             )
         )
+    if surface is not None:
+        checks += surface_checks(result, params, surface, cfg)
     if result.fidelity == "neuralfoil":
         conf = result.confidence if result.confidence is not None else 0.0
         checks.append(
@@ -361,6 +375,38 @@ def validate(
         terminal=terminal,
         suspect=suspect,
     )
+
+
+def surface_checks(result: CFDResult, params: WingParams, surface: dict, cfg: ValidatorConfig) -> list[Check]:
+    from swarm.critic.surface import cl_from_cp, cp_spike
+
+    out = []
+    cl_int = cl_from_cp(params, surface)
+    a, r = cfg.cp_integral_tol_xfoil if result.fidelity == "xfoil" else cfg.cp_integral_tol_neuralfoil
+    tol = a + r * abs(result.cl)
+    out.append(
+        Check(
+            name="cp_integral",
+            ok=math.isfinite(cl_int) and abs(cl_int - result.cl) <= tol,
+            value=round(cl_int, 4),
+            threshold=f"|Cl from surface Cp - reported Cl| <= {tol:.3f}",
+            message="reported Cl inconsistent with the solver's own surface pressure (reference or bookkeeping error?)",
+            failure_class="NON_PHYSICAL",
+        )
+    )
+    if result.fidelity == "xfoil":
+        spike = cp_spike(surface)
+        out.append(
+            Check(
+                name="cp_smoothness",
+                ok=spike <= cfg.cp_spike_max,
+                value=round(spike, 4),
+                threshold=f"narrow suction-side -Cp spike <= {cfg.cp_spike_max}",
+                message="non-physical local Cp spike (geometry defect or solver artefact)",
+                failure_class="NON_PHYSICAL",
+            )
+        )
+    return out
 
 
 def stall_evidence(stall: StallMargin | None, screen: SurrogateScreen | None) -> tuple[list[str], float | None] | None:

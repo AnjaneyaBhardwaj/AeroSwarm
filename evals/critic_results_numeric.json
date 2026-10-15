@@ -196,11 +196,11 @@
   "kind": "reference_scaled",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "INSUFFICIENT_LOADING",
   "findings": [],
-  "hard": false,
+  "hard": true,
   "soft": true
  },
  {
@@ -208,11 +208,11 @@
   "kind": "reference_scaled",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "TE_SEPARATION_MAIN",
   "findings": [],
-  "hard": false,
+  "hard": true,
   "soft": true
  },
  {
@@ -220,11 +220,11 @@
   "kind": "reference_scaled",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "INSUFFICIENT_LOADING",
   "findings": [],
-  "hard": false,
+  "hard": true,
   "soft": true
  },
  {
@@ -232,48 +232,48 @@
   "kind": "stale_images",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "NONE",
   "findings": [],
-  "hard": false,
-  "soft": false
+  "hard": true,
+  "soft": true
  },
  {
   "name": "stale_images_1",
   "kind": "stale_images",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "TE_SEPARATION_MAIN",
   "findings": [],
-  "hard": false,
-  "soft": false
+  "hard": true,
+  "soft": true
  },
  {
   "name": "surface_kink_0",
   "kind": "surface_kink",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "EXCESS_PRESSURE_DRAG",
   "findings": [],
-  "hard": false,
-  "soft": false
+  "hard": true,
+  "soft": true
  },
  {
   "name": "surface_kink_1",
   "kind": "surface_kink",
   "label": "flag",
   "arm": "numeric",
-  "numeric_status": "TARGET_MISS",
-  "status": "TARGET_MISS",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
   "symptom": "TE_SEPARATION_MAIN",
   "findings": [],
-  "hard": false,
-  "soft": false
+  "hard": true,
+  "soft": true
  },
  {
   "name": "sign_flip_0",
