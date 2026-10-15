@@ -28,6 +28,7 @@ from swarm.cad.build import build
 from swarm.critic.numeric import stall_check_required, suggest_diagnosis, validate
 from swarm.critic.screen import surrogate_screen
 from swarm.critic.stall import measure_stall_margin
+from swarm.critic.surface import surface_for_checks
 from swarm.ledger import RunFiles, objective, violation
 from swarm.solvers import neuralfoil, xfoil
 from swarm.state import CFDResult, DesignSpec, EvalRecord, Verdict, WingParams, free_params, quantize
@@ -76,17 +77,18 @@ def record_evaluation(gen, p, res, spec, ledger, rationale, run_dir, coords=None
     """One ledger record with the numeric verdict (no LLM): validator, NeuralFoil screen, and the
     XFoil stall-margin probe when the validator asks for it. Shared by the baselines and the inner
     optimizer (`swarm.optim.inner_loop`)."""
-    rep = validate(res, p, spec, ledger)
+    surface = surface_for_checks(p, spec, res)
+    rep = validate(res, p, spec, ledger, surface=surface)
     stall = screen = None
     if res.cl is not None and rep.ok:
         screen = surrogate_screen(p, spec)
         if res.fidelity == "neuralfoil":
-            rep = validate(res, p, spec, ledger, screen=screen)
+            rep = validate(res, p, spec, ledger, screen=screen, surface=surface)
     if stall_check_required(res, rep):
         stall = measure_stall_margin(
             res, p.alpha_deg, lambda a, lvl: xfoil.evaluate(p, spec, coords, run_dir, lvl, alpha_deg=a)
         )
-        rep = validate(res, p, spec, ledger, stall=stall)
+        rep = validate(res, p, spec, ledger, stall=stall, surface=surface)
     diag = suggest_diagnosis(res, spec, stall=stall, screen=screen)
     return EvalRecord(
         generation=gen,

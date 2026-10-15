@@ -77,11 +77,12 @@ def run(
     preset: str | None = None,
     start_seed: int | None = None,
     inner_optimizer: bool = True,
-    vision: bool = True,
+    vision: bool = False,
 ) -> dict:
     """`inner_optimizer`: whether the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop);
     False makes an LLM-only run (the mode is coerced to reasoned_step and the prompt says it is disabled).
-    `vision`: whether the Critic is shown rendered Cp / boundary-layer / section images (swarm.critic.render)."""
+    `vision`: whether the Critic is shown rendered Cp / boundary-layer / section images (swarm.critic.render).
+    Off by default: on the Critic failure zoo the images added nothing (docs/CRITIC_EVAL.md)."""
     if llm is None:
         preflight_llm(which)  # MissingAPIKey before any run directory exists
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
@@ -173,7 +174,12 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help='LLM-only: the Chief may not choose mode "inner_optimizer" (deterministic TPE at NeuralFoil)',
     )
-    ap.add_argument("--no-vision", action="store_true", help="the Critic gets numbers only, no rendered images")
+    ap.add_argument(
+        "--vision",
+        action="store_true",
+        help="also show the Critic rendered Cp / boundary-layer / section images (off: no measured benefit, "
+        "docs/CRITIC_EVAL.md)",
+    )
     a = ap.parse_args(argv)
     if a.max_evals is not None and a.max_evals < 1:
         ap.error("--max-evals must be >= 1")
@@ -187,10 +193,10 @@ def main(argv: list[str] | None = None) -> None:
         upd["max_cost_usd"] = a.budget_usd
     if a.max_wall_hours is not None:
         upd["max_wall_hours"] = a.max_wall_hours
-    if a.resume and (upd or a.preset != "default" or a.start_seed is not None or a.no_inner_optimizer or a.no_vision):
+    if a.resume and (upd or a.preset != "default" or a.start_seed is not None or a.no_inner_optimizer or a.vision):
         ap.error(
             "--resume continues the checkpointed run; --preset/--max-evals/--budget-usd/--no-inner-optimizer/"
-            "--no-vision are fixed at run start"
+            "--vision are fixed at run start"
         )
     spec = spec.model_copy(update=upd)
     if a.start_seed is not None:
@@ -212,7 +218,7 @@ def main(argv: list[str] | None = None) -> None:
         preset=None if a.resume else a.preset,
         start_seed=a.start_seed,
         inner_optimizer=not a.no_inner_optimizer,
-        vision=not a.no_vision,
+        vision=a.vision,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     health = meta.get("llm_health") or {}

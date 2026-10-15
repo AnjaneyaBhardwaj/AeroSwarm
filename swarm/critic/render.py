@@ -11,9 +11,7 @@ like. At T0/T1 (NeuralFoil, XFoil) there are no residuals, contours or streamlin
 - "section": the section in the car frame (side view) with the rulebook's height, overhang and
   head-restraint lines.
 
-Surface data: XFoil from the result's boundary-layer dump (Ue/Vinf, Cf, H at every panel node; Cp = 1 - Ue²);
-NeuralFoil from one surrogate call (Ue/Vinf and H at 32 stations per side). The solver runs the section
-upright; the upright upper surface is the suction side of the race-car wing.
+Surface data: `swarm.critic.surface.surface_data` (XFoil's boundary-layer dump, or one NeuralFoil call).
 """
 
 from __future__ import annotations
@@ -30,6 +28,7 @@ import numpy as np  # noqa: E402
 from swarm.cad.build import placed_mm  # noqa: E402
 from swarm.cad.regulations import RULEBOOKS, le_radius_mm  # noqa: E402
 from swarm.critic.numeric import VALIDATION  # noqa: E402
+from swarm.critic.surface import surface_data  # noqa: E402
 from swarm.state import CFDResult, DesignSpec, WingParams  # noqa: E402
 
 IMAGES = ("cp", "boundary_layer", "section")
@@ -39,61 +38,6 @@ CAND, PARENT, RULE, SEP = "#0F6E56", "0.55", "#B3261E", "#E4572E"
 CP_RANGE = (-1.5, 7.0)  # -Cp axis, fixed
 H_RANGE = (1.0, 6.0)
 CF_RANGE = (-2.0, 12.0)  # Cf x 1000
-
-
-def surface_data(params: WingParams, spec: DesignSpec, result: CFDResult | None) -> dict | None:
-    """{"suction": {x, cp, h, cf?}, "pressure": {x, cp, h, cf?}, "source"} or None if the result has none."""
-    if result is None or result.cl is None:
-        return None
-    if result.fidelity == "xfoil":
-        return _xfoil_surface(result)
-    return _neuralfoil_surface(params, spec)
-
-
-def _xfoil_surface(result: CFDResult) -> dict | None:
-    from swarm.solvers.xfoil import NonFiniteDump, parse_dump
-
-    path = result.artifacts.get("bl_dump")
-    if not path or not Path(path).exists():
-        return None
-    try:
-        dump = parse_dump(Path(path).read_text())
-    except NonFiniteDump:
-        return None
-    if dump is None:
-        return None
-    raw = dump.raw  # columns: s, x, y, Ue/Vinf, Dstar, Theta, Cf, H; TE(upper) -> LE -> TE(lower)
-    ile = int(np.argmin(raw[:, 1]))
-    up, lo = raw[: ile + 1][::-1], raw[ile:]
-
-    def side(a: np.ndarray) -> dict:
-        return {"x": a[:, 1], "cp": 1.0 - a[:, 3] ** 2, "h": a[:, 7], "cf": a[:, 6]}
-
-    suction = "upper" if (result.bl is None or result.bl.suction_side == "upper") else "lower"
-    s, p = (side(up), side(lo)) if suction == "upper" else (side(lo), side(up))
-    return {"suction": s, "pressure": p, "source": "XFoil boundary-layer dump"}
-
-
-def _neuralfoil_surface(params: WingParams, spec: DesignSpec) -> dict:
-    import aerosandbox as asb
-    import neuralfoil as nf
-
-    from swarm.cad.build import main_section
-    from swarm.solvers.neuralfoil import MODEL_SIZE
-
-    af = asb.Airfoil(name=params.cid, coordinates=main_section(params))
-    r = nf.get_aero_from_airfoil(
-        airfoil=af, alpha=params.alpha_deg, Re=spec.reynolds, n_crit=spec.ncrit, model_size=MODEL_SIZE
-    )
-    x = np.asarray(nf.bl_x_points, dtype=float)
-    n = len(x)
-
-    def side(name: str) -> dict:
-        ue = np.array([float(np.ravel(r[f"{name}_bl_ue/vinf_{i}"])[0]) for i in range(n)])
-        h = np.array([float(np.ravel(r[f"{name}_bl_H_{i}"])[0]) for i in range(n)])
-        return {"x": x, "cp": 1.0 - ue**2, "h": h}
-
-    return {"suction": side("upper"), "pressure": side("lower"), "source": "NeuralFoil (32 stations per side)"}
 
 
 def _label(params: WingParams, result: CFDResult | None, role: str) -> str:

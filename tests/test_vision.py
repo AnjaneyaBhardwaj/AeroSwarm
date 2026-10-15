@@ -1,5 +1,6 @@
 """Vision Critic (milestone 3), offline: deterministic rendering, images in the LLM request and trace, graph
-wiring (rendered only for a client that sees images; --no-vision), and the vision veto/no-rescue rule."""
+wiring (rendered only for a client that sees images, and only with vision on; off by default), the vision
+veto/no-rescue rule, and the deterministic surface checks (Cp integral, Cp spike)."""
 
 import base64
 import json
@@ -111,7 +112,7 @@ def test_graph_sends_images_to_a_seeing_critic(spec, start, fake_xfoil, tmp_path
     fake_xfoil()
     d = tmp_path / "v"
     llm = SeeingMock(TraceLogger(d / "traces.jsonl"))
-    final = run(spec.model_copy(update={"max_evals": 6}), start, run_id="v", runs_root=tmp_path, llm=llm)
+    final = run(spec.model_copy(update={"max_evals": 6}), start, run_id="v", runs_root=tmp_path, llm=llm, vision=True)
     recs = [r for r in final["ledger"] if r.critic_images]
     assert recs and all(sorted(r.critic_images) == sorted(IMAGES) for r in recs)
     assert all(Path(p).exists() for r in recs for p in r.critic_images.values())
@@ -125,7 +126,9 @@ def test_no_vision_and_the_plain_mock_render_nothing(spec, start, fake_xfoil, tm
     fake_xfoil()
     d = tmp_path / "nv"
     llm = SeeingMock(TraceLogger(d / "traces.jsonl"))
-    final = run(spec.model_copy(update={"max_evals": 4}), start, run_id="nv", runs_root=tmp_path, llm=llm, vision=False)
+    final = run(
+        spec.model_copy(update={"max_evals": 4}), start, run_id="nv", runs_root=tmp_path, llm=llm
+    )  # default: off
     assert not any(r.critic_images for r in final["ledger"])
     calls = _critic_calls(d)
     assert calls and "No images in this run" in calls[0]["system"] and "images" not in calls[0]
@@ -155,3 +158,45 @@ def test_a_fatal_image_finding_vetoes_and_cannot_rescue(spec):
     assert not bad.ok
     ok_llm = Verdict(status="PASS", diagnosis=Diagnosis(symptom="NONE"), confidence=0.9)
     assert merge_verdict(bad, ok_llm).status == bad.failure_class  # vision cannot rescue
+
+
+# ------------------------------------------------------------------ deterministic surface checks
+
+
+def test_cp_integral_matches_the_reported_cl_and_flags_scaling(spec):
+    from swarm.critic.surface import cl_from_cp, surface_data
+
+    r = neuralfoil.evaluate(P, spec)
+    s = surface_data(P, spec, r)
+    assert abs(cl_from_cp(P, s) - r.cl) <= 0.05 + 0.12 * abs(r.cl)
+    rep = validate(r, P, spec, [], surface=s)
+    assert next(c for c in rep.checks if c.name == "cp_integral").ok and rep.ok
+    scaled = r.model_copy(update={"cl": r.cl * 0.6, "cd": r.cd * 0.6})
+    bad = validate(scaled, P, spec, [], surface=s)
+    assert bad.failure_class == "NON_PHYSICAL" and not next(c for c in bad.checks if c.name == "cp_integral").ok
+
+
+def test_cp_spike_flags_a_narrow_peak_only(spec):
+    from swarm.critic.surface import cp_spike
+
+    x = np.linspace(0, 1, 160)
+    smooth = 1.0 - 2.5 * np.exp(-x / 0.3)  # a broad suction hump: no spike
+    base = {"x": x, "cp": smooth}
+    assert cp_spike({"suction": base}) == 0.0
+    kinked = {"x": x, "cp": smooth - 0.5 * np.exp(-(((x - 0.3) / 0.008) ** 2))}
+    assert cp_spike({"suction": kinked}) > 0.3
+    r = CFDResult(cid=P.cid, fidelity="xfoil", status="converged", cl=-0.95, cd=0.012, solver_level=0)
+    surf = surface_data(P, None, _xfoil_result())
+    assert next(c for c in validate(r, P, spec, [], surface=surf).checks if c.name == "cp_smoothness").ok
+    kink = {
+        **surf,
+        "suction": {**surf["suction"], "cp": surf["suction"]["cp"] - 0.6 * (abs(surf["suction"]["x"] - 0.3) < 0.012)},
+    }
+    bad = validate(r, P, spec, [], surface=kink)
+    assert not next(c for c in bad.checks if c.name == "cp_smoothness").ok and bad.failure_class == "NON_PHYSICAL"
+
+
+def test_without_surface_data_the_checks_are_absent(spec):
+    r = neuralfoil.evaluate(P, spec)
+    names = {c.name for c in validate(r, P, spec, []).checks}
+    assert not names & {"cp_integral", "cp_smoothness"}

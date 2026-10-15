@@ -1,0 +1,1180 @@
+[
+ {
+  "name": "clean_xfoil_0",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl=-1.8241 is within target band (-1.83\u00b10.03 \u2192 [-1.86,-1.80])",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side Cf shows a laminar separation bubble between x/c 0.32-0.45 that reattaches, with Cf returning positive and staying positive to the TE",
+    "location": "x/c 0.32-0.45",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H peaks near x/c 0.35-0.4 (bubble) but drops back below the 4.25 TE-separation threshold afterward, confirming no TE separation",
+    "location": "x/c 0.35-0.45",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cp curve for candidate overlays parent almost exactly, with a small kink at x/c~0.42 corresponding to the bubble; no plateau near TE indicating separation",
+    "location": "x/c 0.42; TE region",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits comfortably within the rulebook box (restraint plane and rear-tire lines), no geometric violation",
+    "location": "wing planform vs car lines",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "stall_margin validator did not run, so target_met cannot be confirmed numerically even though Cl is within tolerance",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_xfoil_1",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cf trace on suction side dips negative only in a small region near x/c=0.99 to TE, consistent with mild TE separation rather than deep stall",
+    "location": "x/c=0.99-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cp curve shows smooth suction-side pressure recovery with no plateau or jag; area between curves matches printed Cl and is slightly larger than parent, consistent with higher alpha",
+    "location": "x/c=0.4-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry matches parent closely and lies within rulebook box",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Laminar bubble at x/c=0.34-0.47 reattaches, not persistent separation, matches parent behavior",
+    "location": "x/c=0.34-0.47",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_xfoil_2",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cp plateau on suction side between x/c~0.4-0.5 corresponds to laminar bubble, slightly reducing loading vs parent's steeper peak",
+    "location": "x/c 0.36-0.51",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H spikes above 8 near x/c~0.4 indicating bubble, then recovers; matches bl data bubble region",
+    "location": "x/c 0.36-0.51",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cf stays positive near TE (no negative Cf reaching trailing edge), consistent with te_separation validator passing",
+    "location": "x/c 0.9-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Candidate section sits within restraint/tire bounds, geometry plausible and similar to parent",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_xfoil_3",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cp curves nearly match parent; suction side slightly less negative near 0.0-0.1 and similar magnitude elsewhere, consistent with Cl=-1.771 vs parent -1.787",
+    "location": "x/c 0.0-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Laminar separation bubble 0.294-0.406 with reattachment, Cf returns positive, H peak ~6 near 0.38-0.40 but not sustained to TE",
+    "location": "x/c 0.29-0.41",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cf at TE positive (0.000013), no trailing-edge separation present",
+    "location": "x/c 1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry plausible, candidate wing sits within rulebook lines similar to parent",
+    "location": "wing section",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_0",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "PASS",
+  "status": "PASS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cp distribution shows smooth suction peak -Cp~2.5 near x/c=0.15-0.2 and gradual recovery to TE with no plateau, matching printed Cl=-1.809 and tracking parent curve closely",
+    "location": "x/c 0.0-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side shape factor H rises to a local peak ~6 near x/c=0.35-0.4 (a laminar bubble signature) then drops sharply and stays below the H=4.25 TE-separation screening threshold for the rest of the chord, consistent with no trailing-edge separation reported",
+    "location": "x/c ~0.35-0.4 peak, recovers by x/c~0.45",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within rulebook reference lines with no intersection of restraint or rear-tire planes",
+    "location": "x~1760-2050mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl=-1.809 is within the 0.03 tolerance band of target -1.83 (|diff|=0.021), and Cd=0.0223 is below cd_max=0.025, matching all-pass numeric validators",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_1",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "PASS",
+  "status": "PASS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl=-1.8327 matches target -1.83 within tolerance 0.03; Cd=0.0218 below cd_max 0.025",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side shape factor H rises to a local peak ~4.9 near x/c=0.35-0.4, exceeding the 4.25 screening line, then falls back to ~1.4 by x/c=0.55, indicating a laminar separation bubble that reattaches rather than trailing-edge separation",
+    "location": "x/c=0.35-0.55",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cp distribution is smooth with no plateau near the trailing edge, consistent with attached flow at the TE and the printed Cl/Cd values; area between suction and pressure curves is larger than parent, consistent with higher |Cl|",
+    "location": "x/c=0.0-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within the rulebook box relative to restraint plane and rear tire line, closely matching parent shape",
+    "location": "wing section",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_2",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cp distribution shows smooth suction peak and no trailing-edge pressure plateau; area between curves matches printed Cl of -1.796, slightly less than parent's -1.770 area scaled for alpha",
+    "location": "x/c 0.0-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side H rises to ~5.9 around x/c=0.42 but then decays rapidly to ~1.4 by x/c=0.55, indicating a laminar separation bubble that reattaches, not persistent TE separation",
+    "location": "x/c 0.3-0.55",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within rulebook reference lines, consistent with placeholder geometry, no interference with restraint or tire lines",
+    "location": "x/c n/a, car frame 1750-2050mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_3",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl=-1.759 misses target -1.83 by 0.071, outside tolerance 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Suction-side -Cp curve nearly overlaps parent despite candidate running at higher alpha (10\u00b0 vs 8.75\u00b0), indicating the camber/thickness change limits loading gain",
+    "location": "x/c 0.0-0.5 suction side",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H rises to ~5.0 near x/c=0.35 then drops sharply to ~1.4 by x/c=0.5, indicating a laminar separation bubble that reattaches, not TE separation",
+    "location": "x/c 0.3-0.5",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "H at trailing edge (~3.6) stays below the 4.25 TE-separation screen threshold",
+    "location": "x/c~1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within restraint plane and rear tire bounds, consistent with placeholder rulebook check",
+    "location": "full section",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "separated_0",
+  "kind": "separated",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf becomes negative and stays near zero from x/c=0.71 to the TE",
+    "location": "x/c=0.71-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cp suction side shows a flattened plateau from x/c~0.4 onward instead of continued recovery, matching trailing-edge separation",
+    "location": "x/c=0.4-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H rises steeply after x/c~0.6, approaching the screening threshold of 4.25",
+    "location": "x/c=0.6-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl magnitude (-1.737) falls short of target (-1.83) and Cd increased ~4x vs parent, consistent with separation-induced lift loss and drag rise",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry remains within restraint and rear-tire bounds, no non-physical geometry",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "separated_1",
+  "kind": "separated",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf negative from x/c=0.79 to trailing edge, confirming trailing-edge separation",
+    "location": "0.79-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cp suction side shows reduced suction and plateauing near TE, area between curves smaller than parent, consistent with lower |Cl|",
+    "location": "0.4-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H rises above 4 past x/c~0.8 indicating thickening/separating boundary layer, matching Cf sign change",
+    "location": "0.8-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry stays within restraint and rear tire lines, no rulebook violation",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "separated_2",
+  "kind": "separated",
+  "label": "trust",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf stays negative from x/c~0.75 to the trailing edge, with H climbing above 4 near the TE",
+    "location": "x/c 0.75-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cp suction side shows a flattened plateau beyond x/c~0.5 rather than continued suction recovery, consistent with trailing-edge separation reducing suction without large Cl loss",
+    "location": "x/c 0.5-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl is close to parent (-1.777 vs -1.787) but Cd more than doubled (0.0591 vs 0.0217), matching separation-driven pressure drag increase rather than a lift problem",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section view shows wing geometry remains within restraint-plane and rear-tire bounds, no rule violation",
+    "location": "full span",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "coarse_panels_0",
+  "kind": "coarse_panels",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "EXCESS_PRESSURE_DRAG",
+  "findings": [
+   {
+    "observation": "Cp distribution matches printed Cl/Cd well; suction/pressure side separation area consistent with Cl\u2248-1.73, slightly smaller than parent's -1.79",
+    "location": "0.0-1.0 x/c",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side Cf dips slightly negative (~-0.5x1e-3) between x/c 0.34-0.47 indicating a laminar separation bubble that reattaches, not TE separation; Cf stays positive and small near TE (5e-6, decaying)",
+    "location": "x/c 0.34-0.47 and TE",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H spikes above 4.25 briefly around x/c 0.4-0.45 (bubble) then relaxes to ~1.6, broader/later bubble than parent, increasing pressure drag",
+    "location": "x/c 0.35-0.5",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Section geometry lies within restraint-plane and rear-tire reference lines, no rulebook violation shown",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "coarse_panels_1",
+  "kind": "coarse_panels",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf goes negative from x/c\u22480.96 to TE, consistent with validator-flagged TE separation",
+    "location": "x/c=0.96-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Shape factor H rises sharply past x/c=0.9 toward TE, consistent with trailing-edge separation onset",
+    "location": "x/c=0.9-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cp suction/pressure curves nearly overlap parent, no plateau or spike anomaly, area between curves consistent with printed Cl -1.779 vs parent -1.787",
+    "location": "full chord",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Laminar separation bubble at x/c 0.346-0.481 on suction side, reattaches, not TE separation",
+    "location": "x/c=0.35-0.48",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry stays within restraint and rear-tire planes, no rulebook violation",
+    "location": "x=1760-2050mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "coarse_panels_2",
+  "kind": "coarse_panels",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Candidate Cl=-1.725 misses target -1.83 by 0.105, outside tolerance 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Suction-side Cf stays positive except a tiny laminar bubble near x/c=0.42-0.56; cf_te is -3e-6, essentially zero, no persistent TE separation",
+    "location": "x/c 0.42-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cp suction-side plateau/peak lower than parent over front 50% of chord, reduced area between curves matches lower |Cl|",
+    "location": "x/c 0.0-0.5",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H stays well below the 4.25 TE-separation screen threshold across the chord",
+    "location": "x/c 0.6-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry remains within restraint-plane and rear-tire bounds, no rulebook violation",
+    "location": "whole section",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "wrong_branch_0",
+  "kind": "wrong_branch",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf becomes negative from x/c=0.67 to TE, shaded region confirms trailing-edge separation",
+    "location": "x/c=0.67-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Suction-side shape factor H rises steeply beyond x/c~0.5 toward off-scale values, consistent with strong aft separation",
+    "location": "x/c=0.5-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cp suction-side curve shows early plateau/rounded peak near x/c=0.05-0.4 then gradual decay, lower overall loading area than parent, consistent with reduced |Cl| and separation-induced loss of suction",
+    "location": "x/c=0.05-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap of 0.149 exceeds 0.1 threshold, indicating XFoil may be unreliable near this high-alpha separated condition",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Section geometry plot shows candidate wing sits within rulebook box, no geometric violation",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "wrong_branch_1",
+  "kind": "wrong_branch",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf is negative from x/c\u22480.66 to the trailing edge",
+    "location": "x/c=0.66-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Suction-side Cp curve is nearly flat/plateaued from x/c~0.1 to 1.0 rather than continuing to suck down, consistent with separated flow at this high alpha",
+    "location": "x/c=0.1-1.0 suction side",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Area between suction and pressure Cp curves is visibly smaller than parent's despite higher alpha, matching the lower |Cl| printed (-1.122 vs -1.787)",
+    "location": "full chord",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H rises steeply after x/c~0.5, approaching separation criterion threshold shown on plot",
+    "location": "x/c=0.5-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within rulebook envelope lines, no geometric violation seen",
+    "location": "full span",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "reference_scaled_0",
+  "kind": "reference_scaled",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Suction-side -Cp peak and plateau area markedly reduced vs parent at identical alpha, matching the large Cl deficit (-1.094 vs -1.787)",
+    "location": "x/c 0.0-0.4",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Laminar separation bubble present at x/c 0.315-0.446 but Cf returns positive and stays positive to TE (cf_te=0.000101), no TE separation",
+    "location": "x/c 0.31-0.45 and TE",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H shows a bump near 0.3-0.45 consistent with bubble, not a sustained separation ramp near TE",
+    "location": "x/c 0.3-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within rulebook envelope, no clipping issues",
+    "location": "full wing, car frame",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap validator flags model-form disagreement (0.71 vs 0.1 threshold) but no second-fidelity data/image provided to corroborate a fatal non-physical defect",
+    "location": "n/a",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "reference_scaled_1",
+  "kind": "reference_scaled",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "EARLY_STALL",
+  "findings": [
+   {
+    "observation": "Laminar separation bubble spans x/c 0.339-0.470 with shape factor H peaking near 6 well above attached-flow baseline (~1.5-2)",
+    "location": "x/c 0.34-0.47",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Suction-side Cp shows a flattened segment/kink around x/c 0.4-0.48 relative to smooth parent curve, matching the bubble location",
+    "location": "x/c 0.40-0.48",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "TE Cf is -0.000013, essentially zero; the flagged 'TE separation' at x/c 0.993-1.0 is a marginal numerical artifact, not a physically significant separated region",
+    "location": "x/c 0.99-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Candidate Cl (-1.098) is far below target (-1.83) and below parent (-1.787) despite higher alpha, with Cd roughly half the parent's, consistent with loss of suction-side loading from the bubble rather than a trailing-edge stall sheet",
+    "location": "full suction side",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry remains within rulebook reference lines, no geometric non-physicality",
+    "location": "side view, x 1750-2050mm",
+    "source": "contour",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "reference_scaled_2",
+  "kind": "reference_scaled",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Suction-side Cp shows a laminar bubble (flat region) between x/c 0.36-0.51 that reattaches with Cf returning positive and rising to ~8.6e-3 by x/c 0.6, consistent with bl.bubbles and cf_te>0",
+    "location": "x/c 0.36-0.51",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Area enclosed by suction/pressure Cp curves is visibly smaller than parent's, matching the lower |Cl| magnitude (1.079 vs 1.787)",
+    "location": "full chord",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H reaches a local peak (~5-6) near x/c 0.4 then drops sharply, indicating a short laminar separation bubble rather than sustained TE separation",
+    "location": "x/c ~0.4",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry and mounting position look physically reasonable and consistent across candidate and parent",
+    "location": "full span",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap validator flagged disagreement between tiers (0.716 vs 0.1 threshold) but no higher-fidelity image contradicts the printed XFoil numbers, so not treated as fatal",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "stale_images_0",
+  "kind": "stale_images",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl=-1.8241 vs target -1.83, within 0.03 tolerance; Cd=0.02251 slightly above parent 0.02169 but below cd_max",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side Cp shows smooth loading from LE to ~x/c0.55 then gradual pressure recovery to TE; area between curves matches printed Cl magnitude and is slightly larger than parent, consistent with higher |Cl|",
+    "location": "x/c 0-1.0, suction side",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Shape factor H spikes to ~5.4 around x/c 0.5, well above the 4.25 TE-separation screening line, but this coincides with the laminar bubble and H drops back to ~1.5 afterward, consistent with a reattaching bubble rather than persistent separation",
+    "location": "x/c 0.32-0.55",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cf dips slightly negative (~-0.3x10^-3) over x/c 0.32-0.45 then recovers to positive values through the TE (cf_te=0.0001), confirming the bubble reattaches well upstream of the trailing edge",
+    "location": "x/c 0.32-0.45",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits comfortably aft of the head-restraint plane and forward of the rear-tire line, no rulebook violation visible",
+    "location": "x\u22481760-2050mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "stall_margin validator did not run, leaving target_met unconfirmed despite Cl being within tolerance, forcing TARGET_MISS at the numeric level",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "stale_images_1",
+  "kind": "stale_images",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Suction-side Cf dips slightly negative just before TE (~x/c 0.99) and recovers to near zero at TE, consistent with marginal TE separation call",
+    "location": "x/c=0.99-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar bubble visible near x/c 0.34-0.47 with H spike to ~6, reattaches, not TE separation",
+    "location": "x/c=0.34-0.47",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cp distribution shows smooth suction/pressure curves tracking parent closely, area between curves consistent with |Cl|~1.83, no non-physical kinks",
+    "location": "full chord",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry stays within restraint-plane and rear-tire bounding lines, matches parent placement",
+    "location": "x=1350-1850mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "surface_kink_0",
+  "kind": "surface_kink",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "EXCESS_PRESSURE_DRAG",
+  "findings": [
+   {
+    "observation": "Cd=0.0256 slightly exceeds cd_max=0.025 while Cl matches target within tolerance",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Two laminar separation bubbles at x/c 0.264-0.284 and 0.318-0.430 with reattachment, not persisting to TE",
+    "location": "x/c 0.26-0.43",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Shape factor H spikes sharply to ~4 and off-scale near x/c 0.28-0.3, indicating bubble-driven boundary layer thickening increasing pressure drag",
+    "location": "x/c 0.28-0.30",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cp suction curve shows a small spike/kink near x/c 0.28-0.3 corresponding to bubble location, otherwise smooth and consistent with printed Cl of -1.836 vs parent -1.787 (slightly larger enclosed area)",
+    "location": "x/c 0.28-0.30",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry sits within rulebook reference lines, no interference with restraint plane or rear tire line",
+    "location": "full wing",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "surface_kink_1",
+  "kind": "surface_kink",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cf trace dips slightly negative and stays near zero from x/c~0.99 to TE, confirming trailing-edge separation flagged by validator",
+    "location": "x/c 0.99-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cp plot shows no clear aft pressure plateau but suction/pressure sides converge smoothly near TE, consistent with mild TE separation not full stall",
+    "location": "x/c 0.9-1.0",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Laminar bubble near x/c 0.26-0.40 visible as spike in H and Cf, matches reported bubble locations, not a fatal defect",
+    "location": "x/c 0.26-0.40",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Section geometry stays within restraint and rear-tire bounds, consistent with parent",
+    "location": "full section",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "sign_flip_0",
+  "kind": "sign_flip",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl=1.8241 is positive while target_cl=-1.83 requires negative lift; validator lift_sign fails",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Cp plot shows suction side with -Cp>0 (upper surface) matching a positive-lift convention, consistent with the reported positive Cl, not a plotting artifact",
+    "location": "x/c 0-1",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side Cf shows a laminar separation bubble around x/c 0.32-0.45 that reattaches (Cf returns positive, H drops back down), not reaching the trailing edge",
+    "location": "x/c 0.32-0.45",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Candidate and parent polars nearly overlay in both Cp and BL plots, geometry and alpha differences produce only a small lift change, inconsistent with the large fidelity_gap figure of 3.6",
+    "location": "global",
+    "source": "cp",
+    "consistent_with_numeric": false,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Section geometry is within the rulebook box and shows no non-physical excursion",
+    "location": "x 1760-2050mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ },
+ {
+  "name": "sign_flip_1",
+  "kind": "sign_flip",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl reported as +1.8305 while target_cl is -1.83; parent at similar alpha gives Cl=-1.7871 with the same magnitude trend reversed in sign, indicating a sign-convention/orientation fault rather than a converged inverted-lift design",
+    "location": "global (Cl sign)",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Cp plot shows the 'suction side' trace sitting below zero (-Cp\u2248-1) and the 'pressure side' trace at -Cp\u22482-3, i.e. the conventional suction/pressure roles are swapped relative to a downforce-generating wing; shape otherwise mirrors the parent's magnitude closely, supporting a sign/labeling defect rather than a different flow state",
+    "location": "x/c 0-1, both sides",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Suction-side Cf goes slightly negative (~-0.0005) between x/c\u22480.33-0.47 (laminar bubble, reattaches) and again approaches zero near the TE (x/c\u22480.99) with cf_te=-0.000013, essentially a marginal, very weak TE separation just at the trailing edge",
+    "location": "x/c 0.99-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Shape factor H rises to ~4.25 near x/c=0.4-0.45 then relaxes, matching the bubble location; H at TE stays near the off-scale ceiling similar to parent, not indicating a markedly worse separation than parent",
+    "location": "x/c 0.4-0.45 and TE",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap of 3.66 (threshold <0.1) flags strong tier disagreement, consistent with XFoil operating near its reliability limit at high loading/near stall for this high-camber, high-alpha section",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ },
+ {
+  "name": "drag_reference_0",
+  "kind": "drag_reference",
+  "label": "flag",
+  "arm": "llm_vision",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cd=0.003968 is below the physically motivated skin-friction floor of 0.005 for this Re and section",
+    "location": "integrated Cd",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Resulting L/D=453 is far beyond plausible values (<=200) for a single-element wing at this Re, indicating a drag integration or transition-model artifact",
+    "location": "integrated Cd/Cl",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Cp distribution shows suction peak ~2.3 and a mild plateau/kink near x/c=0.42-0.52 consistent with a short laminar bubble; area between suction/pressure curves roughly matches |Cl|~1.8, no sharp TE pressure plateau indicating gross TE separation",
+    "location": "x/c 0.0-1.0, kink near 0.42-0.52",
+    "source": "cp",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Suction-side Cf dips slightly negative then recovers (bubble 0.364-0.512), H peaks near 4.5 (above the 4.25 screening line) around x/c~0.42 but drops back below ~1.4 downstream, and Cf_te stays positive (0.000139), so no true trailing-edge separation is present",
+    "location": "x/c 0.36-0.52 (bubble), x/c=1.0 (TE)",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Section geometry (chord placement, mount height) looks unremarkable and within rulebook reference lines, not a contributor to the drag anomaly",
+    "location": "wing section, x\u22481760-2060mm",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ }
+]

@@ -56,7 +56,7 @@ def _verdict(fatal: bool) -> Verdict:
 
 def test_llm_arms_send_images_only_with_vision(tmp_path):
     _, raw = _cases()
-    cases = [cz.load_case(c) for c in raw if c["name"] in ("clean_xfoil_0", "reference_scaled_0")]
+    cases = [cz.load_case(c) for c in raw if c["name"] in ("clean_xfoil_0", "coarse_panels_0")]
     text = ScriptedClient([_verdict(False), _verdict(False)])
     rows_t = cz.run_arm(cases, SPEC, "llm_text", text, tmp_path, log=lambda *_: None)
     assert all(c["images"] == {} for c in text.calls) and "No images" in text.calls[0]["system"]

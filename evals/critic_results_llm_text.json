@@ -1,0 +1,1173 @@
+[
+ {
+  "name": "clean_xfoil_0",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl matches target within tolerance (-1.8241 vs -1.83, tol 0.03)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cd=0.02251 satisfies cd_max=0.025 constraint",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Short laminar separation bubble from x/c 0.315 to 0.446 that reattaches (Cf recovers), transition at 0.419",
+    "location": "x/c 0.315-0.446",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "cf_te=0.000101 (positive, thin but attached) confirms no trailing-edge separation",
+    "location": "x/c~1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "stall_margin validator could not run (probe missing), leaving target_met undetermined despite Cl/Cd both meeting targets",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "fidelity_gap=0.0148 < 0.1 threshold indicates reasonable agreement between tiers",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_xfoil_1",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl matches target almost exactly (-1.8305 vs -1.83)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Trailing-edge Cf is marginally negative (-1.3e-5) from x/c=0.993 to 1.0, indicating very weak TE separation just at the validator threshold",
+    "location": "x/c=0.993-1.0 (upper/suction surface)",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar separation bubble at x/c 0.339-0.470 reattaches well before TE, not relevant to TE separation flag",
+    "location": "x/c=0.339-0.470",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap small (0.0022), suggesting XFoil solution not grossly inconsistent across tiers",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_xfoil_2",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl=-1.7991 falls short of target -1.83 by 0.031, just outside tolerance of 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar bubble present from x/c=0.364 to 0.512 on suction side, reattaches before TE",
+    "location": "0.36-0.51 x/c",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "TE Cf positive (0.000139), no trailing-edge separation, consistent with te_separation validator passing",
+    "location": "x/c=1.0 (TE)",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap 0.0035 well below 0.1 threshold, no model-form disagreement",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Candidate Cd=0.01984 improved vs parent Cd=0.02169 while Cl similar, suggesting the camber/alpha combination trades some loading for lower drag but still undershoots lift target",
+    "location": "global",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_xfoil_3",
+  "kind": "clean_xfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl=-1.7712 misses target -1.83 by 0.0588, outside tol 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar bubble present from x/c=0.294 to 0.406 on suction side, no TE separation (cf_te positive, te_separation_xc null)",
+    "location": "0.29-0.41 x/c",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap 0.0118 < 0.1 threshold, acceptable agreement between tiers",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "L/D=79.9 plausible, drag not floored, lift sign correct",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_0",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "PASS",
+  "status": "PASS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Achieved Cl=-1.8093 vs target -1.83, within tolerance of 0.03 (|diff|=0.0207)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cd=0.02230 below cd_max=0.025 and above skin-friction floor",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "All fatal-severity numeric validators (convergence, finite, drag_floor, lift_ceiling, l_over_d, lift_sign, surrogate_confidence) passed",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "te_separation flagged as suspect but validator ok=True and no BL data provided to confirm persistent suction-side Cf<0 to TE",
+    "location": "trailing edge",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Candidate performance close to parent (Cl -1.77->-1.81, Cd 0.0215->0.0223), consistent incremental improvement, no sign of non-physical jump",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_1",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "PASS",
+  "status": "PASS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "All fatal-severity numeric checks pass (convergence, finite, drag floor, lift ceiling, L/D plausibility, lift sign, surrogate confidence)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl matches target within tolerance (-1.8327 vs -1.83 target, tol 0.03)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "TE separation check flagged as suspect but ok=True, no persistent suction-side Cf<0 to TE reported",
+    "location": "trailing edge",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Result is close to parent design (Cl -1.77 -> -1.83, Cd similar), consistent incremental improvement",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_2",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl=-1.7956 is short of target -1.83 by 0.0345, outside the 0.03 tolerance band",
+    "location": "global/section Cl",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "All fatal numeric checks (convergence, finite, drag floor, lift ceiling, L/D, lift sign, surrogate confidence) pass cleanly",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "No suction-side Cf<0 persisting to trailing edge detected, ruling out TE separation as cause of shortfall",
+    "location": "suction side, near TE",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Parent design at similar geometry also fell short of target (Cl=-1.770), suggesting the single-element camber/alpha combination is inherently under-loaded relative to the -1.83 target",
+    "location": "global, cross-design comparison",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "clean_neuralfoil_3",
+  "kind": "clean_neuralfoil",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "All fatal numeric validators pass (convergence, finite, drag floor, lift ceiling, L/D, lift sign, surrogate confidence)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl magnitude 1.759 misses target -1.83 by 0.071, exceeding tolerance of 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "te_separation flagged suspect but no actual Cf<0 data reported (bl=null), cannot confirm TE separation as cause",
+    "location": "trailing edge",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Single-element wing with high camber (0.07) and alpha=10deg still short of target loading, indicating insufficient circulation generation rather than separation-driven loss",
+    "location": "full chord",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "separated_0",
+  "kind": "separated",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Trailing-edge separation onset at x/c=0.706 with persistent negative Cf to TE",
+    "location": "x/c=0.706-1.0, upper/suction side",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cd increased ~3.7x vs parent design while Cl magnitude slightly decreased, matching separation-induced pressure drag",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Fidelity gap 0.032 flagged as suspect, near-stall behavior likely amplifying model-form error",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "All fatal numeric checks (convergence, finite, drag floor, lift ceiling, L/D, lift sign) pass, so result is numerically physical but misses target due to separation",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "separated_1",
+  "kind": "separated",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cf negative from x/c=0.785 to trailing edge on suction side, indicating trailing-edge separation rather than a reattaching bubble",
+    "location": "x/c=0.785-1.0, upper (suction) surface",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cl=-1.5026 is well short of target -1.83 (tolerance 0.03), a miss of ~0.33 in Cl magnitude",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cd increased by ~63% relative to parent while Cl magnitude dropped, consistent with onset of separation-driven pressure drag at high alpha=13deg",
+    "location": "global / upper surface aft region",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap small (0.0025<0.1) and all fatal numeric checks pass, so result is numerically trustworthy despite being off-target aerodynamically",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "separated_2",
+  "kind": "separated",
+  "label": "trust",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl=-1.7769 vs target -1.83 (|err|=0.053 > tol 0.03)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "te_separation_xc=0.74574 with persistent Cf<0 to TE, no reattachment (bubbles empty)",
+    "location": "x/c=0.746-1.0, suction (upper) side",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cd increased ~2.7x vs parent (0.0217->0.0591) while Cl nearly unchanged, consistent with trailing-edge separation drag rise rather than lift-induced drag change",
+    "location": "global / suction side aft region",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap small (0.0017), convergence and sanity checks all pass",
+    "location": "global",
+    "source": "residuals",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "coarse_panels_0",
+  "kind": "coarse_panels",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "EXCESS_PRESSURE_DRAG",
+  "findings": [
+   {
+    "observation": "Cd=0.02712 > cd_max=0.025",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cl=-1.7282 vs target -1.83 (tol 0.03), miss of 0.102",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar bubble detected at x/c 0.337-0.474 on suction side (upper)",
+    "location": "x/c 0.337-0.474",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "cf_te=-5e-6, negligible reversed flow at trailing edge, not a true TE separation",
+    "location": "x/c~1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap=0.081 is below the 0.1 suspect threshold but close, indicating some model-form uncertainty near this alpha",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Parent design achieved higher |Cl| (1.7871) and lower Cd (0.02169) than candidate, suggesting candidate's camber/alpha combination degraded both lift and drag",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "coarse_panels_1",
+  "kind": "coarse_panels",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cf_te slightly negative (-0.000024) with te_separation_xc=0.96007, just past threshold for clean TE flow",
+    "location": "x/c=0.96-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cl=-1.7794 vs target -1.83, miss of 0.0506 exceeds tol 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Fidelity gap 0.0533 flagged suspect, near-stall model-form uncertainty between tiers",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Laminar separation bubble 0.346-0.481 reattaches before TE, not a fatal separation mode",
+    "location": "x/c=0.346-0.481",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Parent Cl=-1.7871, Cd=0.02169 vs candidate Cl=-1.7794, Cd=0.02321: slight loading loss and drag increase consistent with incipient TE separation growth",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "coarse_panels_2",
+  "kind": "coarse_panels",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl=-1.725 misses target -1.83 by 0.105, outside tol 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Short laminar separation bubble 0.42-0.56 x/c that reattaches well before TE",
+    "location": "x/c=0.42-0.56",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "cf_te is essentially zero (-3e-6), no persistent TE separation, consistent with te_separation validator passing",
+    "location": "x/c=1.0 (TE)",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap=0.0706 under 0.1 threshold, flagged suspect but not fatal",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "wrong_branch_0",
+  "kind": "wrong_branch",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl=-1.3366 misses target -1.83 by 0.49, far outside tol 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Suction-side Cf negative persisting to trailing edge from x/c=0.6688",
+    "location": "x/c=0.67-1.0 upper surface",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Small leading-edge laminar bubble 0.0011-0.0322, reattaches, not primary driver of lift loss",
+    "location": "x/c=0.001-0.032",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cd increased ~4x and L/D dropped to 16.1 relative to parent's attached-flow case, consistent with trailing-edge stall",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap of 0.149 exceeds 0.1 threshold, flagging possible XFoil model-form error near stall",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "wrong_branch_1",
+  "kind": "wrong_branch",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Trailing-edge separation extends from x/c=0.664 to 1.0 on suction side (upper), Cf_te\u2248-1.2e-5 essentially zero/negative",
+    "location": "x/c=0.664-1.0, upper surface",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Short laminar bubble near x/c=0.003-0.04, reattaches, not the cause of TE separation",
+    "location": "x/c=0.003-0.04",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl -1.122 is far below target -1.83 (tol 0.03), a target miss of 0.71 in Cl magnitude",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Cd 0.069 vastly exceeds cd_max 0.025, consistent with large pressure drag from separated flow",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Fidelity gap 0.134 > 0.1 threshold flags model disagreement typical of near-stall XFoil runs",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "reference_scaled_0",
+  "kind": "reference_scaled",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl=-1.094 vs target -1.83, a 0.74 deficit far outside tol=0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar separation bubble spanning x/c=0.315-0.446 on suction side, reattaches (not persisting to TE)",
+    "location": "x/c 0.315-0.446",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "cf_te positive (0.000101) confirming attached flow at trailing edge, te_separation validator ok",
+    "location": "x/c~1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap validator failed (0.715 >> 0.1), indicating model-form disagreement, likely near-stall/separation-sensitive regime reducing confidence in absolute Cl magnitude",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Parent design at same fidelity achieved Cl=-1.787, much closer to target, suggesting candidate's camber/alpha combination underperforms",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "reference_scaled_1",
+  "kind": "reference_scaled",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "NON_PHYSICAL",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl=-1.0983 is far below target -1.83, a miss of 0.73 in Cl, well outside the 0.03 tolerance",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Trailing-edge Cf is only marginally negative (-0.000013) right at x/c=0.993-1.0, indicating incipient rather than deep TE separation",
+    "location": "x/c=0.993-1.0 (upper/suction side)",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "A laminar separation bubble exists from x/c=0.339 to 0.470 which alters transition and effective camber, contributing to reduced loading relative to parent",
+    "location": "x/c=0.34-0.47 (suction side)",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cd dropped sharply from 0.0217 (parent) to 0.0130 while Cl also dropped sharply, consistent with the airfoil operating in a less-loaded, lower-drag state rather than a deep-stall high-drag state",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap of 0.734 flagged as suspect, suggesting XFoil solution may be in a sensitive nonlinear region (e.g., near maximum lift) where small changes in alpha/geometry cause large Cl swings",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ },
+ {
+  "name": "reference_scaled_2",
+  "kind": "reference_scaled",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cl magnitude 1.079 vs target 1.83 (tolerance 0.03), a large miss",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar separation bubble present from x/c=0.364 to 0.512 on suction side, no TE separation (cf_te>0)",
+    "location": "x/c 0.36-0.51",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap validator failed (0.716 >> 0.1 threshold) indicating model-form disagreement, though marked suspect not fatal by numeric table",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Parent design at similar fidelity achieved Cl=-1.787, much closer to target, implying candidate's reduced alpha/camber effectiveness or bubble growth is responsible for the shortfall",
+    "location": "global",
+    "source": "section",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": true
+ },
+ {
+  "name": "stale_images_0",
+  "kind": "stale_images",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl matches target within tolerance and Cd is under the cap",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Short laminar separation bubble 0.315-0.446 x/c that reattaches, consistent with transition at x/c=0.419",
+    "location": "x/c 0.315-0.446",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Trailing-edge Cf remains positive (0.000101), no TE separation detected, contradicting a TE-separation diagnosis",
+    "location": "x/c~1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Stall-margin probe was not run, so target_met cannot be confirmed even though Cl/Cd are nominally in range; validator marks this as the controlling failure",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Fidelity gap of 0.0148 is below the 0.1 suspect threshold, supporting that the xfoil solution is reasonably trustworthy near this alpha",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "stale_images_1",
+  "kind": "stale_images",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cf at TE is -0.000013, marginally negative, with separation onset at x/c=0.99292, essentially a numerical/threshold-level separation rather than a strong physical TE stall",
+    "location": "x/c=0.993-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar separation bubble from 0.339 to 0.470 reattaches well before TE, not the cause of TE separation flag",
+    "location": "x/c=0.339-0.470",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cl=-1.8305 is within 0.0005 of target -1.83, well inside tol 0.03; Cd=0.02165 under cd_max 0.025",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap small (0.00225), consistent single-fidelity result, not a model-form artifact",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "surface_kink_0",
+  "kind": "surface_kink",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "EXCESS_PRESSURE_DRAG",
+  "findings": [
+   {
+    "observation": "Cl=-1.8363 vs target -1.83, within tol 0.03",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cd=0.02563 exceeds cd_max=0.025 by ~2.5%",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Two laminar bubbles detected on suction side, second one fairly long (0.318-0.430), likely increasing pressure drag vs parent (Cd 0.02169)",
+    "location": "x/c 0.264-0.284 and 0.318-0.430",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "cf_te positive (0.000321), no trailing-edge separation despite validator flag text",
+    "location": "x/c=1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap=0.027 below 0.1 threshold, suggests solver result is reasonably trustworthy despite single-fidelity run",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "surface_kink_1",
+  "kind": "surface_kink",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "TARGET_MISS",
+  "status": "TARGET_MISS",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl=-1.8029 is within 0.03 of target -1.83 (|\u0394|=0.0271)",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Cd=0.02422 is below cd_max=0.025",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "te_separation validator fails: trailing-edge Cf slightly negative (-9e-6) at x/c=0.99263, just barely crossing threshold",
+    "location": "x/c=0.99263-1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "fidelity_gap=0.0298 is below the 0.1 threshold (still passes) but is elevated relative to a clean attached case, hinting at near-stall sensitivity",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Two laminar separation bubbles present (0.26-0.28, 0.31-0.40) that reattach before TE, not indicative of catastrophic separation",
+    "location": "x/c=0.26-0.40",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": false,
+  "soft": false
+ },
+ {
+  "name": "sign_flip_0",
+  "kind": "sign_flip",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
+  "symptom": "NONE",
+  "findings": [
+   {
+    "observation": "Cl=1.8241 is positive while target_cl=-1.83 and parent result -1.7871 are negative, indicating a sign convention mismatch rather than a physically consistent result",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Laminar bubble at x/c 0.315-0.446 reattaches well before TE, cf_te=0.000101>0 so no true trailing-edge separation",
+    "location": "x/c 0.32-0.45",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "fidelity_gap of 3.63 far exceeds 0.1 threshold, suggesting XFoil solution near stall or otherwise unreliable at this alpha",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ },
+ {
+  "name": "sign_flip_1",
+  "kind": "sign_flip",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
+  "symptom": "TE_SEPARATION_MAIN",
+  "findings": [
+   {
+    "observation": "Cl=1.8305 has opposite sign from target_cl=-1.83 and from parent result -1.7871, despite candidate being a minor perturbation of parent",
+    "location": "global (Cl sign)",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "lift_sign validator fails: Cl sign contradicts expected geometry/convention",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "fidelity_gap validator fails badly (3.66 vs <0.1 threshold), suggesting solver-tier disagreement or convention/sign handling error rather than a genuine aerodynamic result",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "TE separation present from x/c=0.993 to TE on suction side, consistent with high alpha=9.5deg and aggressive camber 0.08 at 40% chord",
+    "location": "x/c=0.993-1.0, upper surface",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   },
+   {
+    "observation": "Laminar bubble present at x/c=0.339-0.470, reattaches, not true TE separation but indicates sensitive transition at Re=300k",
+    "location": "x/c=0.339-0.470",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ },
+ {
+  "name": "drag_reference_0",
+  "kind": "drag_reference",
+  "label": "flag",
+  "arm": "llm_text",
+  "numeric_status": "NON_PHYSICAL",
+  "status": "NON_PHYSICAL",
+  "symptom": "INSUFFICIENT_LOADING",
+  "findings": [
+   {
+    "observation": "Cd=0.003968 is below the skin-friction floor threshold of 0.005, indicating under-resolved drag integration",
+    "location": "global (Cd integration)",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "L/D=453.4 far exceeds plausible ceiling of 200 for this Reynolds/thickness combination",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Parent design at similar Cl had Cd=0.02169, nearly 5.5x higher than this candidate's Cd despite near-identical lift and geometry family",
+    "location": "global comparison to parent",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "fatal"
+   },
+   {
+    "observation": "Laminar separation bubble present from x/c=0.364 to 0.512 on suction side, with transition at x/c=0.491; cf_te small positive (0.000139) indicating no true TE separation",
+    "location": "x/c=0.36-0.51 (bubble), TE x/c=1.0",
+    "source": "boundary_layer",
+    "consistent_with_numeric": true,
+    "severity": "info"
+   },
+   {
+    "observation": "Fidelity gap (0.0035) is small, suggesting the xfoil-only result is internally consistent but the drag/L-D anomaly points to integration error rather than model-form disagreement",
+    "location": "global",
+    "source": "numeric",
+    "consistent_with_numeric": true,
+    "severity": "suspect"
+   }
+  ],
+  "hard": true,
+  "soft": true
+ }
+]
