@@ -208,6 +208,9 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         except Exception as e:
             fallback("chief", "reused_strategy", e)
             prev = s.get("strategy")
+            if prev is not None and prev.mode == "inner_optimizer":
+                # no LLM chose this generation: a reused memo never starts an inner run
+                prev = prev.model_copy(update={"mode": "reasoned_step", "inner_budget": 0})
             memo = prev or StrategyMemo(
                 hypothesis="(chief unavailable) screen around best",
                 focus_params=list(names[:3]),  # direction "free"
@@ -623,7 +626,10 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
     @node_boundary("report", files)
     def report(s: SwarmState) -> dict:
         h = health()
-        reasons = h.check(final=True) if enforced() else []
+        ran = {e.get("node") for e in s.get("events", [])}
+        # the CAD agent is not needed when inner-optimizer runs took the place of every CAD step
+        not_needed = {"cad"} if "inner_optimize" in ran and "cad_propose" not in ran else set()
+        reasons = h.check(final=True, not_needed=not_needed) if enforced() else []
         term = termination_reason(s, cost_capped=capped(s), invalid=bool(reasons))
         write_report(s, files, term, llm)
         events = [cap_event("report", s)] if term == "cost_cap" else []

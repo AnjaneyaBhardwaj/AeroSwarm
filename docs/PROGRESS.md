@@ -10,17 +10,19 @@ Critic for that generation and runs Optuna TPE (seeded from the parent cid and t
 multivariate) for `inner_budget` evaluations:
 - search space: the memo's focus_params only, within the trust region around the selected parent
   (`explore.current_parent`, as for a CAD step), one-sided for a "+"/"-" direction; other parameters stay at the
-  parent's values; an interval narrower than 2e-4 is dropped;
-- warm start: every NeuralFoil ledger record in the region (focus parameters in the box, other free parameters
-  within the trust radius) is added as a trial;
+  parent's values; the box lies on the 1e-4 parameter grid and main_thickness starts at the rulebook's LE-radius
+  minimum; an interval narrower than 2e-4 is dropped;
+- warm start: every NeuralFoil ledger record in the searched subspace (focus parameters in the box, every other
+  parameter equal to the parent's) is added as a trial;
 - objective `baselines.tpe_value` (constraint violation, objective as a tie-break), as in the Optuna baseline;
 - each evaluation goes through `baselines.record_evaluation` (renamed from `_record`): geometry/rulebook checks,
   NeuralFoil, the numeric validator, the NeuralFoil screen; numeric verdict, no LLM call in the loop;
 - geometry-infeasible and near-duplicate proposals (`cad.apply.near_duplicate`) cost no evaluation; after 60 such
-  proposals the run stops;
+  proposals the run stops; an exception while evaluating stops the run and keeps the records already made
+  (`inner_optimizer_error`);
 - every evaluation is a ledger record (`EvalRecord.inner_optimizer=True`, generation = the memo's, parent_cid = the
-  parent) and counts toward max_evals; the budget is clipped so the run's last evaluation stays free for a
-  promotion (`INNER_RESERVE = 1`);
+  parent) and counts toward max_evals; the run's last evaluation is never an inner one (`INNER_RESERVE = 1`:
+  the budget is clipped, and sanitize refuses the mode with one evaluation left), so it can go to a promotion;
 - events `inner_optimizer_started`, `inner_trial`, `inner_optimizer_finished` (summary: box, warm trials, evals, why
   it stopped, best design with Cl/Cd/violation/screen, designs in the box, promotable designs);
 - an inner run that evaluates nothing (empty box, all repeats, no evaluations left) falls back to a reasoned CAD
@@ -30,9 +32,11 @@ multivariate) for `inner_budget` evaluations:
 - `chief.sanitize`: the mode is honoured when state `inner_allowed` is true (`run(inner_optimizer=True)` default;
   `--no-inner-optimizer` / `inner_optimizer=False` coerce it to reasoned_step, `inner_optimizer_unavailable`); a
   promotion that goes ahead takes precedence (`inner_optimizer_deferred`); `inner_budget` clamped to 3–12, 0 = 8
-  (`inner_budget_coerced`); fidelity forced to neuralfoil (`inner_optimizer_fidelity`).
+  (`inner_budget_coerced`); fidelity forced to neuralfoil (`inner_optimizer_fidelity`); an inner_budget on a
+  reasoned_step memo is dropped with `inner_budget_ignored`. A failed Chief call never reuses an inner memo.
 - Prompt: the mode paragraph is filled per run (`briefs.mode_text`): both modes described generically when
-  allowed, "disabled in this run" otherwise. No task-specific hints.
+  allowed, "disabled in this run" otherwise; the LLM-only prompt and brief do not mention inner runs. No
+  task-specific hints. `--resume` refuses `--no-inner-optimizer` (the setting is fixed at run start).
 - Brief: "Inner-optimizer runs" section (last 3 summaries, ledger numbers), the history outcome of an inner
   generation is its summary, a `by` column (agents / inner) in the ledger tables, the Critic's verdict is labelled
   with the last agent-evaluated record. Report: an "Inner-optimizer runs" section and a `by` column.
@@ -47,32 +51,104 @@ multivariate) for `inner_budget` evaluations:
   objective. The screen itself is unchanged.
 - `ledger.no_improve_streak` takes each generation's best record (it took the first record of a generation).
 
+### Spec review (subagent) and fixes
+A review of the milestone against the spec found:
+- **A crash in the warm start** (blocker): a ledger design exactly on the trust-region edge passed the region
+  check, but Optuna's distribution rejected it (6.0 − 0.3·16 = 1.2000000000000002 in floats). 11 inner runs in
+  the first mock_hybrid pass crashed this way (seeds 88: 4, 165: 4, 143: 3), each a wasted generation and a node
+  error (5 make a run fatal); the first write-up counted only the 52 runs that finished. Fixed (grid box, clipping),
+  regression test; mock_hybrid re-run: no crash.
+- About 20% of warm-start trials (141 of 715) were designs that differed from the parent off the focus
+  parameters, read by TPE as if at the parent's values: warm start now takes the exact subspace only.
+- Records already evaluated were dropped if the node raised mid-run: now kept.
+- The benchmark appended to existing run directories on a re-run (paying again, mixing two runs): it now skips
+  finished and unfinished directories.
+- Doc numbers: mock_hybrid used 584 evaluations (not 600) in that pass; the mock plateaus came at 32–37.
+- Not changed: the one-sided box for "+"/"-" directions (the review found it a reasonable reading); dial coverage
+  counts inner records as moves (they are designs that differ from their parent); the report's inner section
+  prints the run summaries (their numbers come from the records); Optuna stays `>=5.0.0` (the lock pins 5.0.0).
+
 ### Benchmark 4 (`scripts/benchmark.py`, `runs/bench4/` not committed, `docs/BENCHMARK4.md`)
 Arms: hybrid (real LLM, inner optimizer allowed), llm (real LLM, disabled), mock, mock_hybrid (MockClient with
 inner_budget 8; an offline check of the hybrid path, NOT an LLM), random, optuna. 15 seeds, 40 evaluations, starts
-from `random_start` under FSAE 2027. Offline arms:
+from `random_start` under FSAE 2027. Offline arms (mock_hybrid after the review fixes):
 
 | method | success | 95% (Wilson) | evals to target | XFoil evals / run |
 |---|---|---|---|---|
 | mock | 1/15 (s154) | 1–30% | 25 | 0.1 |
-| mock_hybrid | 1/15 (s154, found by an inner run) | 1–30% | 24 | 0.3 |
+| mock_hybrid | 2/15 (s99 found by an inner run; s154 by a reasoned step) | 4–38% | 38, 25 | 0.3 |
 | random | 0/15 | 0–20% | — | 0 |
 | optuna | 1/15 (s77) | 1–30% | 19 | 0.5 |
 
-mock_hybrid: 52 inner runs (350 of 600 evaluations), 27 improved on the base's value, 80 inner designs in the box at
-NeuralFoil, 9 of them screen-passed, 5 promoted: 1 passed XFoil, 1 separated in the probe range, 3 came back
-under-loaded (XFoil Cl −1.785 to −1.791). Offline arms take seconds per run.
+- mock_hybrid: 55 inner runs, none crashed, 371 of 583 evaluations; warm starts 2–33 designs (mean 9.7); 26
+  improved on the base's value; 62 inner designs in the box at NeuralFoil, 5 screen-passed, 3 promoted: 1 passed
+  XFoil, 2 came back under-loaded (XFoil Cl −1.785, −1.788).
+- Budgets differ: mock declared a plateau in 13 of 15 runs (10 at 32 evaluations, the rest at 34–37); mock_hybrid
+  never did. Not a budget-matched comparison. The intervals overlap; the offline arms do not separate.
+- Offline arms take seconds per run.
+
+### Hybrid pilot (real LLM, `claude-sonnet-5` via AEROSWARM_MODEL; seeds 33, 99, 154; `runs/bench4/hybrid_s*`)
+| seed | termination | evals (inner) | inner runs | XFoil evals | est. cost | LLM calls |
+|---|---|---|---|---|---|---|
+| 99 | eval_budget | 40 (32) | 4 | 4 | $0.61 | 24 |
+| 154 | eval_budget | 40 (32) | 4 | 2 | $0.68 | 27 |
+| 33 | plateau at 39, labelled invalid_llm (see below) | 39 (36) | 5 | 2 | $0.26 | 12 |
+
+- No target met. The Chief chose the inner optimizer readily: 13 inner runs, almost always K = 8, 100 of 119
+  evaluations. Inner runs put 14 designs in the target box at NeuralFoil but only 1 passed the screen.
+- 8 XFoil evaluations, 7 of inner-found designs. All failed: 7 outside the box (Cl −1.786 to −1.798 on seeds 33 and
+  99, −1.861 and −1.868 on seed 154), 1 failed the stall probe. The Chief spent both screen overrides in every run by
+  gen 5; all 6 failed at XFoil.
+- Where the misses come from (per design, `briefs.xfoil_record` on the pilot ledgers): the 6 overridden designs were
+  inside the box at NeuralFoil and moved by 0.013–0.046 at XFoil (+0.015 on seed 33, −0.041 and −0.046 on seed 154,
+  ±0.0135 on seed 99). The 2 screen-passed promotions (seed 99) agreed with NeuralFoil within 0.003 but sat at or
+  outside the box edge already at NeuralFoil (Cl −1.8002, −1.7846: the 2·tol promotion window). The first write-up
+  of this pilot said screen-passed in-box designs came back 0.03–0.04 off; that was wrong.
+- Cost: $0.26–0.68 per run (inner generations make no CAD or Critic call), against ~$2.5–3 per LLM-only run under
+  Formula Student 2026 (session 11).
+- Seed 33 never asked for a CAD step (only inner runs and promotions), so the CAD agent was never called and the
+  every-agent validity rule marked the run invalid_llm. Fixed: the CAD agent is exempt when inner-optimizer runs
+  took the place of every CAD step (`LLMHealth.check(not_needed=...)`); a CAD agent called and never successful
+  still invalidates. That run is in `runs/bench4_aborted/hybrid_s33_cad_rule/`.
+- The re-run of seed 33 hit the account's API limit at its 9th generation ("You have reached your specified API
+  usage limits. You will regain access on 2026-11-01 at 00:00 UTC"): `runs/bench4_aborted/hybrid_s33_usage_limit/`.
+  The batch guard did not match that wording; it does now ("usage limit"). Pilot spend about $1.83 (estimated).
 
 ### Next (waiting for the user)
-- LLM arms (user's estimate ~$40–45 per 15-seed arm; key present in AEROSWARM_ANTHROPIC_API_KEY):
-  `uv run python scripts/benchmark.py run --methods hybrid llm --parallel 5`, then
-  `uv run python scripts/benchmark.py report`.
+- The API usage limit must be raised (or wait for 2026-11-01) before any further LLM run.
+- Then: re-run hybrid seed 33, decide on the full arms (`--methods hybrid llm --parallel 5`; a re-run skips
+  finished seeds). From the pilot a hybrid arm costs about $5–10; the llm arm about $40–45 (user's estimate).
+- Pilot pattern: the inner runs find in-box designs that fail the screen; the Chief overrides early and every
+  override fails (as in session 11), each moving 0.013–0.046 in Cl at XFoil; screen-passed promotions agreed with
+  NeuralFoil but were at the box edge or in the 2·tol window only.
+
+### Offline experiments after the pilot (user: "try the changes first and test them offline")
+- **Graded separation in `ledger.violation` (tried, reverted).** NeuralFoil separation cost 0.1 plus the relative
+  excess of the screen's TE H over its limit (at most 1) instead of 1. Offline arms with it
+  (`runs/bench4_graded/`, not committed) against `runs/bench4/`:
+
+  | arm | successes (old → graded) | in-box, screen-ok designs | in the 2·tol window, screen-ok |
+  |---|---|---|---|
+  | mock | 1 → 0 | 2 → 1 | 5 → 2 |
+  | mock_hybrid | 2 → 0 | 2 → 2 | 6 → 10 |
+  | optuna | 1 → 1 | 2 → 3 | 9 → 7 |
+  | random (does not use the score) | 0 → 0, identical ledgers | | |
+
+  No improvement: in-box designs that pass the screen stay rare whichever score guides the search. Reverted.
+- **Kept: the Chief brief lists every design evaluated at XFoil** (`briefs.xfoil_record`): found by inner/agents,
+  route (screen passed / screen override), NeuralFoil Cl and whether it was in the box, XFoil Cl, dcl = XFoil −
+  NeuralFoil, XFoil Cd, outcome, and per route how many were in the box at NeuralFoil and how many passed. Ledger
+  numbers only, no advice; shown in both LLM arms. It cannot be measured offline (the mock reads facts, not prose);
+  only a real-LLM run shows whether it changes promotions.
 
 ### Known issues
 - The violation's separation term is binary (0/1), so TPE gets no gradient toward fixing a screen separation
   warning; a graded term (TE H over the limit) would be the next thing to try, but it changes parent selection.
-- The batch runner still keeps starting LLM runs after the API refuses on credit.
+- Fixed: the batch runner stops on the first API account error (credit, key, billing; `benchmark.account_error`),
+  exit code 2, and moves that seed's run to `<root>_aborted/` so a re-run starts it again. Runs killed in flight
+  by the stop leave unfinished directories, which a re-run skips until they are moved or deleted.
 - CMA-ES (BLUEPRINT §3 mentions it) is not implemented; TPE only.
+- `run(inner_optimizer=True)` is the default, so plain CLI LLM runs may use the mode.
 
 ## Session 12 (2026-10-06): rulebook switched to FSAE 2027
 

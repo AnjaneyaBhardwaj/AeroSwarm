@@ -98,7 +98,8 @@ class LLMHealth:
 
     INVALID when more than `max_failed` calls failed (the graph aborts at the first call past
     the limit) or, checked at the end of the run, any agent never got a successful call
-    (including never being called at all).
+    (including never being called at all). Exception: the CAD agent in a hybrid run whose CAD
+    steps were all replaced by inner-optimizer runs and promotions (the graph passes `not_needed`).
     """
 
     def __init__(self, max_failed: int = MAX_FAILED_CALLS):
@@ -126,15 +127,19 @@ class LLMHealth:
     def exceeded(self) -> bool:
         return self.failed_total > self.max_failed
 
-    def check(self, final: bool = False) -> list[str]:
-        """Recompute the invalid reasons from the counts. `final=True` at the end of a run."""
+    def check(self, final: bool = False, not_needed: frozenset[str] | set[str] = frozenset()) -> list[str]:
+        """Recompute the invalid reasons from the counts. `final=True` at the end of a run.
+
+        `not_needed`: agents the run never asked for (e.g. the CAD agent when every generation was a
+        promotion or an inner-optimizer run). Such an agent with no call at all is not a failure; one
+        that was called and never succeeded still is."""
         reasons = []
         if self.exceeded():
             reasons.append(f"{self.failed_total} LLM calls failed (more than {self.max_failed} aborts the run)")
         if final:
             for a in AGENTS:
                 r = self.agents[a]
-                if r["ok"] == 0:
+                if r["ok"] == 0 and not (a in not_needed and r["failed"] == 0 and r["fallbacks"] == 0):
                     why = "never called" if r["failed"] == 0 else f"all {r['failed']} call(s) failed"
                     reasons.append(f"{a}: no successful call ({why})")
         self.invalid_reasons = reasons
