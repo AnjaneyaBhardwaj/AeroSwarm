@@ -1,5 +1,50 @@
 # Progress
 
+## Session 17 (2026-10-15): run viewer for the portfolio, part 1 (exporter + gallery replay)
+
+New priority from the user: a visual run viewer. **Research features are frozen** (no FSAE preset work, no
+OpenFOAM work) until the viewer is done.
+
+### Done
+- `swarm/viz/export.py` + `scripts/export_run.py <run_dir>...`: one run directory becomes `viewer/runs/<name>.json`,
+  and `viewer/runs/index.json` is rebuilt. It holds the spec and target, the start params, and per generation: the
+  parent choice, the Chief's hypothesis, focus directions and the mode/fidelity actually executed, every CAD attempt
+  (changes, mechanisms, override reasons, Chief/CAD disagreements, rejection reason), every evaluation (params,
+  solver and ladder level, Cl, Cd, verdict, failing checks from `ledger.failing_checks`, stall margin from the
+  XFoil probe or else the NeuralFoil screen), the Critic's diagnosis, and notable events (overrides, screen/XFoil
+  disagreements, recoveries, inner-optimizer summaries, LLM failures). Numbers come from the ledger; agent text is
+  verbatim from `traces.jsonl` (cut at a word boundary with " …", never rewritten). A trace is matched to its
+  generation by the first later event from its role's node. A failed Critic call shows the numeric verdict,
+  labelled. NACA outlines (race-car orientation, 81 points) are included per candidate (`cad.build.placed` takes `n`).
+- Optuna comparison line: `--optuna auto` (default) runs `baselines.search("optuna")` from the same start, spec
+  and budget (sampler seed = start_seed, else 0) into `runs/viewer_baselines/<name>_optuna/`, reused after that;
+  `--optuna <dir>` uses an existing baseline run, `--optuna none` skips it. Caveat shown on the page: the baseline
+  runs with the current pipeline code, while an older LLM run ran with the code of its day (the example run used
+  Formula Student 2026 and the 0.05 screen threshold).
+- `viewer/` (static HTML/CSS/JS, no build step): `make viewer` serves it on :8000. Start-design dials (drag, scroll,
+  arrow keys); on release the page picks the nearest recorded start (RMS of range-normalised differences), says which
+  run and how far, and replays it. Replay: the wing tweens between generations with the parent ghosted and a
+  downforce arrow ∝ |Cl| against the target; dials follow the params; the agent feed shows the generation's Chief /
+  CAD / solver / Critic text; the Cl–Cd polar fills in with the target box, status colours (with icons and labels) and
+  NeuralFoil/XFoil shapes; scrubber, step, 0.5–4× speed, keyboard; final banner (target met, or "no passing
+  design" with the closest candidate's failing checks; mock and invalid-LLM runs labelled); start→final morph.
+  Readouts snap to recorded values; only animation frames are tweened. Dark/light themes, works at phone width.
+- `tests/test_export.py` (6 tests: ledger numbers, verbatim text, CAD outcomes/overrides, outlines, index, baseline).
+- Exported: `viewer/runs/example_hard_llm.json` (the committed example run; Optuna from the same start: no pass in
+  40 evaluations, closest Cl −1.8271 / Cd 0.0205 at NeuralFoil).
+
+### Known issues / gaps
+- `docs/viewer-prototype.html` (the design reference) is not in the repository on any branch, so the page layout is a
+  new design; align it with the prototype once it is committed.
+- The bench3 LLM runs (`runs/bench3/llm_s33`, `_s44`, `_s55`) are not committed; until they are exported
+  (`uv run python scripts/export_run.py runs/bench3/llm_s33 runs/bench3/llm_s44 runs/bench3/llm_s55`, which runs
+  Optuna for seeds 33/44/55 from the same starts) the gallery holds one run, so the nearest-start search always
+  picks it.
+
+### Next
+- Show the user; then part 3 live mode (FastAPI + SSE reusing `swarm.run`), part 4 GitHub Pages workflow and a replay
+  GIF at the top of the README.
+
 ## Session 16 (2026-10-15): milestone 5 parts 2 and 3: recovery ladder, CFD agent, mesh study, graph wiring
 
 PR #14 (part 1) merged.

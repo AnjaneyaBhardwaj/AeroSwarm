@@ -1,0 +1,832 @@
+/* AeroSwarm run viewer: replays exported runs (viewer/runs/*.json, written by scripts/export_run.py).
+ * Every number on screen comes from the export (the run ledger); agent text is verbatim from the traces.
+ * Geometry is never derived here: outlines come precomputed per candidate. Only in-between animation
+ * frames are tweened, and numeric readouts snap to recorded values (they are never interpolated). */
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+const SVGNS = "http://www.w3.org/2000/svg";
+const BASE_DWELL_MS = 2600; // per generation at 1x
+const TWEEN_MS = 750;
+const MORPH_MS = 2600;
+
+const PARAM_META = {
+  main_camber: { name: "Camber", unit: "% c", scale: 100, dp: 2 },
+  main_camber_pos: { name: "Camber position", unit: "% c", scale: 100, dp: 1 },
+  main_thickness: { name: "Thickness", unit: "% c", scale: 100, dp: 2 },
+  alpha_deg: { name: "Angle of attack", unit: "deg", scale: 1, dp: 2 },
+  flap_chord_ratio: { name: "Flap chord", unit: "% c", scale: 100, dp: 1 },
+  flap_deflection_deg: { name: "Flap angle", unit: "deg", scale: 1, dp: 1 },
+  slot_gap: { name: "Slot gap", unit: "% c", scale: 100, dp: 2 },
+  slot_overlap: { name: "Slot overlap", unit: "% c", scale: 100, dp: 2 },
+  gurney_h: { name: "Gurney", unit: "% c", scale: 100, dp: 2 },
+};
+const SHORT = { main_camber: "camber", main_camber_pos: "camber pos", main_thickness: "thickness", alpha_deg: "alpha" };
+const SOLVER = { neuralfoil: "NeuralFoil", xfoil: "XFoil", of2d: "OpenFOAM 2D", of3d: "OpenFOAM 3D" };
+const ICON = {
+  pass: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity=".18"/><path d="M4.5 8.2l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  miss: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg>',
+  fail: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l7 12.5H1z" fill="currentColor" opacity=".18"/><path d="M8 6v3.6M8 11.6v.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+const S = {
+  index: null,
+  run: null,
+  frames: [],      // generations that have at least one evaluation
+  fi: 0,           // current frame index
+  playing: false,
+  speed: 2,
+  nextAt: 0,
+  tween: null,     // {from, to, fromP, toP, fromCl, toCl, t0, dur}
+  shown: null,     // {outline, params, cl}
+  pick: {},        // dial-set start design
+  dragging: null,
+  morph: null,     // start -> final morph state
+  open: new Set(), // feed cards the viewer expanded
+  bannerDismissed: false,
+  cidParams: {},
+  cidOutline: {},
+};
+
+/* ------------------------------------------------------------------ helpers */
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const fmt = (x, dp) => (x == null || !isFinite(x) ? "—" : Number(x).toFixed(dp));
+const signed = (x, dp) => (x == null ? "—" : (x < 0 ? "−" : "+") + Math.abs(x).toFixed(dp));
+const clTxt = (x) => (x == null ? "—" : (x < 0 ? "−" : "") + Math.abs(x).toFixed(4));
+const pval = (name, v) => {
+  const m = PARAM_META[name] || { scale: 1, dp: 3, unit: "" };
+  return (v * m.scale).toFixed(m.dp);
+};
+const el = (tag, attrs = {}, parent) => {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+};
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+function statusOf(ev) {
+  if (!ev) return { cls: "", text: "—" };
+  if (ev.passing) return { cls: "pass", text: "PASS" };
+  const v = ev.verdict || ev.solver_status;
+  if (v === "PASS") return { cls: "miss", text: `PASS at ${SOLVER[ev.solver] || ev.solver} only` };
+  if (v === "TARGET_MISS") return { cls: "miss", text: "TARGET MISS" };
+  return { cls: "fail", text: String(v || "FAILED").replaceAll("_", " ") };
+}
+const headOf = (g) => (g && g.head >= 0 ? g.evals[g.head] : null);
+const dur = (ms) => ms / S.speed;
+
+/* ------------------------------------------------------------------ loading */
+async function fetchJSON(url) {
+  const r = await fetch(url, { cache: "no-cache" });
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  return r.json();
+}
+
+async function boot() {
+  initTheme();
+  wireControls();
+  try {
+    S.index = await fetchJSON("runs/index.json");
+  } catch (e) {
+    fatal(`Could not load runs/index.json (${e.message}). Serve the viewer over HTTP: <code>python -m http.server -d viewer</code>, and export a run with <code>scripts/export_run.py</code>.`);
+    return;
+  }
+  const sel = $("#run-select");
+  for (const r of S.index.runs) {
+    const o = document.createElement("option");
+    o.value = r.file;
+    const res = r.outcome.result === "no_pass" ? "no pass" : "target met";
+    o.textContent = `${r.name} · ${r.is_mock ? "MOCK" : "LLM"} · ${res}`;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => loadRun(sel.value, { autoplay: true }));
+  const q = new URLSearchParams(location.search);
+  const want = q.get("run");
+  const first = S.index.runs.find((r) => r.name === want || r.file === want) || S.index.runs[0];
+  if (!first) return fatal("No exported runs in runs/index.json.");
+  await loadRun(first.file, { autoplay: q.get("autoplay") !== "0", gen: q.get("gen") });
+  if (q.get("speed")) setSpeed(Number(q.get("speed")));
+  requestAnimationFrame(loop);
+}
+
+function fatal(html) {
+  $("#feed").innerHTML = `<div class="card"><div class="card-body"><p>${html}</p></div></div>`;
+}
+
+async function loadRun(file, { autoplay = true, gen = null, keepPick = false } = {}) {
+  const data = await fetchJSON(`runs/${file}`);
+  $("#run-select").value = file;
+  setRun(data, { keepPick });
+  const startFi = gen != null ? Math.max(0, S.frames.findIndex((g) => g.gen >= Number(gen))) : 0;
+  goTo(startFi, { instant: true });
+  setPlaying(autoplay && S.frames.length > 1);
+}
+
+function setRun(data, { keepPick = false } = {}) {
+  S.run = data;
+  S.frames = data.generations.filter((g) => g.head >= 0);
+  S.cidParams = {};
+  for (const g of data.generations) for (const e of g.evals) S.cidParams[e.cid] ??= e.params;
+  S.cidParams[data.start_cid] ??= data.start;
+  S.cidOutline = data.outlines;
+  S.open = new Set();
+  S.bannerDismissed = false;
+  S.morph = null;
+  $("#btn-morph").classList.remove("on");
+  if (!keepPick) S.pick = { ...data.start };
+  S.shown = null;
+  renderChips();
+  renderFacts();
+  renderDials();
+  renderNearest();
+  buildTicks();
+  layoutStage();
+  $("#scrubber").max = Math.max(0, S.frames.length - 1);
+  $("#gen-of").textContent = `/ ${S.frames.length ? S.frames[S.frames.length - 1].gen : 0}`;
+}
+
+/* ------------------------------------------------------------------ header + facts */
+function renderChips() {
+  const r = S.run;
+  const lab = $("#label-chip");
+  lab.textContent = r.label;
+  lab.classList.toggle("mock", !!r.is_mock);
+  lab.title = r.mock_notice || r.llm_client || "";
+}
+
+function renderFacts() {
+  const r = S.run, s = r.spec;
+  $("#spec").innerHTML = [
+    ["Target Cl", `${clTxt(s.target_cl)} ± ${s.cl_tol}`],
+    ["Cd max", s.cd_max],
+    ["Reynolds", s.reynolds.toExponential(1).replace("e+", "e")],
+    ["Section", s.component === "wing_1el" ? "single element" : s.component],
+    ["Rulebook", s.rulebook],
+    ["Budget", `${s.max_evals} evaluations`],
+  ].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  const rows = [
+    ["Termination", r.termination || "—"],
+    ["Evaluations", r.evals],
+    ["LLM calls", r.llm_calls ?? "—"],
+    ["Est. LLM cost", r.cost_usd != null ? `$${r.cost_usd.toFixed(2)}` : "—"],
+    ["Wall clock", r.wall_hours != null ? `${(r.wall_hours * 60).toFixed(0)} min` : "—"],
+    ["Run", r.run_id],
+  ];
+  if (r.start_seed != null) rows.splice(5, 0, ["Start seed", r.start_seed]);
+  $("#run-facts").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+
+  const b = r.baseline, box = $("#baseline");
+  if (!b) { box.hidden = true; return; }
+  box.hidden = false;
+  const swarm = r.outcome.result === "no_pass" ? "no pass" : `target met in ${r.outcome.evals_to_target} evals`;
+  const opt = b.result === "no_pass"
+    ? `no pass in ${b.evals} evals; closest Cl ${clTxt(b.cl)}, Cd ${fmt(b.cd, 4)} (${SOLVER[b.solver] || b.solver})`
+    : `target met in ${b.evals_to_target} evals (Cl ${clTxt(b.cl)}, Cd ${fmt(b.cd, 4)})`;
+  box.innerHTML = `<div class="t">vs Optuna TPE, same start</div>
+    <div><b>Swarm:</b> ${esc(swarm)}</div>
+    <div><b>Optuna:</b> ${esc(opt)}</div>
+    ${b.failing && b.failing.length ? `<div class="why">closest fails: ${esc(b.failing[0])}</div>` : ""}
+    <div class="why">Same spec, gates and budget, no LLM; sampler seed ${esc(b.seed)}. Run with the current pipeline code.</div>`;
+}
+
+/* ------------------------------------------------------------------ dials */
+const DIAL = { cx: 56, cy: 48, r: 36, a0: 135, sweep: 270 };
+function polar(cx, cy, r, deg) {
+  const a = (deg * Math.PI) / 180;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+}
+function arc(cx, cy, r, a0, a1) {
+  const [x0, y0] = polar(cx, cy, r, a0), [x1, y1] = polar(cx, cy, r, a1);
+  const large = a1 - a0 > 180 ? 1 : 0;
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+
+function renderDials() {
+  const box = $("#dials");
+  box.innerHTML = "";
+  for (const name of S.run.free_params) {
+    const m = PARAM_META[name] || { name, unit: "", scale: 1, dp: 3 };
+    const [lo, hi] = S.run.bounds[name];
+    const wrap = document.createElement("div");
+    wrap.className = "dial";
+    const svg = el("svg", { viewBox: "0 0 112 92", tabindex: 0, role: "slider", "aria-label": `${m.name} of the start design`, "aria-valuemin": lo, "aria-valuemax": hi });
+    el("path", { class: "track", d: arc(DIAL.cx, DIAL.cy, DIAL.r, DIAL.a0, DIAL.a0 + DIAL.sweep) }, svg);
+    const fill = el("path", { class: "fill" }, svg);
+    const pick = el("circle", { class: "pick", r: 2.6 }, svg);
+    const knob = el("circle", { class: "knob", r: 6 }, svg);
+    const val = el("text", { class: "val", x: DIAL.cx, y: DIAL.cy + 4 }, svg);
+    const unit = el("text", { class: "unit", x: DIAL.cx, y: DIAL.cy + 18 }, svg);
+    unit.textContent = m.unit;
+    el("title", {}, svg).textContent = `${m.name}: ${(lo * m.scale).toFixed(0)}–${(hi * m.scale).toFixed(0)} ${m.unit}. Drag up/down, scroll, or use the arrow keys.`;
+    wrap.appendChild(svg);
+    const nm = document.createElement("div");
+    nm.className = "name";
+    nm.textContent = m.name;
+    wrap.appendChild(nm);
+    box.appendChild(wrap);
+    svg._parts = { fill, knob, val, pick, lo, hi, name, svg };
+    wireDial(svg, name, lo, hi);
+  }
+}
+
+function setDial(svg, value, { text = true } = {}) {
+  const { fill, knob, val, pick, lo, hi, name } = svg._parts;
+  const f = Math.min(1, Math.max(0, (value - lo) / (hi - lo)));
+  const a = DIAL.a0 + DIAL.sweep * f;
+  fill.setAttribute("d", f > 0.002 ? arc(DIAL.cx, DIAL.cy, DIAL.r, DIAL.a0, a) : "");
+  const [x, y] = polar(DIAL.cx, DIAL.cy, DIAL.r, a);
+  knob.setAttribute("cx", x);
+  knob.setAttribute("cy", y);
+  if (text) val.textContent = pval(name, value);
+  const pv = S.pick[name];
+  if (pv != null) {
+    const fp = Math.min(1, Math.max(0, (pv - lo) / (hi - lo)));
+    const [px, py] = polar(DIAL.cx, DIAL.cy, DIAL.r + 9, DIAL.a0 + DIAL.sweep * fp);
+    pick.setAttribute("cx", px);
+    pick.setAttribute("cy", py);
+  }
+  svg.setAttribute("aria-valuenow", value);
+  svg.setAttribute("aria-valuetext", `${pval(name, value)} ${PARAM_META[name]?.unit || ""}`);
+}
+
+function updateDials(params, { text = true } = {}) {
+  for (const svg of document.querySelectorAll(".dial svg")) {
+    const n = svg._parts.name;
+    const v = S.dragging ? S.pick[n] : params[n];
+    setDial(svg, v, { text: S.dragging ? true : text });
+  }
+}
+
+function wireDial(svg, name, lo, hi) {
+  let y0 = 0, v0 = 0;
+  const range = hi - lo;
+  const change = (v) => {
+    S.pick[name] = Math.min(hi, Math.max(lo, v));
+    setDial(svg, S.pick[name]);
+    renderNearest();
+  };
+  svg.addEventListener("pointerdown", (e) => {
+    svg.setPointerCapture(e.pointerId);
+    S.dragging = name;
+    setPlaying(false);
+    y0 = e.clientY;
+    v0 = S.pick[name] ?? S.run.start[name];
+    for (const s of document.querySelectorAll(".dial svg")) setDial(s, S.pick[s._parts.name]);
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (S.dragging !== name) return;
+    change(v0 + ((y0 - e.clientY) / 160) * range);
+  });
+  const end = () => {
+    if (S.dragging !== name) return;
+    S.dragging = null;
+    commitPick();
+  };
+  svg.addEventListener("pointerup", end);
+  svg.addEventListener("pointercancel", end);
+  svg.addEventListener("keydown", (e) => {
+    const step = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    setPlaying(false);
+    change((S.pick[name] ?? S.run.start[name]) + step * range * 0.01);
+    clearTimeout(svg._t);
+    svg._t = setTimeout(commitPick, 700);
+  });
+  svg.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    setPlaying(false);
+    change((S.pick[name] ?? S.run.start[name]) - Math.sign(e.deltaY) * range * 0.01);
+    clearTimeout(svg._t);
+    svg._t = setTimeout(commitPick, 700);
+  }, { passive: false });
+}
+
+function nearestRuns() {
+  const names = S.run.free_params;
+  const b = S.index.bounds;
+  return S.index.runs
+    .map((r) => {
+      const terms = names.map((n) => {
+        const [lo, hi] = b[n];
+        return ((r.start[n] ?? 0) - (S.pick[n] ?? 0)) / (hi - lo);
+      });
+      const d = Math.sqrt(terms.reduce((a, t) => a + t * t, 0) / terms.length);
+      return { r, d, terms };
+    })
+    .sort((a, b2) => a.d - b2.d);
+}
+
+function renderNearest() {
+  if (!S.index) return;
+  const best = nearestRuns()[0];
+  if (!best) return;
+  const names = S.run.free_params;
+  const diffs = names
+    .map((n) => {
+      const dv = S.pick[n] - best.r.start[n];
+      const m = PARAM_META[n];
+      return Math.abs(dv * m.scale) < Math.pow(10, -m.dp) / 2 ? null : `${SHORT[n] || n} ${dv * m.scale >= 0 ? "+" : "−"}${Math.abs(dv * m.scale).toFixed(m.dp)}`;
+    })
+    .filter(Boolean);
+  const res = best.r.outcome.result === "no_pass" ? "no pass" : "target met";
+  const exact = best.d < 1e-6;
+  $("#nearest").innerHTML = `${exact ? "Recorded start:" : "Nearest recorded start:"} <b>${esc(best.r.name)}</b>
+    (${best.r.is_mock ? "mock" : "LLM"}, ${res})<br>distance <span class="dist">${best.d.toFixed(3)}</span>
+    <span title="RMS of the per-parameter differences, each scaled by its allowed range (0 = identical start)">(normalized)</span>
+    ${S.index.runs.length < 2 ? `<div class="diffs">only ${S.index.runs.length} run exported</div>` : ""}
+    ${diffs.length ? `<div class="diffs">your pick vs its start: ${esc(diffs.join(", "))}</div>` : ""}`;
+}
+
+async function commitPick() {
+  const best = nearestRuns()[0];
+  if (!best) return;
+  if (best.r.file !== $("#run-select").value) await loadRun(best.r.file, { autoplay: true, keepPick: true });
+  else { renderNearest(); goTo(0, { instant: true }); setPlaying(true); }
+  renderNearest();
+}
+
+/* ------------------------------------------------------------------ stage (wing) */
+const ST = { w: 800, h: 300, k: 1, ox: 0, oy: 0 };
+function layoutStage() {
+  const svg = $("#stage");
+  const rect = svg.getBoundingClientRect();
+  ST.w = Math.max(320, rect.width);
+  ST.h = Math.max(200, rect.height);
+  svg.setAttribute("viewBox", `0 0 ${ST.w} ${ST.h}`);
+  if (!S.run) return;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const ol of Object.values(S.run.outlines)) for (const [x, y] of ol) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  // room for the freestream arrow (left), the downforce arrow (below) and labels
+  const maxCl = Math.max(Math.abs(S.run.spec.target_cl), ...S.run.generations.flatMap((g) => g.evals.map((e) => Math.abs(e.cl || 0))));
+  ST.arrowK = 0.13;
+  const X0 = x0 - 0.2, X1 = x1 + 0.06, Y0 = y0 - maxCl * ST.arrowK - 0.07, Y1 = y1 + 0.06;
+  ST.k = Math.min((ST.w - 30) / (X1 - X0), (ST.h - 16) / (Y1 - Y0));
+  ST.ox = (ST.w - (X1 - X0) * ST.k) / 2 - X0 * ST.k;
+  ST.oy = (ST.h - (Y1 - Y0) * ST.k) / 2 + Y1 * ST.k;
+  drawStage();
+}
+const sx = (x) => ST.ox + x * ST.k;
+const sy = (y) => ST.oy - y * ST.k;
+const path = (ol) => (ol ? "M" + ol.map(([x, y]) => `${sx(x).toFixed(1)} ${sy(y).toFixed(1)}`).join("L") + "Z" : "");
+function tweenOutline(a, b, t) {
+  if (!a || a.length !== b.length) return b;
+  return a.map(([x, y], i) => [lerp(x, b[i][0], t), lerp(y, b[i][1], t)]);
+}
+
+function arrowHead(g, x, y, ang, cls, size = 9) {
+  const a = (ang * Math.PI) / 180, s = size;
+  const p = [[x, y], [x - s * Math.cos(a - 0.45), y - s * Math.sin(a - 0.45)], [x - s * Math.cos(a + 0.45), y - s * Math.sin(a + 0.45)]];
+  el("path", { class: cls, d: `M${p.map((q) => q.join(" ")).join("L")}Z` }, g);
+}
+
+function drawStage() {
+  const svg = $("#stage");
+  svg.innerHTML = "";
+  if (!S.run || !S.shown) return;
+  const g = el("g", {}, svg);
+  // freestream
+  const fy = sy(0);
+  el("line", { class: "grid-line", x1: sx(-0.18), x2: sx(1.06), y1: fy, y2: fy, "stroke-dasharray": "2 5" }, g);
+  el("line", { class: "arrow", x1: sx(-0.18), x2: sx(-0.06), y1: fy, y2: fy }, g);
+  arrowHead(g, sx(-0.06), fy, 0, "arrow-head", 8);
+  const ft = el("text", { x: sx(-0.18), y: fy - 8 }, g);
+  ft.textContent = "flow";
+  // chord scale
+  for (const xc of [0, 0.25, 0.5, 0.75, 1]) {
+    const t = el("text", { x: sx(xc), y: ST.h - 6, "text-anchor": "middle", class: "mono" }, g);
+    t.textContent = xc === 0 ? "x/c 0" : String(xc);
+  }
+
+  const m = S.morph;
+  if (m) {
+    el("path", { class: "start-ol", d: path(S.cidOutline[m.startCid]) }, g);
+    el("path", { class: "final-ol", d: path(S.cidOutline[m.finalCid]) }, g);
+  } else {
+    const ghost = S.shown.ghostCid && S.cidOutline[S.shown.ghostCid];
+    if (ghost) el("path", { class: "ghost", d: path(ghost) }, g);
+  }
+  el("path", { class: "wing", d: path(S.shown.outline) }, g);
+
+  // downforce arrow from below the quarter chord, length ∝ |Cl|; dashed tick = target
+  const ol = S.shown.outline;
+  let lowY = Infinity;
+  for (const [x, y] of ol) if (x > 0.15 && x < 0.4) lowY = Math.min(lowY, y);
+  const ax = sx(0.27), ay = sy(lowY) + 6;
+  const L = Math.abs(S.shown.cl || 0) * ST.arrowK * ST.k;
+  const T = Math.abs(S.run.spec.target_cl) * ST.arrowK * ST.k;
+  el("line", { class: "df-target", x1: ax - 16, x2: ax + 16, y1: ay + T, y2: ay + T }, g);
+  const tl = el("text", { x: ax + 20, y: ay + T + 4, class: "mono" }, g);
+  tl.textContent = `target ${clTxt(S.run.spec.target_cl)}`;
+  if (L > 4) {
+    el("line", { class: "df", x1: ax, x2: ax, y1: ay, y2: ay + L - 6 }, g);
+    arrowHead(g, ax, ay + L, 90, "df-head", 11);
+  }
+  const dl = el("text", { x: ax - 12, y: ay + Math.max(L * 0.55, 14), "text-anchor": "end", class: "mono" }, g);
+  dl.textContent = S.shown.clLabel ?? "";
+}
+
+function stageFoot() {
+  const items = S.morph
+    ? [["var(--chief)", "start design (gen 0)", "2 3"], ["var(--good)", S.run.outcome.result === "no_pass" ? "closest candidate" : "final passing design", ""]]
+    : [["var(--accent)", "current candidate", ""], ["var(--ghost)", "parent (base for this step)", "5 4"]];
+  $("#stage-foot").innerHTML =
+    items.map(([c, t, d]) => `<span><i class="sw" style="border-color:${c};${d ? "border-top-style:dashed" : ""}"></i>${t}</span>`).join("") +
+    `<span>arrow: downforce ∝ |Cl| · race-car orientation (inverted, α applied)</span>`;
+}
+
+/* ------------------------------------------------------------------ frames */
+function goTo(fi, { instant = false } = {}) {
+  if (!S.frames.length) return;
+  fi = Math.max(0, Math.min(S.frames.length - 1, fi));
+  const g = S.frames[fi];
+  const ev = headOf(g);
+  const to = S.cidOutline[ev.cid];
+  const ghostCid = ev.parent_cid || g.parent?.cid || null;
+  if (S.morph) stopMorph();
+  if (instant || !S.shown) {
+    S.shown = { outline: to, params: ev.params, cl: ev.cl, clLabel: `Cl ${clTxt(ev.cl)}`, ghostCid };
+    S.tween = null;
+  } else {
+    S.tween = { from: S.shown.outline, to, fromP: S.shown.params, toP: ev.params, fromCl: S.shown.cl ?? ev.cl, toCl: ev.cl, t0: performance.now(), dur: dur(TWEEN_MS), ghostCid, label: `Cl ${clTxt(ev.cl)}` };
+  }
+  S.fi = fi;
+  S.nextAt = performance.now() + dur(BASE_DWELL_MS);
+  renderFrame();
+}
+
+function renderFrame() {
+  const g = S.frames[S.fi], ev = headOf(g);
+  $("#gen-num").textContent = g.gen;
+  $("#scrubber").value = S.fi;
+  const st = statusOf(ev);
+  const status = $("#stage-status");
+  status.className = `status ${st.cls}`;
+  status.innerHTML = `${ICON[st.cls] || ""}${esc(st.text)}`;
+  status.title = (ev.failing || []).join("\n");
+  $("#ro-cl").textContent = clTxt(ev.cl);
+  $("#ro-cd").textContent = fmt(ev.cd, 5);
+  $("#ro-solver").textContent = (SOLVER[ev.solver] || ev.solver) + (ev.solver_level != null ? ` L${ev.solver_level}` : "");
+  const sm = ev.stall;
+  $("#ro-stall").textContent = sm && sm.dcl_dalpha != null ? `${sm.dcl_dalpha.toFixed(3)}/° ${sm.source === "xfoil_probe" ? "XF" : "NF"}` : "—";
+  $("#ro-stall").title = sm ? `d|Cl|/dα ${sm.dcl_dalpha} vs threshold ${sm.threshold} (${sm.source === "xfoil_probe" ? "XFoil α+1/α+2 probe" : "NeuralFoil screen"}); ${sm.ok ? "ok" : "fails"}` : "no stall-margin evidence for this record";
+  for (const t of document.querySelectorAll("#ticks i")) t.style.opacity = Number(t.dataset.fi) <= S.fi ? 1 : 0.28;
+  if (!S.tween) updateDials(ev.params);
+  stageFoot();
+  drawStage();
+  renderFeed();
+  drawPolar();
+  const last = S.fi === S.frames.length - 1;
+  if (last && !S.bannerDismissed) showBanner(); else hideBanner();
+}
+
+function loop(now) {
+  if (S.tween) {
+    const t = Math.min(1, (now - S.tween.t0) / S.tween.dur), e = ease(t);
+    const tw = S.tween;
+    const params = {};
+    for (const k of Object.keys(tw.toP)) params[k] = lerp(tw.fromP?.[k] ?? tw.toP[k], tw.toP[k], e);
+    S.shown = { outline: tweenOutline(tw.from, tw.to, e), params, cl: lerp(tw.fromCl ?? 0, tw.toCl ?? 0, e), clLabel: t >= 1 ? tw.label : "", ghostCid: tw.ghostCid };
+    updateDials(params, { text: t >= 1 });
+    drawStage();
+    if (t >= 1) { S.shown.params = tw.toP; S.tween = null; }
+  }
+  if (S.morph) stepMorph(now);
+  if (S.playing && !S.tween && now >= S.nextAt) {
+    if (S.fi < S.frames.length - 1) goTo(S.fi + 1);
+    else setPlaying(false);
+  }
+  requestAnimationFrame(loop);
+}
+
+function setPlaying(on) {
+  S.playing = on;
+  $("#play-icon").setAttribute("d", on ? "M7 5h4v14H7zM13 5h4v14h-4z" : "M7 5v14l12-7z");
+  if (on) {
+    if (S.morph) stopMorph(true);
+    if (S.fi >= S.frames.length - 1) { S.bannerDismissed = false; goTo(0, { instant: true }); }
+    S.nextAt = performance.now() + dur(BASE_DWELL_MS) * 0.6;
+  }
+}
+function setSpeed(v) {
+  S.speed = v;
+  for (const b of document.querySelectorAll(".speed button")) b.classList.toggle("on", Number(b.dataset.speed) === v);
+}
+
+/* ------------------------------------------------------------------ banner + morph */
+function finalRecord() {
+  const o = S.run.outcome;
+  for (const g of S.run.generations) for (const e of g.evals) if (e.cid === o.cid && e.solver === o.solver && e.cl === o.cl) return { g, e };
+  return null;
+}
+function showBanner() {
+  const r = S.run, o = r.outcome, b = $("#banner");
+  const fr = finalRecord();
+  const mockNote = r.is_mock ? `<div class="b"><b>Mock run:</b> ${esc(r.mock_notice || "rule-based stand-in, not an LLM")}</div>` : "";
+  const invalid = r.llm_valid === false ? `<div class="b"><b>Invalid LLM run</b> (see meta.json llm_health).</div>` : "";
+  if (o.result !== "no_pass") {
+    b.className = "banner pass";
+    b.innerHTML = `<button class="close" aria-label="Dismiss">×</button>
+      <div class="h">${ICON.pass}Target met · generation ${o.generation}</div>
+      <div class="b">${SOLVER[o.solver] || o.solver} PASS <code>${esc(o.cid)}</code>: Cl <code>${clTxt(o.cl)}</code> (target ${clTxt(r.spec.target_cl)} ± ${r.spec.cl_tol}), Cd <code>${fmt(o.cd, 5)}</code> ≤ ${r.spec.cd_max}, stall margin ${fr?.e.stall?.dcl_dalpha != null ? `<code>${fr.e.stall.dcl_dalpha.toFixed(3)}/°</code>` : "ok"}.</div>
+      <div class="b">${o.evals_to_target} evaluations${r.cost_usd != null ? ` · est. LLM cost $${r.cost_usd.toFixed(2)}` : ""} · termination <code>${esc(r.termination)}</code></div>${mockNote}${invalid}`;
+  } else {
+    b.className = "banner nopass";
+    b.innerHTML = `<button class="close" aria-label="Dismiss">×</button>
+      <div class="h">${ICON.miss}No passing design · ${esc(r.termination || "run ended")} after ${r.evals} evaluations</div>
+      <div class="b">Closest candidate <code>${esc(o.cid || "—")}</code> (gen ${o.generation ?? "—"}, ${SOLVER[o.solver] || o.solver || "—"}): Cl <code>${clTxt(o.cl)}</code>, Cd <code>${fmt(o.cd, 5)}</code>. It fails:</div>
+      <ul>${(o.failing || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>${mockNote}${invalid}`;
+  }
+  const was = b.hidden;
+  b.hidden = false;
+  b.querySelector(".close").onclick = () => { S.bannerDismissed = true; hideBanner(); };
+  if (was) layoutStage();
+}
+function hideBanner() {
+  const b = $("#banner");
+  if (b.hidden) return;
+  b.hidden = true;
+  layoutStage();
+}
+
+function toggleMorph() {
+  if (S.morph) { stopMorph(); return; }
+  const o = S.run.outcome;
+  if (!o.cid) return;
+  setPlaying(false);
+  hideBanner();
+  const startEv = headOf(S.frames[0]);
+  const fr = finalRecord();
+  S.morph = { startCid: startEv.cid, finalCid: o.cid, startEv, finalEv: fr?.e, t0: performance.now(), done: false };
+  $("#btn-morph").classList.add("on");
+  stageFoot();
+  $("#gen-num").textContent = `0→${o.generation}`;
+  const st = statusOf(fr?.e);
+  $("#stage-status").className = `status ${st.cls}`;
+  $("#stage-status").innerHTML = `${ICON[st.cls] || ""}START → ${o.result === "no_pass" ? "CLOSEST" : "FINAL"}`;
+  $("#ro-cl").textContent = `${clTxt(startEv.cl)} → ${clTxt(o.cl)}`;
+  $("#ro-cd").textContent = `${fmt(startEv.cd, 4)} → ${fmt(o.cd, 4)}`;
+  $("#ro-solver").textContent = `${SOLVER[startEv.solver]} → ${SOLVER[o.solver] || o.solver}`;
+  const sm = (e) => (e?.stall?.dcl_dalpha != null ? `${e.stall.dcl_dalpha.toFixed(3)}` : "—");
+  $("#ro-stall").textContent = `${sm(startEv)} → ${sm(fr?.e)}/°`;
+}
+function stepMorph(now) {
+  const m = S.morph;
+  // forward, hold, back, hold — loops until the viewer leaves morph mode
+  const cyc = MORPH_MS * 2 + 1800;
+  const t = (now - m.t0) % cyc;
+  let f;
+  if (t < MORPH_MS) f = ease(t / MORPH_MS);
+  else if (t < MORPH_MS + 900) f = 1;
+  else if (t < MORPH_MS * 2 + 900) f = 1 - ease((t - MORPH_MS - 900) / MORPH_MS);
+  else f = 0;
+  const a = S.cidOutline[m.startCid], b = S.cidOutline[m.finalCid];
+  const pa = m.startEv.params, pb = m.finalEv?.params || pa;
+  const params = {};
+  for (const k of Object.keys(pa)) params[k] = lerp(pa[k], pb[k], f);
+  S.shown = { outline: tweenOutline(a, b, f), params, cl: lerp(m.startEv.cl, S.run.outcome.cl, f), clLabel: f === 1 ? `Cl ${clTxt(S.run.outcome.cl)}` : f === 0 ? `Cl ${clTxt(m.startEv.cl)}` : "" };
+  updateDials(params, { text: f === 0 || f === 1 });
+  drawStage();
+}
+function stopMorph(silent) {
+  S.morph = null;
+  $("#btn-morph").classList.remove("on");
+  if (!silent) goTo(S.fi, { instant: true });
+}
+
+/* ------------------------------------------------------------------ feed */
+function dirArrow(d) { return d === "+" ? "↑" : d === "-" ? "↓" : "↕"; }
+
+function renderFeed() {
+  const feed = $("#feed");
+  const parts = [];
+  for (let i = S.fi; i >= 0; i--) parts.push(card(S.frames[i], i === S.fi, i));
+  feed.innerHTML = parts.join("");
+  feed.scrollTop = 0;
+  for (const h of feed.querySelectorAll(".card-head")) {
+    h.addEventListener("click", () => {
+      const g = Number(h.dataset.gen);
+      const c = h.parentElement;
+      c.classList.toggle("collapsed");
+      if (c.classList.contains("collapsed")) S.open.delete(g); else S.open.add(g);
+    });
+  }
+  for (const b of feed.querySelectorAll(".more")) {
+    b.addEventListener("click", () => { b.previousElementSibling.querySelectorAll("[hidden]").forEach((n) => (n.hidden = false)); b.remove(); });
+  }
+}
+
+function card(g, current, i) {
+  const ev = headOf(g), st = statusOf(ev);
+  const collapsed = !current && !S.open.has(g.gen);
+  const parentP = S.cidParams[g.parent?.cid || ev?.parent_cid] || null;
+  const out = [];
+  const c = g.chief;
+  if (c) {
+    const tags = [c.mode === "inner_optimizer" ? "inner optimizer" : "reasoned step", SOLVER[c.fidelity] || c.fidelity, `trust ${c.trust_radius}`];
+    out.push(`<div class="agent chief"><div class="who">Chief <span class="tag">${esc(tags.join(" · "))}</span></div>
+      <p class="quote">${esc(c.hypothesis)}</p>
+      ${c.focus.length ? `<div class="focus">${c.focus.map((f) => `<span>${esc(SHORT[f.name] || f.name)} ${dirArrow(f.direction)}${f.locked ? " 🔒" : ""}</span>`).join("")}</div>` : ""}
+      ${c.promote_cid ? `<div class="note">promote <code>${esc(c.promote_cid)}</code> to ${esc(SOLVER[c.fidelity] || c.fidelity)}</div>` : ""}
+      ${c.declare_plateau ? `<div class="note">declares a plateau</div>` : ""}
+      ${c.screen_override ? `<div class="override"><b>Screen override:</b> ${esc(c.screen_override)}</div>` : ""}</div>`);
+  }
+  if (g.parent && i > 0) out.push(`<div class="agent sys"><div class="who">Parent <span class="tag">${esc(g.parent.cid)}</span></div><div class="note">${esc(g.parent.why)}</div></div>`);
+  g.cad.forEach((a, k) => {
+    const rejected = a.outcome === "rejected";
+    const head = g.cad.length > 1 ? `attempt ${k + 1}${rejected ? " · rejected" : a.outcome ? " · accepted" : ""}` : rejected ? "rejected" : "";
+    const ch = a.changes.map((x) => {
+      const old = parentP ? parentP[x.name] : null;
+      const dis = (a.disagreements || []).find((d) => d.param === x.name);
+      return `<div class="change"><div class="pv">${esc(SHORT[x.name] || x.name)} ${old != null ? `${pval(x.name, old)} <span class="arrow">→</span> ` : "→ "}${pval(x.name, x.new_value)} <span class="arrow">${esc(PARAM_META[x.name]?.unit || "")}</span></div>
+        <div class="mech">${esc(x.mechanism)}</div>
+        ${x.override_reason ? `<div class="override"><b>Overrides the Chief${dis ? ` (Chief ${dirArrow(dis.chief)}, CAD ${dirArrow(dis.cad)})` : ""}:</b> ${esc(x.override_reason)}</div>` : ""}</div>`;
+    }).join("");
+    out.push(`<div class="agent cad attempt ${rejected ? "rejected" : ""}"><div class="who">CAD <span class="tag">${esc(head)}</span></div>${ch}
+      ${a.rejection ? `<div class="rej">✕ ${esc(a.rejection)}</div>` : ""}</div>`);
+  });
+  const inner = g.notes.find((n) => n.event === "inner_optimizer_finished");
+  if (inner) out.push(`<div class="agent sys"><div class="who">Inner optimizer <span class="tag">Optuna TPE · no LLM</span></div><div class="note">${esc(inner.evals)} evaluations; stopped: ${esc(inner.stopped)}${inner.promotable?.length ? `; promotable ${esc(inner.promotable.join(", "))}` : ""}</div></div>`);
+  const solves = g.evals.map((e) => {
+    const s = statusOf(e);
+    return `<div class="solve">${esc(SOLVER[e.solver] || e.solver)}${e.inner_optimizer ? " (inner)" : ""} · Cl ${clTxt(e.cl)} · Cd ${fmt(e.cd, 5)} · ${esc(s.text)}</div>` +
+      (e.failing.length && !e.inner_optimizer ? `<ul class="ev">${e.failing.slice(0, 3).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : "");
+  });
+  const shownSolves = solves.length > 4 ? solves.slice(0, 4).join("") + `<div class="note">+ ${solves.length - 4} more evaluations</div>` : solves.join("");
+  out.push(`<div class="agent sys"><div class="who">Solver <span class="tag">${esc(ev.cid)}</span></div>${shownSolves}</div>`);
+  const cr = g.critic;
+  if (cr) {
+    const evid = cr.evidence.map((x, j) => `<li ${j >= 3 ? "hidden" : ""}>${esc(x)}</li>`).join("");
+    out.push(`<div class="agent critic"><div class="who">Critic <span class="tag">${esc(cr.status)} · ${esc(cr.symptom)}${cr.confidence != null ? ` · conf ${cr.confidence}` : ""}${g.critic_source === "numeric" ? " · numeric verdict (no LLM text)" : ""}</span></div>
+      <ul class="ev">${evid}</ul>${cr.evidence.length > 3 ? `<button class="more">${cr.evidence.length - 3} more</button>` : ""}</div>`);
+  }
+  const other = g.notes.filter((n) => !["inner_optimizer_finished", "geometry_rejected", "proposal_rejected"].includes(n.event));
+  if (other.length || g.llm_failures.length) {
+    out.push(`<div class="agent sys"><div class="who">Events</div>${other.map((n) => `<div class="note">${esc(n.event.replaceAll("_", " "))}${n.reason ? `: ${esc(n.reason)}` : ""}${n.error ? `: ${esc(n.error)}` : ""}${n.action ? `: ${esc(n.action)}` : ""}</div>`).join("")}
+      ${g.llm_failures.map((f) => `<div class="note">LLM call failed (${esc(f.role)}): ${esc(f.error)}</div>`).join("")}</div>`);
+  }
+  return `<article class="card ${current ? "current fresh" : "past"} ${collapsed ? "collapsed" : ""}">
+    <div class="card-head" data-gen="${g.gen}"><span class="g">GEN ${g.gen}</span><span class="status ${st.cls}" style="padding:1px 7px;font-size:11px">${ICON[st.cls] || ""}${esc(st.text)}</span>
+    <span class="res">${clTxt(ev.cl)} / ${fmt(ev.cd, 4)}</span></div>
+    <div class="card-body">${out.join("")}</div></article>`;
+}
+
+/* ------------------------------------------------------------------ polar */
+const PC = { l: 58, r: 16, t: 12, b: 36 };
+function drawPolar() {
+  const svg = $("#polar");
+  const rect = svg.getBoundingClientRect();
+  const W = Math.max(280, rect.width), H = Math.max(180, rect.height);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = "";
+  const r = S.run, s = r.spec;
+  const all = r.generations.flatMap((g) => g.evals).filter((e) => e.cl != null && e.cd != null);
+  const b = r.baseline && r.baseline.cl != null ? r.baseline : null;
+  const cds = all.map((e) => e.cd).concat([s.cd_max], b ? [b.cd] : []);
+  const cls = all.map((e) => e.cl).concat([s.target_cl - s.cl_tol, s.target_cl + s.cl_tol], b ? [b.cl] : []);
+  let xmin = Math.min(...cds), xmax = Math.max(...cds), ymin = Math.min(...cls), ymax = Math.max(...cls);
+  const px = (xmax - xmin) * 0.08 || 0.001, py = (ymax - ymin) * 0.08 || 0.01;
+  xmin -= px; xmax += px; ymin -= py; ymax += py;
+  const X = (cd) => PC.l + ((cd - xmin) / (xmax - xmin)) * (W - PC.l - PC.r);
+  const Y = (cl) => PC.t + ((cl - ymin) / (ymax - ymin)) * (H - PC.t - PC.b); // more negative Cl (downforce) on top
+
+  // grid + ticks
+  const nice = (lo, hi, n) => {
+    const step0 = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v >= step0);
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-12; v += step) out.push(+v.toFixed(10));
+    return { ticks: out, step };
+  };
+  const xt = nice(xmin, xmax, Math.max(3, Math.floor(W / 110)));
+  const yt = nice(ymin, ymax, Math.max(3, Math.floor(H / 55)));
+  const g = el("g", {}, svg);
+  for (const v of xt.ticks) {
+    el("line", { class: "gridl", x1: X(v), x2: X(v), y1: PC.t, y2: H - PC.b }, g);
+    const t = el("text", { class: "tick", x: X(v), y: H - PC.b + 14, "text-anchor": "middle" }, g);
+    t.textContent = v.toFixed(Math.max(0, -Math.floor(Math.log10(xt.step))));
+  }
+  for (const v of yt.ticks) {
+    el("line", { class: "gridl", x1: PC.l, x2: W - PC.r, y1: Y(v), y2: Y(v) }, g);
+    const t = el("text", { class: "tick", x: PC.l - 6, y: Y(v) + 3.5, "text-anchor": "end" }, g);
+    t.textContent = (v < 0 ? "−" : "") + Math.abs(v).toFixed(Math.max(0, -Math.floor(Math.log10(yt.step))));
+  }
+  el("line", { class: "axis", x1: PC.l, x2: W - PC.r, y1: H - PC.b, y2: H - PC.b }, g);
+  el("line", { class: "axis", x1: PC.l, x2: PC.l, y1: PC.t, y2: H - PC.b }, g);
+  const xl = el("text", { class: "ax-label", x: (PC.l + W - PC.r) / 2, y: H - 4, "text-anchor": "middle" }, g);
+  xl.textContent = "Cd (drag) →";
+  const yl = el("text", { class: "ax-label", x: 12, y: (PC.t + H - PC.b) / 2, "text-anchor": "middle", transform: `rotate(-90 12 ${(PC.t + H - PC.b) / 2})` }, g);
+  yl.textContent = "Cl  (downforce ↑)";
+
+  // target box: |Cl - target| <= tol and Cd <= cd_max
+  const bx0 = X(Math.max(xmin, 0)), bx1 = X(s.cd_max), by0 = Y(s.target_cl - s.cl_tol), by1 = Y(s.target_cl + s.cl_tol);
+  el("rect", { class: "box", x: Math.min(bx0, bx1), y: by0, width: Math.abs(bx1 - bx0), height: by1 - by0, rx: 3 }, g);
+  const bl = el("text", { class: "box-label", x: bx1 - 6, y: by0 - 5, "text-anchor": "end" }, g);
+  bl.textContent = "target box";
+
+  // trail through the headline record of each generation so far
+  const shown = S.frames.slice(0, S.fi + 1);
+  const trail = shown.map((f) => headOf(f)).filter((e) => e.cl != null && e.cd != null);
+  el("path", { class: "trail", d: "M" + trail.map((e) => `${X(e.cd).toFixed(1)} ${Y(e.cl).toFixed(1)}`).join("L") }, g);
+
+  // Optuna's best / closest design
+  if (b) {
+    const ox = X(b.cd), oy = Y(b.cl), d = 7;
+    el("path", { class: "opt", d: `M${ox} ${oy - d}L${ox + d} ${oy}L${ox} ${oy + d}L${ox - d} ${oy}Z` }, g);
+    const t = el("text", { class: "tick", x: ox + 10, y: oy + 4 }, g);
+    t.textContent = "Optuna";
+  }
+
+  const pts = [];
+  shown.forEach((f, k) => f.evals.forEach((e) => { if (e.cl != null && e.cd != null) pts.push({ e, g: f, cur: k === S.fi && e === headOf(f) }); }));
+  const color = { pass: "var(--good)", miss: "var(--warning)", fail: "var(--critical)", "": "var(--ink-3)" };
+  for (const p of pts) {
+    const x = X(p.e.cd), y = Y(p.e.cl), st = statusOf(p.e);
+    const attrs = { class: `pt ${p.e.inner_optimizer ? "inner" : ""}`, fill: color[st.cls] };
+    if (p.e.solver === "neuralfoil") el("circle", { ...attrs, cx: x, cy: y, r: p.e.inner_optimizer ? 3.5 : 5 }, g);
+    else el("rect", { ...attrs, x: x - 5.5, y: y - 5.5, width: 11, height: 11, rx: 1.5 }, g);
+    if (p.cur) el("circle", { class: "cur", cx: x, cy: y, r: 10 }, g);
+  }
+  // hit layer + tooltip
+  const tip = $("#tip");
+  for (const p of pts) {
+    const h = el("circle", { class: "hit", cx: X(p.e.cd), cy: Y(p.e.cl), r: 11 }, g);
+    h.addEventListener("pointerenter", () => {
+      const st = statusOf(p.e);
+      tip.innerHTML = `<div class="r"><span>gen ${p.g.gen}</span><span>${esc(p.e.cid)}</span></div>
+        <div class="r"><span>solver</span><span>${esc(SOLVER[p.e.solver] || p.e.solver)}${p.e.inner_optimizer ? " (inner)" : ""}</span></div>
+        <div class="r"><span>Cl</span><span>${clTxt(p.e.cl)}</span></div><div class="r"><span>Cd</span><span>${fmt(p.e.cd, 5)}</span></div>
+        <div class="r"><span>status</span><span>${esc(st.text)}</span></div>
+        ${p.e.failing[0] ? `<div style="margin-top:4px;color:var(--ink-3);max-width:260px">${esc(p.e.failing[0])}</div>` : ""}`;
+      tip.hidden = false;
+      const x = X(p.e.cd), y = Y(p.e.cl);
+      tip.style.left = `${Math.min(x + 14, W - 270)}px`;
+      tip.style.top = `${Math.max(4, y - 30)}px`;
+    });
+    h.addEventListener("pointerleave", () => (tip.hidden = true));
+    h.addEventListener("click", () => { setPlaying(false); goTo(S.frames.indexOf(p.g)); });
+  }
+  renderLegend(!!b);
+}
+
+function renderLegend(hasOpt) {
+  const dot = (c) => `<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="${c}"/></svg>`;
+  $("#polar-legend").innerHTML =
+    `<span>${dot("var(--good)")}full pass</span><span>${dot("var(--warning)")}target miss</span><span>${dot("var(--critical)")}failure</span>
+     <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>NeuralFoil</span>
+     <span><svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>XFoil</span>` +
+    (hasOpt ? `<span><svg viewBox="0 0 12 12"><path d="M6 1L11 6L6 11L1 6Z" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>Optuna</span>` : "");
+}
+
+/* ------------------------------------------------------------------ timeline */
+function buildTicks() {
+  const box = $("#ticks");
+  box.innerHTML = "";
+  const n = S.frames.length;
+  S.frames.forEach((g, i) => {
+    const e = headOf(g), t = document.createElement("i");
+    t.className = `${statusOf(e).cls} ${e.solver !== "neuralfoil" ? "xf" : ""}`;
+    t.style.left = n > 1 ? `${(i / (n - 1)) * 100}%` : "0";
+    t.dataset.fi = i;
+    t.title = `gen ${g.gen}: ${statusOf(e).text} (${SOLVER[e.solver] || e.solver})`;
+    box.appendChild(t);
+  });
+}
+
+function wireControls() {
+  $("#btn-play").onclick = () => setPlaying(!S.playing);
+  $("#btn-prev").onclick = () => { setPlaying(false); goTo(S.fi - 1); };
+  $("#btn-next").onclick = () => { setPlaying(false); goTo(S.fi + 1); };
+  $("#btn-restart").onclick = () => { S.bannerDismissed = false; goTo(0, { instant: true }); setPlaying(true); };
+  $("#btn-morph").onclick = toggleMorph;
+  $("#scrubber").addEventListener("input", (e) => { setPlaying(false); goTo(Number(e.target.value), { instant: true }); });
+  for (const b of document.querySelectorAll(".speed button")) b.onclick = () => setSpeed(Number(b.dataset.speed));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest("input, select, .dial svg")) return;
+    if (e.key === " ") { e.preventDefault(); setPlaying(!S.playing); }
+    if (e.key === "ArrowRight") { setPlaying(false); goTo(S.fi + 1); }
+    if (e.key === "ArrowLeft") { setPlaying(false); goTo(S.fi - 1); }
+  });
+  let rt;
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { layoutStage(); drawPolar(); }, 80); });
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem("aeroswarm-theme"); } catch (_) { /* storage unavailable */ }
+  if (saved) document.documentElement.dataset.theme = saved;
+  $("#theme-toggle").onclick = () => {
+    const dark = document.documentElement.dataset.theme
+      ? document.documentElement.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("aeroswarm-theme", next); } catch (_) { /* ignore */ }
+  };
+}
+
+boot();
