@@ -25,6 +25,38 @@ Pick one layout:
   `<meta name="aeroswarm-api" content="https://api.example.com/">`, and on the server set
   `AEROSWARM_LIVE_ORIGINS=https://example.com` so the browser may call it (CORS).
 
+## Subdomain on a server (recommended)
+
+This is layout A at `https://aeroswarm.<your-domain>`, using `deploy/`: the app container behind
+[Caddy](https://caddyserver.com), a web server that obtains and renews the HTTPS certificate for the subdomain by
+itself and forwards visitors to the app.
+
+1. **A server.** Any small Linux VPS (Ubuntu 24.04 or Debian 12) with about 2 GB RAM and 10 GB disk (the image
+   is about 2.5 GB). Install Docker with its Compose plugin (`curl -fsSL https://get.docker.com | sh`). Open ports
+   80 and 443 in its firewall; Caddy needs both (80 for the certificate check, 443 for the site).
+2. **DNS.** At your domain's DNS provider, add an `A` record: name `aeroswarm`, value the server's IP address.
+   Wait until `ping aeroswarm.<your-domain>` answers from that IP.
+3. **Code and settings.**
+   ```bash
+   git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm
+   cp deploy/.env.example deploy/.env
+   nano deploy/.env   # DOMAIN, ANTHROPIC_API_KEY, AEROSWARM_LIVE_ACCESS_CODE, AEROSWARM_LIVE_DAILY_USD
+   ```
+4. **Start.**
+   ```bash
+   docker compose -f deploy/docker-compose.yml up -d --build
+   ```
+   The first build takes several minutes (it compiles XFoil). Caddy waits until the app reports healthy (about
+   20 s after it starts), then requests the certificate.
+5. **Check.** Open `https://aeroswarm.<your-domain>`: the replay plays and the Live run panel appears.
+   `https://aeroswarm.<your-domain>/api/health` should show `"xfoil": true` and `"access_code_required": true`.
+
+Updating later: `git pull && docker compose -f deploy/docker-compose.yml up -d --build`. Finished runs, the daily
+spend record and certificates live in Docker volumes and survive updates. Logs:
+`docker compose -f deploy/docker-compose.yml logs -f aeroswarm`.
+
+`deploy/.env` holds your API key: it is git-ignored, keep it that way.
+
 ## Build and run the container
 
 ```bash

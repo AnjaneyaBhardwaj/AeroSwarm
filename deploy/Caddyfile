@@ -1,0 +1,5 @@
+# HTTPS for the subdomain in deploy/.env (DOMAIN). Caddy passes the live-run stream (Server-Sent Events)
+# through unbuffered on its own; no compression here, so the stream is never held back.
+{$DOMAIN} {
+	reverse_proxy aeroswarm:8000
+}

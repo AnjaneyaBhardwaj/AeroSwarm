@@ -106,6 +106,14 @@ OpenFOAM work) until the viewer is done.
   page, refuses a wrong code, streams a mock run (8 generations) and adds it to the gallery, runs as non-root.
   **The XFoil build stage is untested**: this sandbox's network policy blocks deb.debian.org.
 
+### Subdomain deployment (same session)
+- The user chose layout A on a subdomain. `deploy/docker-compose.yml` (the app plus Caddy for automatic HTTPS;
+  Caddy waits for the app's health check, which takes about 20 s), `deploy/Caddyfile`, `deploy/.env.example`
+  (`deploy/.env` git-ignored); docs/DEPLOY.md "Subdomain on a server" (VPS, DNS A record, `.env`, one command).
+- Tested here with the XFoil-less test image and `DOMAIN=localhost` (Caddy's self-signed certificate): page over
+  HTTPS, HTTP redirects to HTTPS, a mock run streamed through Caddy (6 generations), the finished run still in the
+  gallery after an app restart. Not testable here: a real certificate (needs a public domain) and the XFoil stage.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
 - The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.

@@ -1,0 +1,38 @@
+# AeroSwarm on its own subdomain: the app (page + live runs) behind Caddy, which gets and renews the HTTPS
+# certificate for $DOMAIN automatically. See docs/DEPLOY.md, "Subdomain on a server".
+#
+#   cp deploy/.env.example deploy/.env      # then fill it in
+#   docker compose -f deploy/docker-compose.yml up -d --build
+
+services:
+  aeroswarm:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    env_file: .env
+    volumes:
+      - runs:/app/runs                    # finished runs and the daily spend record
+      - gallery:/app/viewer/runs/live     # finished live runs shown in the gallery
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8
+    depends_on:
+      aeroswarm:
+        condition: service_healthy        # the app takes ~20 s to load its libraries
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data                  # certificates
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  runs:
+  gallery:
+  caddy_data:
+  caddy_config:
