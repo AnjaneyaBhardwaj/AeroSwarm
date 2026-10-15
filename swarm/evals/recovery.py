@@ -55,6 +55,24 @@ def ladder_stats(ledger: Iterable[EvalRecord]) -> dict[str, dict]:
     return {"design": _finish(design), "probe": _finish(probe)}
 
 
+def of2d_stats(ledger: Iterable[EvalRecord]) -> dict:
+    """OpenFOAM solves (swarm.solvers.openfoam.recovery): by the ladder level that converged (0 = L0), and the
+    designs the ladder could not converge (evaluated at XFoil instead, `fallback_from="of2d"`)."""
+    by_level: dict[int, int] = {}
+    solves = unsimulatable = 0
+    for rec in ledger:
+        r = rec.result
+        if r.fidelity == "of2d":
+            solves += 1
+            lvl = r.solver_level or 0
+            by_level[lvl] = by_level.get(lvl, 0) + 1
+        elif r.fallback_from == "of2d":
+            solves += 1
+            unsimulatable += 1
+    recovered = sum(n for lvl, n in by_level.items() if lvl > 0)
+    return {"solves": solves, "by_level": by_level, "recovered": recovered, "unsimulatable": unsimulatable}
+
+
 def _pct(x: float | None) -> str:
     return "n/a" if x is None else f"{100 * x:.0f}%"
 
@@ -62,8 +80,9 @@ def _pct(x: float | None) -> str:
 def report_section(ledger: list[EvalRecord]) -> list[str]:
     """Markdown lines for the run report; empty when the run made no XFoil solve."""
     st = ladder_stats(ledger)
+    of = of2d_stats(ledger)
     if not st["design"]["solves"] and not st["probe"]["solves"]:
-        return []
+        return _of2d_lines(of)
     levels = range(MAX_LEVEL + 1)
     out = [
         "## XFoil recovery ladder",
@@ -87,4 +106,18 @@ def report_section(ledger: list[EvalRecord]) -> list[str]:
         "stall margin unknown. From ledger.jsonl.",
         "",
     ]
-    return out
+    return out + _of2d_lines(of)
+
+
+def _of2d_lines(of: dict) -> list[str]:
+    if not of["solves"]:
+        return []
+    levels = ", ".join(f"L{k}: {n}" for k, n in sorted(of["by_level"].items())) or "none"
+    return [
+        "## OpenFOAM recovery ladder",
+        "",
+        f"{of['solves']} OpenFOAM evaluation(s); converged at {levels}; recovered above L0: {of['recovered']}; "
+        f"could not be converged (evaluated at XFoil instead): {of['unsimulatable']}. The CFD agent chose the levels "
+        "(events `of2d_recovery`). From ledger.jsonl.",
+        "",
+    ]

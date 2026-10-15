@@ -220,10 +220,36 @@ def chief_brief(state: SwarmState, sens: dict) -> Brief:
         ]
     )
     inputs = ", and the results of any inner-optimizer runs" if inner_allowed else ""
-    return Brief(_system("chief", spec, mode_text=mode_text(inner_allowed), inner_inputs=inputs), user, facts)
+    fid_text, terminal_extra = fidelity_text(bool(state.get("of2d_allowed", False)))
+    return Brief(
+        _system(
+            "chief",
+            spec,
+            mode_text=mode_text(inner_allowed),
+            inner_inputs=inputs,
+            fidelity_text=fid_text,
+            terminal_extra=terminal_extra,
+        ),
+        user,
+        facts,
+    )
 
 
 INNER_RUNS_SHOWN = 3
+
+
+def fidelity_text(of2d_allowed: bool) -> tuple[str, str]:
+    """The Chief prompt's fidelity choices: of2d (OpenFOAM) only when the run allows it."""
+    if not of2d_allowed:
+        return "neuralfoil | xfoil.", ""
+    text = (
+        "neuralfoil | xfoil | of2d. of2d is 2D OpenFOAM RANS (k-omega SST, fully\n"
+        "   turbulent; minutes per evaluation, with its own recovery ladder); it may only\n"
+        "   re-evaluate (promote) a design that already has an xfoil result. Being fully\n"
+        "   turbulent, it can disagree with xfoil (e^N transition) at low Reynolds numbers;\n"
+        "   a design that will not converge at of2d falls back to xfoil (not terminal)."
+    )
+    return text, " or of2d"
 
 
 def mode_text(inner_allowed: bool) -> str:
@@ -485,3 +511,35 @@ def strategy_summary(s: StrategyMemo | None) -> str:
         return ""
     focus = ", ".join(f"{f.name}{'' if f.direction == 'free' else ' ' + f.direction}" for f in s.focus_params)
     return f"{s.fidelity}/{s.mode} focus=[{focus}] r={s.trust_radius}"
+
+
+def cfd_brief(spec: DesignSpec, failure: dict, tried: list[int]) -> Brief:
+    """The CFD agent's brief: one failed of2d solve (swarm.solvers.openfoam.recovery). `failure`: signature,
+    status, residual_tail (last initial residual per field), mesh (checkMesh numbers), cid, alpha."""
+    from swarm.solvers.openfoam.monitor import iteration_of
+    from swarm.solvers.openfoam.recovery import LEVELS, classify, default_level, next_level_allowed
+
+    sig, status = failure.get("signature"), failure.get("status", "diverged")
+    facts = {
+        "signature": sig,
+        "status": status,
+        "iteration": iteration_of(sig),
+        "failure_class": classify(sig, status),
+        "residual_tail": failure.get("residual_tail", {}),
+        "mesh": failure.get("mesh", {}),
+        "setup": failure.get("setup", {}),
+        "tried": sorted(tried),
+        "untried": [lvl for lvl in LEVELS if next_level_allowed(lvl, tried, status)],
+        "default_level": default_level(sig, status, tried),
+    }
+    rows = [{"level": f"L{k}", "action": v, "tried": k in tried} for k, v in LEVELS.items()]
+    user = "\n\n".join(
+        [
+            f"## Design\ncid {failure.get('cid')}, alpha {failure.get('alpha')} deg, Re {spec.reynolds:.3g}",
+            "## Failure record\n```json\n" + json.dumps({k: facts[k] for k in (
+                "signature", "status", "iteration", "failure_class", "residual_tail", "mesh", "setup")}, indent=1)
+            + "\n```",
+            "## Ladder\n" + markdown_table(rows, ("level", "action", "tried")),
+        ]
+    )  # fmt: skip
+    return Brief(_system("cfd", spec), user, facts)

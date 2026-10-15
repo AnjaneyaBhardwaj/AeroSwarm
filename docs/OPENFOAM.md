@@ -52,3 +52,19 @@ Hand-written (session 15, 2026-10-15); `scripts/of_validate.py report` keeps thi
    and radial (fold-proof) once a layer is star-shaped. Every FSAE-legal corner of the camber / position /
    thickness box meshes with max non-orthogonality < 60 deg; one FSAE-illegal extreme (m 0.09 at 0.2 c,
    t 0.08) fails checkMesh (90 deg): a re-mesh case for the recovery ladder.
+
+5. **Transition model (part 2, `model="kOmegaSSTLM"`): it narrows the Re 3e5 gap but does not close it, and is
+   not mesh-converged.** Witness design (XFoil Cl -1.824, Cd 0.0225, attached):
+
+   | model, cells around | Cl | Cd | TE separation from | p / U residual drop |
+   |---|---|---|---|---|
+   | SST, 240 | -1.439 | 0.0436 | 0.71 | 7.1 / 6.9 |
+   | SST, 480 | -1.443 | 0.0423 | 0.71 | 6.9 / 7.0 |
+   | SST-LM (Tu 0.1%), 240 | -1.591 | 0.0321 | 0.81 | 7.3 / 7.0 |
+   | SST-LM (Tu 0.5%, ratio 10), 240 | -1.595 | 0.0317 | 0.81 | 7.3 / 7.0 |
+   | SST-LM (Tu 0.1%), 480 | -1.526 | 0.0363 | 0.79 | 3.6 / 4.5 |
+
+   SST is mesh-converged (0.3% in Cl from 240 to 480 cells around); SST-LM moves 0.064 in Cl with the same
+   refinement and its residuals stall at 480. The (m 0.06, t 0.13, alpha 4) design: SST -0.987, SST-LM -1.046,
+   XFoil -1.158. **Decision: SST stays the default**; SST-LM is available as `evaluate(..., model="kOmegaSSTLM")`.
+   At Re 3e5 of2d is a cross-check with a known model-form gap, not a replacement for XFoil.

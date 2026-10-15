@@ -78,11 +78,14 @@ def run(
     start_seed: int | None = None,
     inner_optimizer: bool = True,
     vision: bool = False,
+    of2d: bool = False,
 ) -> dict:
     """`inner_optimizer`: whether the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop);
     False makes an LLM-only run (the mode is coerced to reasoned_step and the prompt says it is disabled).
     `vision`: whether the Critic is shown rendered Cp / boundary-layer / section images (swarm.critic.render).
-    Off by default: on the Critic failure zoo the images added nothing (docs/CRITIC_EVAL.md)."""
+    Off by default: on the Critic failure zoo the images added nothing (docs/CRITIC_EVAL.md).
+    `of2d`: whether the Chief may promote an XFoil-evaluated design to OpenFOAM (swarm.solvers.openfoam; minutes
+    per evaluation, its own recovery ladder chosen by the CFD agent). Off by default."""
     if llm is None:
         preflight_llm(which)  # MissingAPIKey before any run directory exists
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
@@ -102,6 +105,7 @@ def run(
             "start_seed": start_seed,  # set when the start was sampled by baselines.random_start
             "inner_optimizer": inner_optimizer,
             "vision": vision,
+            "of2d": of2d,
         }
     )
     files.write_meta(
@@ -142,6 +146,7 @@ def run(
                 "exploration": None,
                 "inner_allowed": inner_optimizer,
                 "vision_allowed": vision,
+                "of2d_allowed": of2d,
                 "retries": {},
                 "pending_violation": None,
                 "termination": None,
@@ -180,6 +185,11 @@ def main(argv: list[str] | None = None) -> None:
         help="also show the Critic rendered Cp / boundary-layer / section images (off: no measured benefit, "
         "docs/CRITIC_EVAL.md)",
     )
+    ap.add_argument(
+        "--of2d",
+        action="store_true",
+        help="the Chief may promote XFoil-evaluated designs to 2D OpenFOAM (k-omega SST; minutes per evaluation)",
+    )
     a = ap.parse_args(argv)
     if a.max_evals is not None and a.max_evals < 1:
         ap.error("--max-evals must be >= 1")
@@ -193,10 +203,12 @@ def main(argv: list[str] | None = None) -> None:
         upd["max_cost_usd"] = a.budget_usd
     if a.max_wall_hours is not None:
         upd["max_wall_hours"] = a.max_wall_hours
-    if a.resume and (upd or a.preset != "default" or a.start_seed is not None or a.no_inner_optimizer or a.vision):
+    if a.resume and (
+        upd or a.preset != "default" or a.start_seed is not None or a.no_inner_optimizer or a.vision or a.of2d
+    ):
         ap.error(
             "--resume continues the checkpointed run; --preset/--max-evals/--budget-usd/--no-inner-optimizer/"
-            "--vision are fixed at run start"
+            "--vision/--of2d are fixed at run start"
         )
     spec = spec.model_copy(update=upd)
     if a.start_seed is not None:
@@ -219,6 +231,7 @@ def main(argv: list[str] | None = None) -> None:
         start_seed=a.start_seed,
         inner_optimizer=not a.no_inner_optimizer,
         vision=a.vision,
+        of2d=a.of2d,
     )
     meta = json.loads((Path(final["run_dir"]) / "meta.json").read_text())
     health = meta.get("llm_health") or {}

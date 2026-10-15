@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +22,8 @@ class SolverOverrides(BaseModel, frozen=True):
     relax_U: float = Field(0.7, ge=0.2, le=0.9)
     relax_p: float = Field(0.3, ge=0.1, le=0.5)
     relax_turb: float = Field(0.7, ge=0.2, le=0.9)
-    first_order: bool = False  # bounded Gauss upwind for U (L2's first stage); k and omega are always upwind
+    first_order: bool = False  # bounded Gauss upwind for U for the whole run; k and omega are always upwind
+    first_order_iters: int = Field(0, ge=0, le=2000)  # L2: first-order U for this many iterations, then second order
     potential_init: bool = False  # potentialFoam initial field (L3)
     turbulence_intensity: float = Field(0.001, ge=1e-4, le=0.05)  # freestream Tu
     viscosity_ratio: float = Field(0.1, ge=1e-3, le=10.0)  # freestream nut / nu
@@ -48,7 +50,26 @@ def freestream(alpha_deg: float) -> tuple[float, float]:
     return math.cos(a), math.sin(a)
 
 
-def write_case(case_dir: str | Path, alpha_deg: float, reynolds: float, span: float, ov: SolverOverrides) -> None:
+TurbulenceModel = Literal["kOmegaSST", "kOmegaSSTLM"]
+
+
+def retheta_t_freestream(tu: float) -> float:
+    """Langtry-Menter correlation for the freestream transition-onset momentum-thickness Reynolds number
+    (Tu as a fraction; the correlation's Tu <= 1.3% branch, pressure-gradient term zero)."""
+    t = max(100.0 * tu, 0.027)  # percent; the correlation is bounded below by Tu = 0.027%
+    return 1173.51 - 589.428 * t + 0.2196 / t**2
+
+
+def write_case(
+    case_dir: str | Path,
+    alpha_deg: float,
+    reynolds: float,
+    span: float,
+    ov: SolverOverrides,
+    model: TurbulenceModel = "kOmegaSST",
+) -> None:
+    """`model`: kOmegaSST (fully turbulent) or kOmegaSSTLM (Langtry-Menter gamma-Re_theta transition). A physics
+    choice of the case, not something a recovery action may change."""
     d = Path(case_dir)
     for sub in ("system", "constant", "0"):
         (d / sub).mkdir(parents=True, exist_ok=True)
@@ -92,6 +113,8 @@ divSchemes
     div(phi,U) {div_u};
     div(phi,k) {div_t};
     div(phi,omega) {div_t};
+    div(phi,ReThetat) {div_t};
+    div(phi,gammaInt) {div_t};
     div((nuEff*dev2(T(grad(U))))) Gauss linear;
 }}
 laplacianSchemes {{ default Gauss linear corrected; }}
@@ -106,19 +129,19 @@ wallDist {{ method meshWave; }}
 {{
     p {{ solver PCG; preconditioner DIC; tolerance 1e-8; relTol 0.05; maxIter 2000; }}
     Phi {{ solver PCG; preconditioner DIC; tolerance 1e-8; relTol 0.01; maxIter 2000; }}
-    "(U|k|omega)" {{ solver smoothSolver; smoother symGaussSeidel; tolerance 1e-9; relTol 0.1; }}
+    "(U|k|omega|ReThetat|gammaInt)" {{ solver smoothSolver; smoother symGaussSeidel; tolerance 1e-9; relTol 0.1; }}
 }}
 SIMPLE
 {{
     nNonOrthogonalCorrectors 0;
     consistent no;
-    residualControl {{ p 1e-6; U 1e-7; "(k|omega)" 1e-7; }}
+    residualControl {{ p 1e-6; U 1e-7; "(k|omega|ReThetat|gammaInt)" 1e-7; }}
 }}
 potentialFlow {{ nNonOrthogonalCorrectors 3; }}
 relaxationFactors
 {{
     fields {{ p {ov.relax_p}; }}
-    equations {{ U {ov.relax_U}; "(k|omega)" {ov.relax_turb}; }}
+    equations {{ U {ov.relax_U}; "(k|omega|ReThetat|gammaInt)" {ov.relax_turb}; }}
 }}
 """
     )
@@ -127,7 +150,7 @@ relaxationFactors
     )
     (d / "constant" / "turbulenceProperties").write_text(
         _hdr("dictionary", "turbulenceProperties", "constant")
-        + "simulationType RAS;\nRAS { RASModel kOmegaSST; turbulence on; printCoeffs off; }\n"
+        + f"simulationType RAS;\nRAS {{ RASModel {model}; turbulence on; printCoeffs off; }}\n"
     )
     far_u = f"type freestreamVelocity; freestreamValue uniform ({ux:.10f} {uy:.10f} 0);"
     fields = {
@@ -142,6 +165,18 @@ relaxationFactors
         "nut": ("volScalarField", "[0 2 -1 0 0 0 0]", "0", "type nutLowReWallFunction; value uniform 0;",
                 "type calculated; value uniform 0;"),
     }  # fmt: skip
+    if model == "kOmegaSSTLM":
+        rt = retheta_t_freestream(ov.turbulence_intensity)
+        dimless = "[0 0 0 0 0 0 0]"
+        fields["ReThetat"] = (
+            "volScalarField",
+            dimless,
+            f"{rt:.6g}",
+            "type zeroGradient;",
+            f"type inletOutlet; inletValue uniform {rt:.6g}; value uniform {rt:.6g};",
+        )
+        fields["gammaInt"] = ("volScalarField", dimless, "1", "type zeroGradient;",
+                              "type inletOutlet; inletValue uniform 1; value uniform 1;")  # fmt: skip
     for name, (cls, dim, internal, wall, far) in fields.items():
         (d / "0" / name).write_text(
             _hdr(cls, name, "0") + f"dimensions {dim};\ninternalField uniform {internal};\nboundaryField\n{{\n"

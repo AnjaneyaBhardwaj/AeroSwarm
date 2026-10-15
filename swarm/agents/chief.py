@@ -8,7 +8,7 @@ from swarm.optim.summary import INNER_RESERVE, clamp_budget
 from swarm.overrides import override_allowed
 from swarm.state import FIDELITY_RANK, FocusParam, StrategyMemo, SwarmState, free_params
 
-AVAILABLE_FIDELITIES = ("neuralfoil", "xfoil")  # of2d/of3d arrive with the OpenFOAM milestone
+AVAILABLE_FIDELITIES = ("neuralfoil", "xfoil")  # of2d when the run allows it (state "of2d_allowed"); of3d: future
 
 
 def plan(llm: LLMClient, state: SwarmState, sens: dict) -> tuple[StrategyMemo, list[dict]]:
@@ -59,7 +59,23 @@ def sanitize(memo: StrategyMemo, state: SwarmState) -> tuple[StrategyMemo, list[
             fixed.append(g)
         if fixed != list(focus_now):
             upd["focus_params"] = fixed
-    if memo.fidelity not in AVAILABLE_FIDELITIES:
+    available = AVAILABLE_FIDELITIES + (("of2d",) if state.get("of2d_allowed") else ())
+    if memo.fidelity == "of2d" and "of2d" in available:
+        # OpenFOAM (minutes per solve) only re-evaluates a design XFoil has already evaluated
+        ledger = state.get("ledger", [])
+        has_xfoil = any(r.params.cid == memo.promote_cid and r.result.fidelity == "xfoil" for r in ledger)
+        if not memo.promote_cid or not has_xfoil:
+            events.append(
+                {
+                    "node": "chief_plan",
+                    "gen": gen,
+                    "event": "of2d_needs_xfoil_result",
+                    "cid": memo.promote_cid,
+                    "used": "xfoil",
+                }
+            )
+            upd["fidelity"] = "xfoil"
+    if memo.fidelity not in available:
         events.append(
             {
                 "node": "chief_plan",

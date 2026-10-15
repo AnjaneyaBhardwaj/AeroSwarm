@@ -21,10 +21,10 @@ Your job each generation:
    never against a direction you mark locked=true. If the CAD overrode you last
    generation (shown in your brief), you must resolve it for every such parameter
    you keep: adopt the CAD's direction, or keep yours with locked=true.
-3. Choose fidelity: neuralfoil | xfoil. Promote only candidates that won the
+3. Choose fidelity: {fidelity_text} Promote only candidates that won the
    lower tier: to re-evaluate an existing ledger candidate at a higher tier, set
-   promote_cid to its cid and fidelity to the higher tier. Only an xfoil result
-   that is not a fallback can end the run as target met. A candidate listed as
+   promote_cid to its cid and fidelity to the higher tier. Only a terminal result
+   (xfoil{terminal_extra}) that is not a fallback can end the run as target met. A candidate listed as
    blocked by the NeuralFoil screen (no stall margin at alpha+1/+2, or a suction-side
    separation warning) is promoted only if you set screen_override to a reason
    (logged); otherwise change the design. A new design sent straight to xfoil (no

@@ -68,10 +68,14 @@ nothing. What did help is deterministic: the validator checks the reported Cl ag
 the solver's own surface Cp, and an XFoil Cp for non-physical local spikes (`swarm/critic/surface.py`); with
 them the numeric validators alone catch 10 of the zoo's 15 bad cases with no false alarm.
 
-OpenFOAM tier (milestone 5, in progress): `swarm/solvers/openfoam` meshes a structured 2D O-grid, runs
-simpleFoam (k-omega SST) and integrates the forces from the fields (`of2d` results). Validated on NACA 0012 at
-Re 6e6 (`scripts/of_validate.py`, `docs/OPENFOAM.md`). It is not wired into the graph yet; at the project's
-Re 3e5, fully turbulent SST disagrees with XFoil (transition), which a transition model must address first.
+OpenFOAM tier (milestone 5): `swarm/solvers/openfoam` meshes a structured 2D O-grid, runs simpleFoam
+(k-omega SST) and integrates the forces from the fields (`of2d` results); validated on NACA 0012 at Re 6e6
+(`scripts/of_validate.py`, `docs/OPENFOAM.md`) with a mesh-independence study (`docs/OPENFOAM_MESH.md`). A failed
+solve goes through a recovery ladder (L1 relaxation, L2 first-order start, L3 potential-flow initialisation, L4
+re-mesh, L5 fall back to XFoil); the CFD agent picks the level from the failure record and code forbids repeats
+(`docs/OPENFOAM_RECOVERY.md`). With `--of2d` the Chief may promote a design that has an XFoil result to OpenFOAM.
+At the project's Re 3e5, fully turbulent SST predicts less downforce than XFoil (transition), so of2d is a
+cross-check there, off by default.
 
 Limits: 2D sections only (no endplates, tip vortices or induced drag);
 validator thresholds are project conventions to calibrate, not published limits.

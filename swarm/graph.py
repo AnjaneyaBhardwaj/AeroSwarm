@@ -443,10 +443,48 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         return "cfd_solve"
 
     # ------------------------------------------------------------ cfd
+    def of2d_solve(s: SwarmState) -> tuple[CFDResult, list[dict]]:
+        """OpenFOAM with its recovery ladder; the CFD agent picks levels (deterministic policy if its call fails).
+        A design the ladder cannot converge (L5 or exhausted) is evaluated at XFoil instead: a lower-fidelity
+        fallback that cannot end the run."""
+        from swarm.agents import cfd as cfd_agent
+        from swarm.solvers.openfoam.solver import evaluate_with_recovery
+
+        p, spec, gen = s["params"], s["spec"], s.get("generation", 0)
+        events: list[dict] = []
+
+        def choose(failure: dict, tried: list[int]):
+            if aborted(s) or capped(s):
+                return cfd_agent.fallback(failure, tried)
+            try:
+                action, note = cfd_agent.choose(llm, spec, failure, tried)
+            except Exception as e:
+                fallback("cfd", "deterministic_recovery", e)
+                return cfd_agent.fallback(failure, tried)
+            if note:
+                events.append({"node": "cfd_solve", "gen": gen, "event": "recovery_level_coerced", "note": note})
+            return action
+
+        r, attempts = evaluate_with_recovery(p, spec, run_dir, choose)
+        for a in attempts[1:]:
+            events.append({"node": "cfd_solve", "gen": gen, "event": "of2d_recovery", "cid": p.cid, **a})
+        if r.status not in ("converged", "unsteady"):  # unsteady: the validator's UNSTEADY, routed to the CAD agent
+            events.append({"node": "cfd_solve", "gen": gen, "event": "of2d_unsimulatable", "cid": p.cid})
+            r = None
+            for lvl in range(xfoil.MAX_LEVEL + 1):
+                r = xfoil.evaluate(p, spec, s["geometry"].coords_path, run_dir, lvl)
+                if r.status == "converged":
+                    break
+            r = r.model_copy(update={"fallback_from": "of2d"})
+        return r, events
+
     @node_boundary("cfd_solve", files, on_error={"result": None})
     def cfd_solve(s: SwarmState) -> dict:
         p, spec, solver = s["params"], s["spec"], s["solver"]
-        if solver["fidelity"] == "xfoil":
+        extra: list[dict] = []
+        if solver["fidelity"] == "of2d":
+            r, extra = of2d_solve(s)
+        elif solver["fidelity"] == "xfoil":
             r = xfoil.evaluate(p, spec, s["geometry"].coords_path, run_dir, solver["level"])
         else:
             r = neuralfoil.evaluate(p, spec, fallback_from=solver.get("fallback_from"))
@@ -466,8 +504,27 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
                     "cd": r.cd,
                     "wall_s": round(r.wall_s, 4),
                 }
-            ],
+            ]
+            + extra,
         }
+
+    def probe_solver(res: CFDResult, p: WingParams, spec: DesignSpec, coords: str):
+        """Stall-margin probe at the result's own fidelity: XFoil with its ladder levels, OpenFOAM at L0 only
+        (minutes per solve; a failed probe leaves the margin unknown, so the design cannot end the run)."""
+        if res.fidelity == "of2d":
+            from swarm.solvers.openfoam.solver import evaluate as of2d_evaluate
+
+            def solve(alpha: float, lvl: int) -> CFDResult:
+                if lvl:
+                    return CFDResult(
+                        cid=p.cid, fidelity="of2d", status="not_converged", failure_signature="probe_L0_only"
+                    )
+                q = p.model_copy(update={"alpha_deg": alpha})
+                r = of2d_evaluate(q, spec, run_dir, tag=f"probe_a{alpha:+.2f}")
+                return r.model_copy(update={"cid": p.cid, "solver_level": 0})
+
+            return solve
+        return lambda a, lvl: xfoil.evaluate(p, spec, coords, run_dir, lvl, alpha_deg=a)
 
     @node_boundary("numeric_validate", files)
     def numeric_validate(s: SwarmState) -> dict:
@@ -484,9 +541,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         if stall_check_required(res, rep):
             # Only a candidate that clears every other check pays for the two extra solves.
             coords = s["geometry"].coords_path
-            stall = measure_stall_margin(
-                res, p.alpha_deg, lambda a, lvl: xfoil.evaluate(p, spec, coords, run_dir, lvl, alpha_deg=a)
-            )
+            stall = measure_stall_margin(res, p.alpha_deg, probe_solver(res, p, spec, coords))
             rep = validate(res, p, spec, ledger, stall=stall, surface=surface)
             events.append(
                 {"node": "numeric_validate", "gen": gen, "event": "stall_margin", "cid": p.cid} | stall.model_dump()
@@ -511,6 +566,8 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         rep: NumericReport | None = s.get("numeric")
         r = s.get("result")
         if rep is None or rep.failure_class != "NUMERICAL_FAILURE":
+            return False
+        if r is not None and r.fidelity == "of2d":  # its ladder already ran inside cfd_solve
             return False
         return r is None or r.fallback_from is None
 
