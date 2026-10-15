@@ -53,5 +53,12 @@ evaluation is a ledger record counted in `max_evals`; it never promotes, the Chi
 `--no-inner-optimizer` makes an LLM-only run. Benchmark: `scripts/benchmark.py` (arms hybrid, llm,
 mock, mock_hybrid, random, optuna; `docs/BENCHMARK4.md`).
 
+Evaluations of the system (milestone 2, `swarm/evals/`): every run report has an "XFoil recovery
+ladder" section (design-point and stall-probe solves by the level that produced them, recoveries,
+exhausted ladders) and a "CAD sign predictions" section (the CAD agent's predicted ΔCl/ΔCd signs
+against the measured change from the parent), both from the ledger. The XFoil failure zoo
+(`scripts/failure_zoo.py`, cached in `evals/xfoil_zoo.json`, `docs/FAILURE_ZOO.md`) solves stress cases
+at every ladder level and reports recovery rates and level-to-level disagreement.
+
 Limits: 2D sections only (no endplates, tip vortices or induced drag);
 validator thresholds are project conventions to calibrate, not published limits.

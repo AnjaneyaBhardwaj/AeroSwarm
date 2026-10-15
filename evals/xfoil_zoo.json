@@ -1,0 +1,4612 @@
+{
+ "meta": {
+  "date": "2026-10-15",
+  "reynolds": 300000.0,
+  "ncrit": 9.0,
+  "wall_s": 163.7
+ },
+ "results": [
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.08_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.8413724896181494,
+    "cd": 0.05852688972374518,
+    "confidence": 0.22992036298871024
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.285
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.737
+    },
+    {
+     "level": 2,
+     "status": "timeout",
+     "signature": "timeout@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 30.033
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 1.694
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.08_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.7129906342850678,
+    "cd": 0.12092717819709584,
+    "confidence": 0.10130412030992372
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.238
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.728
+    },
+    {
+     "level": 2,
+     "status": "timeout",
+     "signature": "timeout@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 30.037
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 8.623
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.08_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.7383728904470904,
+    "cd": 0.15617705700227733,
+    "confidence": 0.10006829606021858
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.233
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.733
+    },
+    {
+     "level": 2,
+     "status": "timeout",
+     "signature": "timeout@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 30.034
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 16.749
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.08_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.761677069076714,
+    "cd": 0.17271476867822366,
+    "confidence": 0.09886301720740467
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.259
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.739
+    },
+    {
+     "level": 2,
+     "status": "timeout",
+     "signature": "timeout@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 30.031
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 21.2
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.1_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.9535390120784213,
+    "cd": 0.024717368131089473,
+    "confidence": 0.9715147945049213
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.9519,
+     "cd": 0.02586,
+     "te_sep_xc": null,
+     "wall_s": 0.029
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.9519,
+     "cd": 0.02586,
+     "te_sep_xc": null,
+     "wall_s": 0.032
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.9519,
+     "cd": 0.02586,
+     "te_sep_xc": null,
+     "wall_s": 0.998
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.9543,
+     "cd": 0.02516,
+     "te_sep_xc": null,
+     "wall_s": 0.818
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.1_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.0759279718853785,
+    "cd": 0.040437583242198344,
+    "confidence": 0.8062229086771303
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0381,
+     "cd": 0.04606,
+     "te_sep_xc": null,
+     "wall_s": 0.044
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0381,
+     "cd": 0.04606,
+     "te_sep_xc": null,
+     "wall_s": 0.042
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0381,
+     "cd": 0.04606,
+     "te_sep_xc": null,
+     "wall_s": 1.008
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0592,
+     "cd": 0.04347,
+     "te_sep_xc": null,
+     "wall_s": 0.92
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.1_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.7338772790695098,
+    "cd": 0.1335354040661429,
+    "confidence": 0.20367177935175285
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.301
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.951
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 1.874
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.8833,
+     "cd": 0.09506,
+     "te_sep_xc": 0.36656,
+     "wall_s": 1.034
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0_p0.4_t0.1_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.7215212057448526,
+    "cd": 0.16370858621276554,
+    "confidence": 0.1463287044014805
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5939,
+     "cd": 0.15322,
+     "te_sep_xc": 0.00291,
+     "wall_s": 0.25
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5939,
+     "cd": 0.15322,
+     "te_sep_xc": 0.00291,
+     "wall_s": 0.24
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5939,
+     "cd": 0.15322,
+     "te_sep_xc": 0.00291,
+     "wall_s": 2.494
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 3.951
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.08_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.1371761713528972,
+    "cd": 0.03340819533667828,
+    "confidence": 0.8202112528202641
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.246
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.621
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.878
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.1372,
+     "cd": 0.03352,
+     "te_sep_xc": null,
+     "wall_s": 1.146
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.08_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.0605838429063987,
+    "cd": 0.07313134996193739,
+    "confidence": 0.10760131619254885
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.231
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.693
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 2.715
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 4.215
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.08_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.8801559962223576,
+    "cd": 0.14753884785665894,
+    "confidence": 0.03433648879553067
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.257
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.829
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 5.626
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 11.001
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.08_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -0.8874472751893878,
+    "cd": 0.16964031649865138,
+    "confidence": 0.03249848678354531
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.7175,
+     "cd": 0.15927,
+     "te_sep_xc": 0.00187,
+     "wall_s": 0.209
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.7175,
+     "cd": 0.15927,
+     "te_sep_xc": 0.00187,
+     "wall_s": 0.232
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 7.146
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 14.794
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.1_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.1504061961585699,
+    "cd": 0.02296714695025361,
+    "confidence": 0.9903655957118795
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.145,
+     "cd": 0.02359,
+     "te_sep_xc": null,
+     "wall_s": 0.035
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.145,
+     "cd": 0.02359,
+     "te_sep_xc": null,
+     "wall_s": 0.033
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.145,
+     "cd": 0.02359,
+     "te_sep_xc": null,
+     "wall_s": 0.371
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.1439,
+     "cd": 0.02369,
+     "te_sep_xc": null,
+     "wall_s": 2.086
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.1_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.2815962519678896,
+    "cd": 0.03300955830667902,
+    "confidence": 0.9758072003465114
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2749,
+     "cd": 0.03491,
+     "te_sep_xc": null,
+     "wall_s": 0.037
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2749,
+     "cd": 0.03491,
+     "te_sep_xc": null,
+     "wall_s": 0.033
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2749,
+     "cd": 0.03491,
+     "te_sep_xc": null,
+     "wall_s": 0.545
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2813,
+     "cd": 0.03393,
+     "te_sep_xc": null,
+     "wall_s": 2.241
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.1_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.3224788121297306,
+    "cd": 0.05039124057200893,
+    "confidence": 0.8946448790450094
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2918,
+     "cd": 0.05377,
+     "te_sep_xc": 0.93932,
+     "wall_s": 0.063
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2918,
+     "cd": 0.05377,
+     "te_sep_xc": 0.93932,
+     "wall_s": 0.052
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2918,
+     "cd": 0.05377,
+     "te_sep_xc": 0.93932,
+     "wall_s": 0.59
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2962,
+     "cd": 0.05208,
+     "te_sep_xc": 0.92378,
+     "wall_s": 2.37
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.02_p0.4_t0.1_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.02,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.255924286707947,
+    "cd": 0.06780279793786308,
+    "confidence": 0.7656995901528978
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.248
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.122,
+     "cd": 0.06914,
+     "te_sep_xc": 0.66379,
+     "wall_s": 0.318
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2212,
+     "cd": 0.07187,
+     "te_sep_xc": 0.72525,
+     "wall_s": 0.484
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2327,
+     "cd": 0.07004,
+     "te_sep_xc": 0.72023,
+     "wall_s": 2.399
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.08_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.3080839137100977,
+    "cd": 0.028555228371957272,
+    "confidence": 0.9759469709824957
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3024,
+     "cd": 0.02972,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3024,
+     "cd": 0.02972,
+     "te_sep_xc": null,
+     "wall_s": 0.041
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3024,
+     "cd": 0.02972,
+     "te_sep_xc": null,
+     "wall_s": 0.24
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3034,
+     "cd": 0.02945,
+     "te_sep_xc": null,
+     "wall_s": 0.681
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.08_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.421297070292444,
+    "cd": 0.04626643689104678,
+    "confidence": 0.7206757035491254
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4005,
+     "cd": 0.05149,
+     "te_sep_xc": null,
+     "wall_s": 0.073
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4005,
+     "cd": 0.05149,
+     "te_sep_xc": null,
+     "wall_s": 0.076
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4005,
+     "cd": 0.05149,
+     "te_sep_xc": null,
+     "wall_s": 0.432
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4167,
+     "cd": 0.04769,
+     "te_sep_xc": null,
+     "wall_s": 0.785
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.08_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.255997021436326,
+    "cd": 0.08424752870728076,
+    "confidence": 0.11646525873051469
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.276
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.834
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 2.039
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 2.965
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.08_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.1242011229258109,
+    "cd": 0.12233037583763148,
+    "confidence": 0.06804889688347664
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0092,
+     "cd": 0.11448,
+     "te_sep_xc": 0.4373,
+     "wall_s": 0.142
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0092,
+     "cd": 0.11448,
+     "te_sep_xc": 0.4373,
+     "wall_s": 0.166
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 3.477
+    },
+    {
+     "level": 3,
+     "status": "not_converged",
+     "signature": "not_converged@L3",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 7.464
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.1_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.3256982789339746,
+    "cd": 0.02332177312128751,
+    "confidence": 0.9911378408995508
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.324,
+     "cd": 0.0231,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.324,
+     "cd": 0.0231,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.324,
+     "cd": 0.0231,
+     "te_sep_xc": null,
+     "wall_s": 0.25
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3248,
+     "cd": 0.02308,
+     "te_sep_xc": null,
+     "wall_s": 0.632
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.1_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.3906688173702246,
+    "cd": 0.03385326830806598,
+    "confidence": 0.9906303741571224
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3725,
+     "cd": 0.0347,
+     "te_sep_xc": 0.91035,
+     "wall_s": 0.049
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3725,
+     "cd": 0.0347,
+     "te_sep_xc": 0.91035,
+     "wall_s": 0.044
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3725,
+     "cd": 0.0347,
+     "te_sep_xc": 0.91035,
+     "wall_s": 0.352
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3771,
+     "cd": 0.03421,
+     "te_sep_xc": 0.90494,
+     "wall_s": 1.063
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.1_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.4524129874702205,
+    "cd": 0.04826561731298434,
+    "confidence": 0.9766049398026017
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4317,
+     "cd": 0.04948,
+     "te_sep_xc": 0.8194,
+     "wall_s": 0.045
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4317,
+     "cd": 0.04948,
+     "te_sep_xc": 0.8194,
+     "wall_s": 0.049
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4317,
+     "cd": 0.04948,
+     "te_sep_xc": 0.8194,
+     "wall_s": 0.421
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4411,
+     "cd": 0.04822,
+     "te_sep_xc": 0.81418,
+     "wall_s": 1.262
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.04_p0.4_t0.1_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.4745298957345847,
+    "cd": 0.05745940442023007,
+    "confidence": 0.9554004979567293
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4453,
+     "cd": 0.05944,
+     "te_sep_xc": 0.75844,
+     "wall_s": 0.039
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4453,
+     "cd": 0.05944,
+     "te_sep_xc": 0.75844,
+     "wall_s": 0.045
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4453,
+     "cd": 0.05944,
+     "te_sep_xc": 0.75844,
+     "wall_s": 0.418
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.458,
+     "cd": 0.05797,
+     "te_sep_xc": 0.77366,
+     "wall_s": 1.14
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.08_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.4344150807899765,
+    "cd": 0.029380559494370274,
+    "confidence": 0.9812182818405779
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4392,
+     "cd": 0.02839,
+     "te_sep_xc": 0.96893,
+     "wall_s": 0.053
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4392,
+     "cd": 0.02839,
+     "te_sep_xc": 0.96893,
+     "wall_s": 0.068
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4392,
+     "cd": 0.02839,
+     "te_sep_xc": 0.96893,
+     "wall_s": 0.702
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4324,
+     "cd": 0.02894,
+     "te_sep_xc": 0.95459,
+     "wall_s": 0.971
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.08_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.4792872169605158,
+    "cd": 0.04538192162614647,
+    "confidence": 0.9448623481617718
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4657,
+     "cd": 0.04424,
+     "te_sep_xc": 0.84148,
+     "wall_s": 0.067
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4657,
+     "cd": 0.04424,
+     "te_sep_xc": 0.84148,
+     "wall_s": 0.059
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4657,
+     "cd": 0.04424,
+     "te_sep_xc": 0.84148,
+     "wall_s": 0.776
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4703,
+     "cd": 0.04372,
+     "te_sep_xc": 0.8413,
+     "wall_s": 1.111
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.08_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.5264886974393486,
+    "cd": 0.06778704693741888,
+    "confidence": 0.5280574825894041
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5224,
+     "cd": 0.06433,
+     "te_sep_xc": 0.82718,
+     "wall_s": 0.068
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5224,
+     "cd": 0.06433,
+     "te_sep_xc": 0.82718,
+     "wall_s": 0.071
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5224,
+     "cd": 0.06433,
+     "te_sep_xc": 0.82718,
+     "wall_s": 0.735
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5635,
+     "cd": 0.0626,
+     "te_sep_xc": 0.86977,
+     "wall_s": 0.992
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.08_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.08,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.4860301450864881,
+    "cd": 0.08302144284777124,
+    "confidence": 0.19213496787131878
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3366,
+     "cd": 0.08275,
+     "te_sep_xc": 0.6688,
+     "wall_s": 0.157
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.3366,
+     "cd": 0.08275,
+     "te_sep_xc": 0.6688,
+     "wall_s": 0.17
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4757,
+     "cd": 0.08341,
+     "te_sep_xc": 0.74101,
+     "wall_s": 0.998
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5196,
+     "cd": 0.07828,
+     "te_sep_xc": 0.77458,
+     "wall_s": 1.29
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.1_a9",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 9.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.5535893239844278,
+    "cd": 0.019841461284895424,
+    "confidence": 0.984002166293734
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5458,
+     "cd": 0.02012,
+     "te_sep_xc": null,
+     "wall_s": 0.069
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5458,
+     "cd": 0.02012,
+     "te_sep_xc": null,
+     "wall_s": 0.071
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5458,
+     "cd": 0.02012,
+     "te_sep_xc": null,
+     "wall_s": 0.327
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5469,
+     "cd": 0.0201,
+     "te_sep_xc": null,
+     "wall_s": 0.885
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.1_a11",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.5253315740917732,
+    "cd": 0.03688357189321879,
+    "confidence": 0.9908074509674811
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5178,
+     "cd": 0.03724,
+     "te_sep_xc": 0.83639,
+     "wall_s": 0.045
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5178,
+     "cd": 0.03724,
+     "te_sep_xc": 0.83639,
+     "wall_s": 0.057
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5178,
+     "cd": 0.03724,
+     "te_sep_xc": 0.83639,
+     "wall_s": 0.497
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5228,
+     "cd": 0.03691,
+     "te_sep_xc": 0.8362,
+     "wall_s": 1.043
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.1_a13",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.5236281965439413,
+    "cd": 0.057493917448221264,
+    "confidence": 0.9907842342114918
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5144,
+     "cd": 0.05849,
+     "te_sep_xc": 0.68438,
+     "wall_s": 0.049
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5144,
+     "cd": 0.05849,
+     "te_sep_xc": 0.68438,
+     "wall_s": 0.069
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5144,
+     "cd": 0.05849,
+     "te_sep_xc": 0.68438,
+     "wall_s": 0.519
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5111,
+     "cd": 0.05894,
+     "te_sep_xc": 0.6846,
+     "wall_s": 1.056
+    }
+   ]
+  },
+  {
+   "name": "thin_high_alpha/m0.06_p0.4_t0.1_a14",
+   "category": "thin_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": false,
+   "neuralfoil": {
+    "cl": -1.5293510762685063,
+    "cd": 0.06914231967761665,
+    "confidence": 0.9875985857083931
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5124,
+     "cd": 0.07016,
+     "te_sep_xc": 0.63847,
+     "wall_s": 0.068
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5124,
+     "cd": 0.07016,
+     "te_sep_xc": 0.63847,
+     "wall_s": 0.067
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5124,
+     "cd": 0.07016,
+     "te_sep_xc": 0.63847,
+     "wall_s": 0.56
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5156,
+     "cd": 0.06984,
+     "te_sep_xc": 0.63371,
+     "wall_s": 1.146
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.06_p0.4_t0.123_a12",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.123,
+    "alpha_deg": 12.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.622004602674187,
+    "cd": 0.03625205706385133,
+    "confidence": 0.9898533855274425
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6159,
+     "cd": 0.03647,
+     "te_sep_xc": 0.81295,
+     "wall_s": 0.052
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6159,
+     "cd": 0.03647,
+     "te_sep_xc": 0.81295,
+     "wall_s": 0.052
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6159,
+     "cd": 0.03647,
+     "te_sep_xc": 0.81295,
+     "wall_s": 1.415
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6172,
+     "cd": 0.03648,
+     "te_sep_xc": 0.80738,
+     "wall_s": 1.359
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.06_p0.4_t0.123_a13",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.123,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.600565152314927,
+    "cd": 0.04827503654652474,
+    "confidence": 0.9910998748046056
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.245
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.702
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5881,
+     "cd": 0.04899,
+     "te_sep_xc": 0.71497,
+     "wall_s": 1.324
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.591,
+     "cd": 0.04885,
+     "te_sep_xc": 0.72052,
+     "wall_s": 1.33
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.06_p0.4_t0.123_a14",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.123,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.5843333338867391,
+    "cd": 0.061592243587013464,
+    "confidence": 0.991667602499125
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5675,
+     "cd": 0.06278,
+     "te_sep_xc": 0.63279,
+     "wall_s": 0.098
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5675,
+     "cd": 0.06278,
+     "te_sep_xc": 0.63279,
+     "wall_s": 0.096
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5675,
+     "cd": 0.06278,
+     "te_sep_xc": 0.63279,
+     "wall_s": 1.598
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5689,
+     "cd": 0.06282,
+     "te_sep_xc": 0.6331,
+     "wall_s": 0.965
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.06_p0.4_t0.13_a12",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 12.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6591401776438892,
+    "cd": 0.03299763938016748,
+    "confidence": 0.9892480999823462
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6554,
+     "cd": 0.03296,
+     "te_sep_xc": 0.8271,
+     "wall_s": 0.066
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6554,
+     "cd": 0.03296,
+     "te_sep_xc": 0.8271,
+     "wall_s": 0.072
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6554,
+     "cd": 0.03296,
+     "te_sep_xc": 0.8271,
+     "wall_s": 1.303
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6563,
+     "cd": 0.03299,
+     "te_sep_xc": 0.83787,
+     "wall_s": 1.461
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.06_p0.4_t0.13_a13",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6280703186705021,
+    "cd": 0.04505529654727262,
+    "confidence": 0.9904546289540299
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6235,
+     "cd": 0.04501,
+     "te_sep_xc": 0.74404,
+     "wall_s": 0.059
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6235,
+     "cd": 0.04501,
+     "te_sep_xc": 0.74404,
+     "wall_s": 0.066
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6235,
+     "cd": 0.04501,
+     "te_sep_xc": 0.74404,
+     "wall_s": 1.189
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6251,
+     "cd": 0.045,
+     "te_sep_xc": 0.7385,
+     "wall_s": 1.503
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.06_p0.4_t0.13_a14",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6048483516382857,
+    "cd": 0.05879327187319647,
+    "confidence": 0.9910177451448178
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5931,
+     "cd": 0.05926,
+     "te_sep_xc": 0.66037,
+     "wall_s": 0.051
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5931,
+     "cd": 0.05926,
+     "te_sep_xc": 0.66037,
+     "wall_s": 0.052
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5931,
+     "cd": 0.05926,
+     "te_sep_xc": 0.66037,
+     "wall_s": 1.198
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5951,
+     "cd": 0.05923,
+     "te_sep_xc": 0.64945,
+     "wall_s": 1.631
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.09_p0.4_t0.123_a12",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.123,
+    "alpha_deg": 12.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -2.009648691830823,
+    "cd": 0.03136450507516384,
+    "confidence": 0.9745937421332773
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9849,
+     "cd": 0.03144,
+     "te_sep_xc": 0.87978,
+     "wall_s": 0.099
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9849,
+     "cd": 0.03144,
+     "te_sep_xc": 0.87978,
+     "wall_s": 0.103
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9849,
+     "cd": 0.03144,
+     "te_sep_xc": 0.87978,
+     "wall_s": 0.383
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9872,
+     "cd": 0.0314,
+     "te_sep_xc": 0.87415,
+     "wall_s": 0.843
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.09_p0.4_t0.123_a13",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.123,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -2.0136548266208556,
+    "cd": 0.03846798288011219,
+    "confidence": 0.9762949715407915
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9841,
+     "cd": 0.03875,
+     "te_sep_xc": 0.81551,
+     "wall_s": 0.166
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9841,
+     "cd": 0.03875,
+     "te_sep_xc": 0.81551,
+     "wall_s": 0.221
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9841,
+     "cd": 0.03875,
+     "te_sep_xc": 0.81551,
+     "wall_s": 0.392
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9858,
+     "cd": 0.03879,
+     "te_sep_xc": 0.80996,
+     "wall_s": 0.872
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.09_p0.4_t0.123_a14",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.123,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.9665619551475337,
+    "cd": 0.05095629333828206,
+    "confidence": 0.9768388060945842
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9419,
+     "cd": 0.05175,
+     "te_sep_xc": 0.73406,
+     "wall_s": 0.08
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9419,
+     "cd": 0.05175,
+     "te_sep_xc": 0.73406,
+     "wall_s": 0.07
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9419,
+     "cd": 0.05175,
+     "te_sep_xc": 0.73406,
+     "wall_s": 0.387
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9446,
+     "cd": 0.05174,
+     "te_sep_xc": 0.7232,
+     "wall_s": 0.934
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.09_p0.4_t0.13_a12",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 12.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -2.0114369473017053,
+    "cd": 0.031265437658540104,
+    "confidence": 0.9743367866736212
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9923,
+     "cd": 0.03131,
+     "te_sep_xc": 0.87873,
+     "wall_s": 0.09
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9923,
+     "cd": 0.03131,
+     "te_sep_xc": 0.87873,
+     "wall_s": 0.081
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9923,
+     "cd": 0.03131,
+     "te_sep_xc": 0.87873,
+     "wall_s": 0.453
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9947,
+     "cd": 0.03127,
+     "te_sep_xc": 0.87301,
+     "wall_s": 0.796
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.09_p0.4_t0.13_a13",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 13.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -2.0247916236627974,
+    "cd": 0.037683826163749094,
+    "confidence": 0.9763700752472548
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9991,
+     "cd": 0.03771,
+     "te_sep_xc": 0.8134,
+     "wall_s": 0.059
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9991,
+     "cd": 0.03771,
+     "te_sep_xc": 0.8134,
+     "wall_s": 0.058
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9991,
+     "cd": 0.03771,
+     "te_sep_xc": 0.8134,
+     "wall_s": 0.312
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -2.0011,
+     "cd": 0.03771,
+     "te_sep_xc": 0.8187,
+     "wall_s": 0.856
+    }
+   ]
+  },
+  {
+   "name": "fsae_high_alpha/m0.09_p0.4_t0.13_a14",
+   "category": "fsae_high_alpha",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -2.0107694598126096,
+    "cd": 0.047328664460201245,
+    "confidence": 0.977648098322339
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.241
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9837,
+     "cd": 0.04765,
+     "te_sep_xc": 0.74716,
+     "wall_s": 0.232
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9837,
+     "cd": 0.04765,
+     "te_sep_xc": 0.74716,
+     "wall_s": 0.498
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9854,
+     "cd": 0.04772,
+     "te_sep_xc": 0.75271,
+     "wall_s": 0.893
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.07_p0.55_t0.13_a8",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.07,
+    "main_camber_pos": 0.55,
+    "main_thickness": 0.13,
+    "alpha_deg": 8.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6178429478546446,
+    "cd": 0.019372196375541825,
+    "confidence": 0.9869211379873524
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6084,
+     "cd": 0.01936,
+     "te_sep_xc": 0.94316,
+     "wall_s": 0.066
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6084,
+     "cd": 0.01936,
+     "te_sep_xc": 0.94316,
+     "wall_s": 0.09
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6084,
+     "cd": 0.01936,
+     "te_sep_xc": 0.94316,
+     "wall_s": 0.35
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6102,
+     "cd": 0.01936,
+     "te_sep_xc": 0.9475,
+     "wall_s": 0.759
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.07_p0.55_t0.13_a11",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.07,
+    "main_camber_pos": 0.55,
+    "main_thickness": 0.13,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6205802785309518,
+    "cd": 0.04143842788111454,
+    "confidence": 0.9910712081061716
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6238,
+     "cd": 0.03927,
+     "te_sep_xc": 0.81956,
+     "wall_s": 0.057
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6238,
+     "cd": 0.03927,
+     "te_sep_xc": 0.81956,
+     "wall_s": 0.058
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6238,
+     "cd": 0.03927,
+     "te_sep_xc": 0.81956,
+     "wall_s": 0.366
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6258,
+     "cd": 0.03931,
+     "te_sep_xc": 0.81412,
+     "wall_s": 1.075
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.07_p0.55_t0.13_a14",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.07,
+    "main_camber_pos": 0.55,
+    "main_thickness": 0.13,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6448479151643458,
+    "cd": 0.06946251634840644,
+    "confidence": 0.9939472924208017
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6335,
+     "cd": 0.06857,
+     "te_sep_xc": 0.69107,
+     "wall_s": 0.069
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6335,
+     "cd": 0.06857,
+     "te_sep_xc": 0.69107,
+     "wall_s": 0.059
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6335,
+     "cd": 0.06857,
+     "te_sep_xc": 0.69107,
+     "wall_s": 0.565
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6325,
+     "cd": 0.06902,
+     "te_sep_xc": 0.68586,
+     "wall_s": 2.152
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.07_p0.6_t0.13_a8",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.07,
+    "main_camber_pos": 0.6,
+    "main_thickness": 0.13,
+    "alpha_deg": 8.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.5874542608551168,
+    "cd": 0.02274361824745512,
+    "confidence": 0.9870514255605198
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5767,
+     "cd": 0.02232,
+     "te_sep_xc": 0.9154,
+     "wall_s": 0.091
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5767,
+     "cd": 0.02232,
+     "te_sep_xc": 0.9154,
+     "wall_s": 0.103
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5767,
+     "cd": 0.02232,
+     "te_sep_xc": 0.9154,
+     "wall_s": 1.69
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5787,
+     "cd": 0.02234,
+     "te_sep_xc": 0.91994,
+     "wall_s": 7.444
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.07_p0.6_t0.13_a11",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.07,
+    "main_camber_pos": 0.6,
+    "main_thickness": 0.13,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.619420906283251,
+    "cd": 0.04441603871322339,
+    "confidence": 0.9915072430464074
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6095,
+     "cd": 0.04248,
+     "te_sep_xc": 0.82387,
+     "wall_s": 0.039
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6095,
+     "cd": 0.04248,
+     "te_sep_xc": 0.82387,
+     "wall_s": 0.044
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6095,
+     "cd": 0.04248,
+     "te_sep_xc": 0.82387,
+     "wall_s": 2.383
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6116,
+     "cd": 0.04256,
+     "te_sep_xc": 0.81855,
+     "wall_s": 7.368
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.07_p0.6_t0.13_a14",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.07,
+    "main_camber_pos": 0.6,
+    "main_thickness": 0.13,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.6697158888662171,
+    "cd": 0.0690617510290669,
+    "confidence": 0.9939470893760503
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6464,
+     "cd": 0.06897,
+     "te_sep_xc": 0.71388,
+     "wall_s": 0.054
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6464,
+     "cd": 0.06897,
+     "te_sep_xc": 0.71388,
+     "wall_s": 0.059
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6464,
+     "cd": 0.06897,
+     "te_sep_xc": 0.71388,
+     "wall_s": 2.54
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.6477,
+     "cd": 0.06923,
+     "te_sep_xc": 0.71402,
+     "wall_s": 7.769
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.09_p0.55_t0.13_a8",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.55,
+    "main_thickness": 0.13,
+    "alpha_deg": 8.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.8492641780883994,
+    "cd": 0.021480884434540628,
+    "confidence": 0.9739862065335972
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8042,
+     "cd": 0.02209,
+     "te_sep_xc": 0.93059,
+     "wall_s": 0.059
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8042,
+     "cd": 0.02209,
+     "te_sep_xc": 0.93059,
+     "wall_s": 0.059
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8042,
+     "cd": 0.02209,
+     "te_sep_xc": 0.93059,
+     "wall_s": 1.737
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8084,
+     "cd": 0.022,
+     "te_sep_xc": 0.92042,
+     "wall_s": 15.396
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.09_p0.55_t0.13_a11",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.55,
+    "main_thickness": 0.13,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.8324422258258348,
+    "cd": 0.043023553950631746,
+    "confidence": 0.9861406674784866
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.206
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.59
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 2.462
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8262,
+     "cd": 0.04111,
+     "te_sep_xc": 0.80861,
+     "wall_s": 15.688
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.09_p0.55_t0.13_a14",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.55,
+    "main_thickness": 0.13,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.7545634571903594,
+    "cd": 0.08030064629274425,
+    "confidence": 0.9918315315711242
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7378,
+     "cd": 0.07906,
+     "te_sep_xc": 0.68192,
+     "wall_s": 0.155
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7378,
+     "cd": 0.07906,
+     "te_sep_xc": 0.68192,
+     "wall_s": 0.164
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7378,
+     "cd": 0.07906,
+     "te_sep_xc": 0.68192,
+     "wall_s": 2.087
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7415,
+     "cd": 0.07913,
+     "te_sep_xc": 0.67147,
+     "wall_s": 16.652
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.09_p0.6_t0.13_a8",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.6,
+    "main_thickness": 0.13,
+    "alpha_deg": 8.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.8106734741071224,
+    "cd": 0.026443397283071438,
+    "confidence": 0.9741425456005807
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7658,
+     "cd": 0.02597,
+     "te_sep_xc": 0.88922,
+     "wall_s": 0.13
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7658,
+     "cd": 0.02597,
+     "te_sep_xc": 0.88922,
+     "wall_s": 0.115
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7658,
+     "cd": 0.02597,
+     "te_sep_xc": 0.88922,
+     "wall_s": 4.883
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7708,
+     "cd": 0.02585,
+     "te_sep_xc": 0.89381,
+     "wall_s": 10.513
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.09_p0.6_t0.13_a11",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.6,
+    "main_thickness": 0.13,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.7769089166697862,
+    "cd": 0.05095525268119172,
+    "confidence": 0.9866830731181966
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7696,
+     "cd": 0.04809,
+     "te_sep_xc": 0.79884,
+     "wall_s": 0.128
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7696,
+     "cd": 0.04809,
+     "te_sep_xc": 0.79884,
+     "wall_s": 0.124
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7696,
+     "cd": 0.04809,
+     "te_sep_xc": 0.79884,
+     "wall_s": 4.684
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7728,
+     "cd": 0.04817,
+     "te_sep_xc": 0.80386,
+     "wall_s": 10.289
+    }
+   ]
+  },
+  {
+   "name": "aft_camber/m0.09_p0.6_t0.13_a14",
+   "category": "aft_camber",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.6,
+    "main_thickness": 0.13,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.769528691673231,
+    "cd": 0.08160998777932627,
+    "confidence": 0.9926600658316784
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7374,
+     "cd": 0.0812,
+     "te_sep_xc": 0.70582,
+     "wall_s": 0.073
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7374,
+     "cd": 0.0812,
+     "te_sep_xc": 0.70582,
+     "wall_s": 0.061
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7374,
+     "cd": 0.0812,
+     "te_sep_xc": 0.70582,
+     "wall_s": 4.479
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7433,
+     "cd": 0.0811,
+     "te_sep_xc": 0.70079,
+     "wall_s": 10.356
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0_p0.4_t0.16_a11",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.16,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.1024331249073955,
+    "cd": 0.023618665724388636,
+    "confidence": 0.9886049008932353
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0998,
+     "cd": 0.0233,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0998,
+     "cd": 0.0233,
+     "te_sep_xc": null,
+     "wall_s": 0.041
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0998,
+     "cd": 0.0233,
+     "te_sep_xc": null,
+     "wall_s": 0.371
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0974,
+     "cd": 0.02337,
+     "te_sep_xc": null,
+     "wall_s": 0.84
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0_p0.4_t0.16_a14",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.16,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.2200226325770323,
+    "cd": 0.03704081709757789,
+    "confidence": 0.9857912434046537
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2161,
+     "cd": 0.03745,
+     "te_sep_xc": 0.8014,
+     "wall_s": 0.038
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2161,
+     "cd": 0.03745,
+     "te_sep_xc": 0.8014,
+     "wall_s": 0.035
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2161,
+     "cd": 0.03745,
+     "te_sep_xc": 0.8014,
+     "wall_s": 0.407
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.22,
+     "cd": 0.03711,
+     "te_sep_xc": 0.81407,
+     "wall_s": 0.925
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0_p0.4_t0.18_a11",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.18,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.0905993583891558,
+    "cd": 0.022882935063703085,
+    "confidence": 0.987802073996737
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0833,
+     "cd": 0.02255,
+     "te_sep_xc": 0.98967,
+     "wall_s": 0.056
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0833,
+     "cd": 0.02255,
+     "te_sep_xc": 0.98967,
+     "wall_s": 0.07
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0833,
+     "cd": 0.02255,
+     "te_sep_xc": 0.98967,
+     "wall_s": 0.32
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.083,
+     "cd": 0.02253,
+     "te_sep_xc": 0.98491,
+     "wall_s": 1.91
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0_p0.4_t0.18_a14",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.18,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.196164844382099,
+    "cd": 0.03653168289246373,
+    "confidence": 0.9858184840165171
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.1997,
+     "cd": 0.03635,
+     "te_sep_xc": 0.76894,
+     "wall_s": 0.052
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.1997,
+     "cd": 0.03635,
+     "te_sep_xc": 0.76894,
+     "wall_s": 0.055
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.1997,
+     "cd": 0.03635,
+     "te_sep_xc": 0.76894,
+     "wall_s": 0.461
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.2006,
+     "cd": 0.03624,
+     "te_sep_xc": 0.7757,
+     "wall_s": 1.967
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0.04_p0.4_t0.16_a11",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.16,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.4662396298440266,
+    "cd": 0.024066938286141388,
+    "confidence": 0.9910205253927156
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4622,
+     "cd": 0.02382,
+     "te_sep_xc": 0.9199,
+     "wall_s": 0.05
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4622,
+     "cd": 0.02382,
+     "te_sep_xc": 0.9199,
+     "wall_s": 0.06
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4622,
+     "cd": 0.02382,
+     "te_sep_xc": 0.9199,
+     "wall_s": 0.328
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4616,
+     "cd": 0.02387,
+     "te_sep_xc": 0.90814,
+     "wall_s": 0.647
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0.04_p0.4_t0.16_a14",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.16,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.4856320710485393,
+    "cd": 0.048443890655794304,
+    "confidence": 0.9918867546257037
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4937,
+     "cd": 0.04713,
+     "te_sep_xc": 0.70254,
+     "wall_s": 0.045
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4937,
+     "cd": 0.04713,
+     "te_sep_xc": 0.70254,
+     "wall_s": 0.037
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4937,
+     "cd": 0.04713,
+     "te_sep_xc": 0.70254,
+     "wall_s": 0.385
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4926,
+     "cd": 0.04733,
+     "te_sep_xc": 0.69029,
+     "wall_s": 0.8
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0.04_p0.4_t0.18_a11",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.18,
+    "alpha_deg": 11.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.4576508592030453,
+    "cd": 0.023901126526142548,
+    "confidence": 0.9877757060176618
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4515,
+     "cd": 0.02389,
+     "te_sep_xc": 0.89877,
+     "wall_s": 0.069
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4515,
+     "cd": 0.02389,
+     "te_sep_xc": 0.89877,
+     "wall_s": 0.067
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.4515,
+     "cd": 0.02389,
+     "te_sep_xc": 0.89877,
+     "wall_s": 0.292
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.451,
+     "cd": 0.02393,
+     "te_sep_xc": 0.8923,
+     "wall_s": 1.832
+    }
+   ]
+  },
+  {
+   "name": "thick_high_alpha/m0.04_p0.4_t0.18_a14",
+   "category": "thick_high_alpha",
+   "params": {
+    "main_camber": 0.04,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.18,
+    "alpha_deg": 14.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.5057240957494011,
+    "cd": 0.04494247874099846,
+    "confidence": 0.9898347117544972
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "not_converged",
+     "signature": "not_converged@L0",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.212
+    },
+    {
+     "level": 1,
+     "status": "not_converged",
+     "signature": "not_converged@L1",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 0.585
+    },
+    {
+     "level": 2,
+     "status": "not_converged",
+     "signature": "not_converged@L2",
+     "cl": null,
+     "cd": null,
+     "te_sep_xc": null,
+     "wall_s": 1.003
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.5091,
+     "cd": 0.04413,
+     "te_sep_xc": 0.71335,
+     "wall_s": 2.264
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.08_p0.35_t0.135_a8.75",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.08,
+    "main_camber_pos": 0.35,
+    "main_thickness": 0.135,
+    "alpha_deg": 8.75,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.7703677432021088,
+    "cd": 0.0215284007023842,
+    "confidence": 0.9695535084453591
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7871,
+     "cd": 0.02169,
+     "te_sep_xc": null,
+     "wall_s": 0.035
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7871,
+     "cd": 0.02169,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7871,
+     "cd": 0.02169,
+     "te_sep_xc": null,
+     "wall_s": 0.298
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.7932,
+     "cd": 0.02161,
+     "te_sep_xc": null,
+     "wall_s": 0.597
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.08_p0.35_t0.135_a9.5",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.08,
+    "main_camber_pos": 0.35,
+    "main_thickness": 0.135,
+    "alpha_deg": 9.5,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.822270401490809,
+    "cd": 0.022740376633038222,
+    "confidence": 0.9705655071450008
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8462,
+     "cd": 0.02299,
+     "te_sep_xc": null,
+     "wall_s": 0.067
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8462,
+     "cd": 0.02299,
+     "te_sep_xc": null,
+     "wall_s": 0.039
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8462,
+     "cd": 0.02299,
+     "te_sep_xc": null,
+     "wall_s": 0.32
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.855,
+     "cd": 0.02279,
+     "te_sep_xc": null,
+     "wall_s": 0.603
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.08_p0.4_t0.135_a8.75",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.08,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.135,
+    "alpha_deg": 8.75,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.7923208933622607,
+    "cd": 0.020607857819942673,
+    "confidence": 0.9741249277981922
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.802,
+     "cd": 0.02042,
+     "te_sep_xc": null,
+     "wall_s": 0.048
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.802,
+     "cd": 0.02042,
+     "te_sep_xc": null,
+     "wall_s": 0.038
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.802,
+     "cd": 0.02042,
+     "te_sep_xc": null,
+     "wall_s": 1.016
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8126,
+     "cd": 0.02032,
+     "te_sep_xc": null,
+     "wall_s": 0.794
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.08_p0.4_t0.135_a9.5",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.08,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.135,
+    "alpha_deg": 9.5,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.8327477036761641,
+    "cd": 0.02181573366137786,
+    "confidence": 0.9753455458333186
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8305,
+     "cd": 0.02165,
+     "te_sep_xc": 0.99292,
+     "wall_s": 0.052
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8305,
+     "cd": 0.02165,
+     "te_sep_xc": 0.99292,
+     "wall_s": 0.057
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8305,
+     "cd": 0.02165,
+     "te_sep_xc": 0.99292,
+     "wall_s": 0.924
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8397,
+     "cd": 0.02149,
+     "te_sep_xc": 0.99585,
+     "wall_s": 0.937
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.09_p0.35_t0.135_a8.75",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.35,
+    "main_thickness": 0.135,
+    "alpha_deg": 8.75,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.8500131537860152,
+    "cd": 0.02332488565052624,
+    "confidence": 0.9581735694297178
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8605,
+     "cd": 0.02337,
+     "te_sep_xc": null,
+     "wall_s": 0.046
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8605,
+     "cd": 0.02337,
+     "te_sep_xc": null,
+     "wall_s": 0.062
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8605,
+     "cd": 0.02337,
+     "te_sep_xc": null,
+     "wall_s": 0.765
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8844,
+     "cd": 0.02313,
+     "te_sep_xc": null,
+     "wall_s": 0.59
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.09_p0.35_t0.135_a9.5",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.35,
+    "main_thickness": 0.135,
+    "alpha_deg": 9.5,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.9056958220582028,
+    "cd": 0.024667412354233247,
+    "confidence": 0.9588954021724031
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9282,
+     "cd": 0.02456,
+     "te_sep_xc": null,
+     "wall_s": 0.053
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9282,
+     "cd": 0.02456,
+     "te_sep_xc": null,
+     "wall_s": 0.039
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9282,
+     "cd": 0.02456,
+     "te_sep_xc": null,
+     "wall_s": 0.766
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9392,
+     "cd": 0.02436,
+     "te_sep_xc": null,
+     "wall_s": 0.609
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.09_p0.4_t0.135_a8.75",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.135,
+    "alpha_deg": 8.75,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.879134889192021,
+    "cd": 0.02211604357440722,
+    "confidence": 0.9676076886329344
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.905,
+     "cd": 0.02189,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.905,
+     "cd": 0.02189,
+     "te_sep_xc": null,
+     "wall_s": 0.039
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.905,
+     "cd": 0.02189,
+     "te_sep_xc": null,
+     "wall_s": 0.838
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.8972,
+     "cd": 0.0218,
+     "te_sep_xc": null,
+     "wall_s": 0.513
+    }
+   ]
+  },
+  {
+   "name": "near_target/m0.09_p0.4_t0.135_a9.5",
+   "category": "near_target",
+   "params": {
+    "main_camber": 0.09,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.135,
+    "alpha_deg": 9.5,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.921862193798353,
+    "cd": 0.02340634926610448,
+    "confidence": 0.9690900165237378
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9373,
+     "cd": 0.02327,
+     "te_sep_xc": null,
+     "wall_s": 0.044
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9373,
+     "cd": 0.02327,
+     "te_sep_xc": null,
+     "wall_s": 0.045
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9373,
+     "cd": 0.02327,
+     "te_sep_xc": null,
+     "wall_s": 0.829
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.9481,
+     "cd": 0.02308,
+     "te_sep_xc": null,
+     "wall_s": 0.55
+    }
+   ]
+  },
+  {
+   "name": "low_alpha/m0_p0.4_t0.13_a-2",
+   "category": "low_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": -2.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": 0.2309703042861443,
+    "cd": 0.009247628579019876,
+    "confidence": 0.9756649784897587
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": 0.229,
+     "cd": 0.0092,
+     "te_sep_xc": null,
+     "wall_s": 0.037
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": 0.229,
+     "cd": 0.0092,
+     "te_sep_xc": null,
+     "wall_s": 0.043
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": 0.229,
+     "cd": 0.0092,
+     "te_sep_xc": null,
+     "wall_s": 0.105
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": 0.2288,
+     "cd": 0.0092,
+     "te_sep_xc": null,
+     "wall_s": 0.191
+    }
+   ]
+  },
+  {
+   "name": "low_alpha/m0_p0.4_t0.13_a0",
+   "category": "low_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 0.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": 8.326672684688674e-16,
+    "cd": 0.008428195907778362,
+    "confidence": 0.9770665131638248
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.0,
+     "cd": 0.00822,
+     "te_sep_xc": null,
+     "wall_s": 0.038
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.0,
+     "cd": 0.00822,
+     "te_sep_xc": null,
+     "wall_s": 0.04
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.0,
+     "cd": 0.00822,
+     "te_sep_xc": null,
+     "wall_s": 0.047
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.0,
+     "cd": 0.00822,
+     "te_sep_xc": null,
+     "wall_s": 0.067
+    }
+   ]
+  },
+  {
+   "name": "low_alpha/m0_p0.4_t0.13_a3",
+   "category": "low_alpha",
+   "params": {
+    "main_camber": 0.0,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 3.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -0.37366949250056897,
+    "cd": 0.01017459765583476,
+    "confidence": 0.9755895346158773
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.3894,
+     "cd": 0.01019,
+     "te_sep_xc": null,
+     "wall_s": 0.036
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.3894,
+     "cd": 0.01019,
+     "te_sep_xc": null,
+     "wall_s": 0.034
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.3894,
+     "cd": 0.01019,
+     "te_sep_xc": null,
+     "wall_s": 0.127
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.3885,
+     "cd": 0.0102,
+     "te_sep_xc": null,
+     "wall_s": 0.232
+    }
+   ]
+  },
+  {
+   "name": "low_alpha/m0.06_p0.4_t0.13_a-2",
+   "category": "low_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": -2.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -0.5140111805395253,
+    "cd": 0.01174030083212628,
+    "confidence": 0.9805387193248848
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5084,
+     "cd": 0.01169,
+     "te_sep_xc": null,
+     "wall_s": 0.048
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5084,
+     "cd": 0.01169,
+     "te_sep_xc": null,
+     "wall_s": 0.033
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5084,
+     "cd": 0.01169,
+     "te_sep_xc": null,
+     "wall_s": 0.09
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.5086,
+     "cd": 0.0117,
+     "te_sep_xc": null,
+     "wall_s": 0.209
+    }
+   ]
+  },
+  {
+   "name": "low_alpha/m0.06_p0.4_t0.13_a0",
+   "category": "low_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 0.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -0.735903503446014,
+    "cd": 0.011242707132154903,
+    "confidence": 0.983059373197883
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.7322,
+     "cd": 0.01108,
+     "te_sep_xc": null,
+     "wall_s": 0.042
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.7322,
+     "cd": 0.01108,
+     "te_sep_xc": null,
+     "wall_s": 0.042
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.7322,
+     "cd": 0.01108,
+     "te_sep_xc": null,
+     "wall_s": 0.042
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -0.7324,
+     "cd": 0.01108,
+     "te_sep_xc": null,
+     "wall_s": 0.081
+    }
+   ]
+  },
+  {
+   "name": "low_alpha/m0.06_p0.4_t0.13_a3",
+   "category": "low_alpha",
+   "params": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.13,
+    "alpha_deg": 3.0,
+    "flap_chord_ratio": 0.0,
+    "flap_deflection_deg": 0.0,
+    "slot_gap": 0.015,
+    "slot_overlap": 0.0,
+    "gurney_h": 0.0
+   },
+   "fsae_legal": true,
+   "neuralfoil": {
+    "cl": -1.0583958835726013,
+    "cd": 0.011877775796979342,
+    "confidence": 0.9833113498225518
+   },
+   "levels": [
+    {
+     "level": 0,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0508,
+     "cd": 0.01178,
+     "te_sep_xc": null,
+     "wall_s": 0.053
+    },
+    {
+     "level": 1,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0508,
+     "cd": 0.01178,
+     "te_sep_xc": null,
+     "wall_s": 0.032
+    },
+    {
+     "level": 2,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0508,
+     "cd": 0.01178,
+     "te_sep_xc": null,
+     "wall_s": 0.953
+    },
+    {
+     "level": 3,
+     "status": "converged",
+     "signature": null,
+     "cl": -1.0506,
+     "cd": 0.01175,
+     "te_sep_xc": null,
+     "wall_s": 0.959
+    }
+   ]
+  }
+ ]
+}

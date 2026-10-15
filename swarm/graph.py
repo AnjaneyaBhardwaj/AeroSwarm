@@ -48,6 +48,8 @@ from swarm.cad.build import build
 from swarm.critic.numeric import VALIDATION, NumericReport, stall_check_required, suggest_diagnosis, validate
 from swarm.critic.screen import compare_with_xfoil, surrogate_screen
 from swarm.critic.stall import measure_stall_margin
+from swarm.evals.recovery import report_section as ladder_section
+from swarm.evals.signs import report_section as signs_section
 from swarm.explore import current_parent, handle_plateau
 from swarm.ledger import (
     RunFiles,
@@ -862,6 +864,8 @@ def write_report(s: SwarmState, files: RunFiles, term: str, llm: LLMClient) -> N
     lines += _screen_section(ledger, spec)
     lines += _override_section(s)
     lines += _inner_section(s)
+    lines += ladder_section(ledger)
+    lines += signs_section(ledger)
     plots = viz.get("stall_plots", {})
     xf = [r for r in ledger if r.result.fidelity in TERMINAL_FIDELITIES and usable(r)]
     if xf:

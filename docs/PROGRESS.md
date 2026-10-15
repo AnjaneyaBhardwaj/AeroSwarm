@@ -1,5 +1,64 @@
 # Progress
 
+## Session 14 (2026-10-15): milestone 2 finished: failure zoo, recovery statistics, sign scoring
+
+Main was 6 commits behind `claude/intelligent-hopper-xn7qea` (session 13's last commits); the user merged them
+(PR #10) first. Milestone 2 had the XFoil ladder (sessions 1–3) but not the zoo or the metrics. Done now, all
+offline, in `swarm/evals/`:
+
+### Recovery-ladder statistics (`swarm/evals/recovery.py`)
+From the ledger only: design-point XFoil solves by the level that produced them (a result at level k means
+L0..k-1 failed), exhausted ladders (NeuralFoil fallback with `fallback_from="xfoil"`), and stall-probe points
+(`stall_margin.levels`, `None` = exhausted). Recovery rate = recovered / L0 failures. New "XFoil recovery ladder"
+section in every run report.
+
+### CAD sign-prediction scoring (`swarm/evals/signs.py`)
+Each proposal's predicted ΔCl/ΔCd signs (race-car Cl) against its result minus its parent's, same fidelity,
+deadband ±0.002 Cl / ±0.0001 Cd (a 0 prediction is right only inside it). A record is scored on its joint
+prediction (all changes agree); opposite predictions are "mixed", not scored. Per parameter: single-change
+proposals and the implied sensitivity sign (prediction × sign of the parameter change), which shows a
+parameter argued both ways. New "CAD sign predictions" report section. The committed example LLM run
+(`runs/examples/hard_llm_…`): Cl 11/11, Cd 10/10 joint predictions right, 7 mixed; implied dCl/dalpha
+negative in all 17 alpha changes; thickness argued both ways (1 / 10).
+
+### Benchmark
+`scripts/benchmark.py report` has a new table per method: XFoil solves (design + probe), recovered, exhausted,
+CAD Cl/Cd sign accuracy. Smoke-tested on one mock and one random seed (not in docs/BENCHMARK4.md: that doc is
+regenerated from runs/bench4, which this session does not have).
+
+### XFoil failure zoo (`swarm/evals/zoo.py`, `scripts/failure_zoo.py`, `evals/xfoil_zoo.json`, `docs/FAILURE_ZOO.md`)
+78 cases in 6 labelled categories (thin sections at high alpha, FSAE-legal near/past Cl,max, aft camber, thick at
+high alpha, and two controls: the target region and low alpha), hard preset Re 3e5, rulebook check off. Every
+case is solved at every level, so the zoo measures both recovery and whether converged levels agree ("branch":
+same panel count, another solution; "panels": L3's 240 panels against 160). Run: 164 s with 3 processes.
+- 14 L0 failures: 7 recovered, 7 exhausted. All 7 exhausted cases are t 0.08 (FSAE-illegal).
+- FSAE-legal (46 cases): 4 L0 failures, all recovered (L1, L2, L3, L3), within 0.003–0.027 of NeuralFoil.
+- Wrong branch accepted on 2 thin cases at α 14: L0/L1 converge on a low-lift solution, 0.10–0.15 below what
+  continuation and NeuralFoil give; the ladder stops at the first converged level.
+- **Panel count:** at 160 panels (L0–L2) the target region has 0.010–0.021 less downforce than at 400 panels
+  (median 0.016; separate check of 9 designs, table in FAILURE_ZOO.md), against the ±0.03 tolerance. The
+  under-loaded XFoil results of benchmark 4 and the pilot (−1.785 to −1.798, edge −1.80) are within that bias.
+  The target, gated sweep and screen were all derived at 160 panels, so they agree with each other; not changed.
+
+### Tests
+`tests/test_evals.py` (11): ladder statistics on synthetic ledgers and in mock graph runs (L2 recovery,
+exhausted ladder), sign scoring (joint/mixed/deadband/no parent/other fidelity/quarantined), zoo outcomes on a
+fake solver, and the committed cache (matches the case list, counts add up, the doc is regenerated from it).
+
+### Next (waiting for the user)
+- **Decide on the panel count** (finding 4 in docs/FAILURE_ZOO.md). Options: keep 160 and note the bias; or move
+  L0–L2 to 320 panels and re-derive the gated sweep, target box and screen calibration (all benchmarks would then
+  need re-running). The witness design moves from −1.824 to −1.845, still inside the box.
+- Optional: a ladder that does not stop at the first converged level above some alpha (e.g. also run L2 and
+  take continuation when they disagree). No FSAE-legal zoo case needs it; it only matters at the domain edge.
+- LLM runs still wait on the API usage limit (resets 2026-11-01): hybrid seed 33, then the full arms.
+- Milestone 3 (vision Critic) is next in the build order. The Critic's own failure zoo (leaky STL, wrong Aref,
+  coarse mesh; BLUEPRINT §3) belongs with OpenFOAM (milestone 5).
+
+### Known issues
+- XFoil at 160 panels under-predicts downforce by ~0.016 in the target region (see Next).
+- CMA-ES (BLUEPRINT §3) is not implemented; TPE only.
+
 ## Session 13 (2026-10-06): milestone 4, the hybrid inner optimizer; offline benchmark 4
 
 Session 12 (FSAE 2027) was on `claude/loving-turing-kld1sk`, not on main; this branch fast-forwarded to it first.
