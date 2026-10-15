@@ -52,6 +52,9 @@ fake solver, and the committed cache (matches the case list, counts add up, the 
 - Optional: a ladder that does not stop at the first converged level above some alpha (e.g. also run L2 and
   take continuation when they disagree). No FSAE-legal zoo case needs it; it only matters at the domain edge.
 - LLM runs still wait on the API usage limit (resets 2026-11-01): hybrid seed 33, then the full arms.
+- Deferred by the user ("later"): FSAE rules not checked in 2D (T.7.6 width / T.7.3.3 inboard of the rear
+  tires, T.7.1.4's 3 mm vertical-edge radius on end plates, V.1.1 wheel keep-out) need a span parameter,
+  end-plate geometry and wheel positions; and `PLACEHOLDER_CAR` should be replaced with the team's car numbers.
 - Milestone 3 (vision Critic) is next in the build order. The Critic's own failure zoo (leaky STL, wrong Aref,
   coarse mesh; BLUEPRINT §3) belongs with OpenFOAM (milestone 5).
 
