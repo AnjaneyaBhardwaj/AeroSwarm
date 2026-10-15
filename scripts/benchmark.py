@@ -28,6 +28,8 @@ from pathlib import Path
 from swarm.baselines import random_start, search
 from swarm.briefs import near_target, screen_blocked
 from swarm.critic.numeric import VALIDATION
+from swarm.evals.recovery import ladder_stats
+from swarm.evals.signs import score as score_signs
 from swarm.ledger import RunFiles
 from swarm.llm.client import TraceLogger
 from swarm.llm.mock import MockClient
@@ -143,6 +145,7 @@ def _row(d: Path) -> dict | None:
         [json.loads(x) for x in (d / "events.jsonl").read_text().splitlines()] if (d / "events.jsonl").exists() else []
     )
     xf = sum(r["result"]["fidelity"] == "xfoil" for r in ledger)
+    recs = RunFiles(d).read_ledger()
     inner_cids = {r["result"]["cid"] for r in ledger if r.get("inner_optimizer")}
     usage = meta.get("llm_usage") or {}
     return {
@@ -168,9 +171,46 @@ def _row(d: Path) -> dict | None:
         "inner_promoted": sum(r["result"]["fidelity"] == "xfoil" and r["result"]["cid"] in inner_cids for r in ledger),
         "inner_found_pass": meta.get("best_passing_cid") in inner_cids,
         # NeuralFoil designs in the promotion window that the screen failed (never promotable)
-        "near_blocked": sum(screen_blocked(x) for x in near_target(RunFiles(d).read_ledger(), SPEC)),
+        "near_blocked": sum(screen_blocked(x) for x in near_target(recs, SPEC)),
+        "ladder": ladder_stats(recs),
+        "signs": score_signs(recs),
         "start": meta.get("start"),
     }
+
+
+def _sign_acc(scores: list[dict], key: str) -> str:
+    n, c = sum(x[key]["n"] for x in scores), sum(x[key]["correct"] for x in scores)
+    return f"{c}/{n} ({100 * c / n:.0f}%)" if n else "—"
+
+
+def _ladder_signs_table(by: dict[str, list[dict]]) -> list[str]:
+    """XFoil recovery ladder (design-point solves and stall-probe points) and CAD sign-prediction accuracy,
+    summed over each method's runs (swarm/evals; from the ledgers)."""
+    out = [
+        "",
+        "## XFoil recovery ladder and CAD sign predictions",
+        "",
+        "| method | XFoil solves (design + probe) | recovered above L0 | ladder exhausted "
+        "| CAD Cl sign right (joint) | CAD Cd sign right (joint) |",
+        "|---|---|---|---|---|---|",
+    ]
+    for m in METHODS:
+        rs = [r for r in by[m] if r["termination"] != "invalid_llm"]
+        if not rs:
+            continue
+        lad = [r["ladder"][k] for r in rs for k in ("design", "probe")]
+        sg = [r["signs"] for r in rs]
+
+        out.append(
+            f"| {m} | {sum(x['solves'] for x in lad)} | {sum(x['recovered'] for x in lad)} "
+            f"| {sum(x['exhausted'] for x in lad)} | {_sign_acc(sg, 'cl')} | {_sign_acc(sg, 'cd')} |"
+        )
+    out += [
+        "",
+        "Sign predictions exist only where the CAD agent proposed (mock: rule-based signs from the NeuralFoil "
+        "sensitivities, not an LLM). The failure zoo (docs/FAILURE_ZOO.md) measures the ladder on stress cases.",
+    ]
+    return out
 
 
 def cmd_report(root: str) -> None:
@@ -216,6 +256,7 @@ def cmd_report(root: str) -> None:
             f"| {60 * statistics.mean(r['wall_h'] for r in rs):.1f} min "
             f"| {', '.join(caps) or 'none'} |"
         )
+    out += _ladder_signs_table(by)
     out += [
         "",
         "## Per run",
