@@ -1,6 +1,6 @@
 # Progress
 
-## Session 14, continued: milestone 3, the vision Critic (built; its LLM evaluation waits on the API)
+## Session 14, continued: milestone 3, the vision Critic and its evaluation
 
 PR #11 (milestone 2) was merged before the two doc commits that followed it; the branch was rebased onto main
 with them.
@@ -34,17 +34,23 @@ surface data; images re-rendered. Arms: numeric (validators only), llm_text, llm
 inconsistent with the numbers (design checks such as TE separation do not count).
 - Numeric arm (offline): hard precision 100% (3/3), recall 20% (3/15); soft 100% / 53%.
 - 7 bad cases are invisible to every numeric check (coarse panels, stale images, surface kink): what vision
-  must add. LLM arms not run (API limit); ~$1.5–2 for both.
+  must add.
+- **LLM arms run (API working again; `claude-sonnet-5` via AEROSWARM_MODEL; $0.33 text, $0.48 vision, one pass):
+  vision added nothing.** Hard recall numeric 3/15, text 4/15, vision 3/15; soft 8/15 in all; no false alarms.
+  The vision Critic saw the kink ("small spike near x/c 0.28–0.3") and called it a bubble; read the scaled
+  case's unchanged Cp as "matching the large Cl deficit"; called the stale Cp "consistent" with the printed Cl.
+  It describes the plots in terms of the stated numbers instead of checking the numbers against them.
 
 ### Tests
 `tests/test_vision.py` (10: rendering, request payload and trace, graph wiring with an image-capable mock,
 --no-vision, veto/no-rescue) and `tests/test_critic_zoo.py` (6: committed cases, numeric arm reproduces the
 committed results, images only in the vision arm via a scripted client, errors not scored, doc regenerated).
 
-### Next
-- After 2026-11-01: `uv run python scripts/critic_eval.py run --arms llm_text llm_vision`, then `report`.
-  Decide from it whether vision stays on for the benchmark's LLM arms (run this before them).
-- The benchmark LLM arms after that.
+### Next (waiting for the user)
+- **Decide whether vision stays on by default** (it is on; it costs ~$0.25 per run and measured no benefit).
+- Proposed: a deterministic Cp-integral consistency check (Cl from the surface Cp against the reported Cl) and a
+  Cp smoothness check; they would catch the reference-scaled, stale and kink cases without an LLM.
+- The benchmark LLM arms (hybrid seed 33, then the full arms): the API works again.
 
 ## Session 14 (2026-10-15): milestone 2 finished: failure zoo, recovery statistics, sign scoring
 
