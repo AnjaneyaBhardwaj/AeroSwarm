@@ -293,6 +293,15 @@ class StrategyMemo(BaseModel):
         return any(not isinstance(f, str) and f.name == name and f.locked for f in self.focus_params)
 
 
+class RecoveryAction(BaseModel):
+    """The CFD agent's choice after a failed OpenFOAM solve (swarm.solvers.openfoam.recovery): a ladder level,
+    never a command or a file. Code rejects a repeated or out-of-range level."""
+
+    level: int = Field(ge=1, le=5)
+    rationale: str  # why this level, from the evidence (signature, iteration, field, mesh numbers)
+    evidence: str = ""  # the observation it rests on, quoted from the failure record
+
+
 class StallMargin(BaseModel):
     """Stall-margin probe: the same candidate re-solved at alpha+1 and alpha+2 deg.
 
@@ -408,6 +417,7 @@ class SwarmState(TypedDict, total=False):
     history: Annotated[list[dict], operator.add]  # one entry per Chief memo: gen, hypothesis, focus, fidelity
     inner_allowed: bool  # the Chief may choose mode "inner_optimizer" (swarm.optim.inner_loop)
     vision_allowed: bool  # the Critic is shown rendered images (swarm.critic.render)
+    of2d_allowed: bool  # the Chief may promote XFoil-evaluated designs to OpenFOAM (swarm.solvers.openfoam)
     exploration: dict | None  # plateau restart branch: anchor_cid, from_gen, until_gen (swarm.explore)
     termination: (
         Literal["target_met", "eval_budget", "wall_clock", "cost_cap", "plateau", "fatal", "invalid_llm", "unknown"]

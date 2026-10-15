@@ -109,6 +109,8 @@ class LLMHealth:
     the limit) or, checked at the end of the run, any agent never got a successful call
     (including never being called at all). Exception: the CAD agent in a hybrid run whose CAD
     steps were all replaced by inner-optimizer runs and promotions (the graph passes `not_needed`).
+    The CFD agent ("cfd") is not in AGENTS: it is called only after a failed OpenFOAM solve, so a run may
+    rightly never call it; its calls still count toward the failed-call limit.
     """
 
     def __init__(self, max_failed: int = MAX_FAILED_CALLS):

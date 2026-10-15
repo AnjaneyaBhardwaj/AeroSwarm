@@ -1,0 +1,157 @@
+{
+ "date": "2026-10-15",
+ "rows": [
+  {
+   "case": "early_blowup",
+   "policy": "deterministic",
+   "description": "witness design, relaxation U 0.9 / p 0.5 / turbulence 0.9 (blows up within 50 iterations)",
+   "l0_failed": true,
+   "l0_signature": "solver_blowup@it24:Ux",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 1,
+   "cl": -1.450072476719216,
+   "cd": 0.04276007482542472,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "solver_blowup@it24:Ux",
+     "wall_s": 8.3
+    },
+    {
+     "level": 4,
+     "rationale": "deterministic policy (failure class preference)",
+     "status": "diverged",
+     "signature": "solver_blowup@it23:p",
+     "wall_s": 7.5
+    },
+    {
+     "level": 1,
+     "rationale": "deterministic policy (failure class preference)",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 186.4
+    }
+   ],
+   "wall_s": 202.2
+  },
+  {
+   "case": "late_divergence",
+   "policy": "deterministic",
+   "description": "witness design, relaxation U 0.9 (residuals grow after iteration 50)",
+   "l0_failed": true,
+   "l0_signature": "residual_growth@it100:omega",
+   "l0_class": "numerics",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 1,
+   "cl": -1.450072476719216,
+   "cd": 0.04276007482542472,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "residual_growth@it100:omega",
+     "wall_s": 10.2
+    },
+    {
+     "level": 1,
+     "rationale": "deterministic policy (failure class preference)",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 184.5
+    }
+   ],
+   "wall_s": 194.7
+  },
+  {
+   "case": "coarse_surface",
+   "policy": "deterministic",
+   "description": "NACA 0012 Re 6e6 alpha 10, 160 cells around (diverged in the mesh study)",
+   "l0_failed": true,
+   "l0_signature": "solver_blowup@it20:Ux",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 4,
+   "cl": -1.094393400364449,
+   "cd": 0.013878264885920172,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "solver_blowup@it20:Ux",
+     "wall_s": 6.8
+    },
+    {
+     "level": 4,
+     "rationale": "deterministic policy (failure class preference)",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 113.5
+    }
+   ],
+   "wall_s": 120.3
+  },
+  {
+   "case": "fast_growth",
+   "policy": "deterministic",
+   "description": "NACA 0012 Re 6e6 alpha 10, wall-normal growth 1.16 (diverged in the mesh study)",
+   "l0_failed": true,
+   "l0_signature": "solver_blowup@it16:Ux",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 4,
+   "cl": -1.0975951080479076,
+   "cd": 0.013328282835762822,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "solver_blowup@it16:Ux",
+     "wall_s": 7.7
+    },
+    {
+     "level": 4,
+     "rationale": "deterministic policy (failure class preference)",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 141.2
+    }
+   ],
+   "wall_s": 148.9
+  },
+  {
+   "case": "bad_mesh",
+   "policy": "deterministic",
+   "description": "m 0.09 at 0.2 c, t 0.08, alpha 5: the O-grid fails checkMesh (90 deg non-orthogonality)",
+   "l0_failed": true,
+   "l0_signature": "checkMesh:3_failed",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 4,
+   "cl": -1.323842028069501,
+   "cd": 0.024137953789367273,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "mesh_failed",
+     "signature": "checkMesh:3_failed",
+     "wall_s": 4.2
+    },
+    {
+     "level": 4,
+     "rationale": "deterministic policy (failure class preference)",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 116.4
+    }
+   ],
+   "wall_s": 120.7
+  }
+ ]
+}

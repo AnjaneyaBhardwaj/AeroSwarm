@@ -1,0 +1,157 @@
+{
+ "date": "2026-10-15",
+ "rows": [
+  {
+   "case": "early_blowup",
+   "policy": "llm",
+   "description": "witness design, relaxation U 0.9 / p 0.5 / turbulence 0.9 (blows up within 50 iterations)",
+   "l0_failed": true,
+   "l0_signature": "solver_blowup@it24:Ux",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 1,
+   "cl": -1.450072476719216,
+   "cd": 0.04276007482542472,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "solver_blowup@it24:Ux",
+     "wall_s": 8.2
+    },
+    {
+     "level": 4,
+     "rationale": "Blowup at iteration 24 (solver_blowup@it24:Ux) is early-stage divergence, and mesh check shows max_aspect=349.45 which is very high despite passing checkMesh ok; combined with high relax_U=0.9 this points to mesh quality (near-wall aspect ratio) rather than pure numerics. Early failures point at mesh/BC per guidance, so re-mesh with thicker first cell and gentler growth (L4) should reduce aspect ratio and improve near-wall stability before trying relaxation or scheme changes.",
+     "status": "diverged",
+     "signature": "solver_blowup@it23:p",
+     "wall_s": 7.8
+    },
+    {
+     "level": 1,
+     "rationale": "Blowup at it23 on p with very early divergence but checkMesh passes (max_aspect 134.9 is high but not failing) and L4 remesh already tried without success. With mesh ruled out, the aggressive relaxation (relax_U 0.9, relax_p 0.5, relax_turb 0.9) is the likely driver of the early solver blowup; lowering relaxation (L1) directly targets this instability before trying scheme or init changes.",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 179.3
+    }
+   ],
+   "wall_s": 203.7
+  },
+  {
+   "case": "late_divergence",
+   "policy": "llm",
+   "description": "witness design, relaxation U 0.9 (residuals grow after iteration 50)",
+   "l0_failed": true,
+   "l0_signature": "residual_growth@it100:omega",
+   "l0_class": "numerics",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 1,
+   "cl": -1.450072476719216,
+   "cd": 0.04276007482542472,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "residual_growth@it100:omega",
+     "wall_s": 10.2
+    },
+    {
+     "level": 1,
+     "rationale": "Failure at iteration 100 (not early, mesh check ok: max_non_ortho 38.8, skewness 0.75, aspect 349 all acceptable) with residual_growth signature on omega, and high U/omega/k residual tails, points to numerics rather than mesh. relax_U is currently high at 0.9 (not yet lowered from default per ladder L1), so lowering relaxation (U->0.5, p->0.2, turb->0.5) is the first corrective action per guidance before trying schemes or re-init.",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 183.1
+    }
+   ],
+   "wall_s": 197.7
+  },
+  {
+   "case": "coarse_surface",
+   "policy": "llm",
+   "description": "NACA 0012 Re 6e6 alpha 10, 160 cells around (diverged in the mesh study)",
+   "l0_failed": true,
+   "l0_signature": "solver_blowup@it20:Ux",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 4,
+   "cl": -1.094393400364449,
+   "cd": 0.013878264885920172,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "solver_blowup@it20:Ux",
+     "wall_s": 7.0
+    },
+    {
+     "level": 4,
+     "rationale": "Blowup at iteration 20 (Ux) with failure_class 'mesh' indicates an early-time divergence typical of mesh-quality issues rather than numerics. checkMesh passed nominal thresholds but max_aspect=307 is very high, consistent with a too-thin first cell (2e-05) driving near-wall instability at these Re/alpha. Early failures point to mesh/BC per guidance, so re-meshing with a thicker first cell, gentler growth, and more smoothing (L4) directly targets the likely root cause, and no mesh-level action (L4/L5) has been tried yet.",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 114.0
+    }
+   ],
+   "wall_s": 125.6
+  },
+  {
+   "case": "fast_growth",
+   "policy": "llm",
+   "description": "NACA 0012 Re 6e6 alpha 10, wall-normal growth 1.16 (diverged in the mesh study)",
+   "l0_failed": true,
+   "l0_signature": "solver_blowup@it16:Ux",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 4,
+   "cl": -1.0975951080479076,
+   "cd": 0.013328282835762822,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "diverged",
+     "signature": "solver_blowup@it16:Ux",
+     "wall_s": 8.5
+    },
+    {
+     "level": 4,
+     "rationale": "Blowup at iteration 16 (Ux) falls well before iteration 50, pointing to mesh/BC quality rather than numerics. checkMesh passed nominally but max_aspect=404.6 is extremely high (first_cell=2e-5 at Re=6e6), which is a classic trigger for early solver divergence even when checkMesh 'ok' is true. Re-meshing with a thicker first cell, gentler growth, and more smoothing directly addresses this aspect-ratio-driven instability before trying numerics-only fixes.",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 142.6
+    }
+   ],
+   "wall_s": 155.1
+  },
+  {
+   "case": "bad_mesh",
+   "policy": "llm",
+   "description": "m 0.09 at 0.2 c, t 0.08, alpha 5: the O-grid fails checkMesh (90 deg non-orthogonality)",
+   "l0_failed": true,
+   "l0_signature": "checkMesh:3_failed",
+   "l0_class": "mesh",
+   "recovered": true,
+   "final_status": "converged",
+   "final_level": 4,
+   "cl": -1.323842028069501,
+   "cd": 0.024137953789367273,
+   "attempts": [
+    {
+     "level": 0,
+     "status": "mesh_failed",
+     "signature": "checkMesh:3_failed",
+     "wall_s": 4.5
+    },
+    {
+     "level": 4,
+     "rationale": "checkMesh failed (signature checkMesh:3_failed) with severe non-orthogonality (89.93) and skewness (101.16), well above acceptable thresholds. This is a mesh quality failure, not a numerics issue, so L1-L3 (relaxation, schemes, initialization) cannot address it since they don't touch the mesh. Must re-mesh with thicker first cell, gentler growth, and more smoothing to reduce skewness/non-orthogonality before any solve can proceed.",
+     "status": "converged",
+     "signature": null,
+     "wall_s": 115.9
+    }
+   ],
+   "wall_s": 125.3
+  }
+ ]
+}

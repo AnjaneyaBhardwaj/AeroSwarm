@@ -46,6 +46,9 @@ class ValidatorConfig(BaseModel, frozen=True):
     residual_drop_orders_U: float = 5.0
     coeff_rel_std_max: float = 0.005  # Cl, Cd relative std over the window
     coeff_window_iters: int = 300
+    # Low-Re wall treatment (nutLowReWallFunction, first cell in the viscous sublayer): mean wall y+ above this
+    # means the first cell is too thick for the model (swarm.solvers.openfoam; BLUEPRINT §3 table).
+    yplus_mean_max: float = 5.0
     # Stall margin (project convention, calibrate): a candidate may only end the run if
     # re-solving at alpha+1 and alpha+2 deg still gains downforce. Slope is d|Cl|/dalpha
     # in 1/deg, the smaller of the two forward secants. Thin-airfoil theory gives 0.110.
@@ -299,8 +302,11 @@ def validate(
                     message="; ".join(screen.reasons()) or "passes the NeuralFoil stall and separation screen",
                 )
             )
-    for name in ("residuals", "mesh", "yplus"):
-        checks.append(Check(name=name, ok=True, severity="skipped", message=f"not applicable at {result.fidelity}"))
+    if result.fidelity in ("of2d", "of3d"):
+        checks += cfd_checks(result, cfg)
+    else:
+        for name in ("residuals", "mesh", "yplus"):
+            checks.append(Check(name=name, ok=True, severity="skipped", message=f"not applicable at {result.fidelity}"))
 
     # Fidelity gap: same candidate, other tier, converged.
     others = [
@@ -375,6 +381,65 @@ def validate(
         terminal=terminal,
         suspect=suspect,
     )
+
+
+def cfd_checks(result: CFDResult, cfg: ValidatorConfig) -> list[Check]:
+    """OpenFOAM convergence and mesh checks (BLUEPRINT §2 "Convergence criteria"). Residuals that did not fall
+    far enough with steady coefficients: NUMERICAL_FAILURE (not converged). Coefficients that still move more
+    than the window limit while the residuals stall: UNSTEADY (steady RANS on large-scale separation, a design
+    signal, not a numerics problem)."""
+    drops = result.residual_drop_orders or {}
+    std = result.coeff_rel_std_window or {}
+    p_ok = drops.get("p", 0.0) >= cfg.residual_drop_orders_p
+    u_ok = drops.get("U", 0.0) >= cfg.residual_drop_orders_U
+    worst_std = max(std.values()) if std else float("inf")
+    steady = worst_std <= cfg.coeff_rel_std_max
+    if p_ok and u_ok:
+        res_class = None
+    else:
+        res_class = "NUMERICAL_FAILURE" if steady else "UNSTEADY"
+    out = [
+        Check(
+            name="residuals",
+            ok=p_ok and u_ok,
+            value=f"p {drops.get('p')} / U {drops.get('U')} orders",
+            threshold=f"p >= {cfg.residual_drop_orders_p}, U >= {cfg.residual_drop_orders_U} orders",
+            message="initial residuals did not fall far enough"
+            + ("" if steady else " and the coefficients still move"),
+            failure_class=res_class,
+        ),
+        Check(
+            name="coefficient_window",
+            ok=steady,
+            value=round(worst_std, 6) if math.isfinite(worst_std) else None,
+            threshold=f"Cl, Cd relative std <= {cfg.coeff_rel_std_max} over {cfg.coeff_window_iters} iterations",
+            severity="suspect",
+            message="coefficients not settled (unsteady separation?)",
+        ),
+    ]
+    mesh = result.mesh or {}
+    out.append(
+        Check(
+            name="mesh",
+            ok=bool(mesh.get("ok")),
+            value=mesh.get("max_non_ortho"),
+            threshold="checkMesh: Mesh OK",
+            message=f"checkMesh: {mesh.get('failed_checks', '?')} failed check(s)",
+            failure_class="NUMERICAL_FAILURE",
+        )
+    )
+    yp = result.yplus[1] if result.yplus else None
+    out.append(
+        Check(
+            name="yplus",
+            ok=yp is not None and yp <= cfg.yplus_mean_max,
+            value=None if yp is None else round(yp, 3),
+            threshold=f"mean wall y+ <= {cfg.yplus_mean_max} (low-Re wall treatment)",
+            severity="suspect",
+            message="first cell too thick for the low-Re wall treatment",
+        )
+    )
+    return out
 
 
 def surface_checks(result: CFDResult, params: WingParams, surface: dict, cfg: ValidatorConfig) -> list[Check]:

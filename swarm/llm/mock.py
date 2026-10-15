@@ -22,6 +22,7 @@ from swarm.state import (
     Finding,
     ParamChange,
     ParamDelta,
+    RecoveryAction,
     StrategyMemo,
     Verdict,
     WingParams,
@@ -64,6 +65,13 @@ class MockClient:
                 extra["injected_fault"] = injected
         elif schema is Verdict:
             out = self._critic(facts)
+        elif schema is RecoveryAction:
+            lvl = facts.get("default_level") or (facts.get("untried") or [5])[0]
+            out = RecoveryAction(
+                level=lvl,
+                rationale=f"failure class {facts.get('failure_class')}: first untried level of its preference",
+                evidence=str(facts.get("signature")),
+            )
         else:
             raise TypeError(f"MockClient cannot produce {schema.__name__}")
         self.trace.log(

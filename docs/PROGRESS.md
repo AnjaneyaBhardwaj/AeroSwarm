@@ -1,5 +1,68 @@
 # Progress
 
+## Session 16 (2026-10-15): milestone 5 parts 2 and 3: recovery ladder, CFD agent, mesh study, graph wiring
+
+PR #14 (part 1) merged.
+
+### Transition model (`model="kOmegaSSTLM"`, `case.retheta_t_freestream`)
+Tried first, as planned. On the witness it moves Cl from -1.44 (SST) to -1.59 (XFoil -1.82) but is not
+mesh-converged (-1.53 at 480 cells around, residuals stall at 3.6 / 4.5 orders); insensitive to Tu 0.1-0.5%.
+SST is mesh-converged (0.3%). **SST stays the default**; SST-LM is an option. At Re 3e5 of2d is a cross-check
+with a known model-form gap (docs/OPENFOAM.md finding 5).
+
+### Part 2: recovery ladder and CFD agent
+- `swarm/solvers/openfoam/recovery.py`: L1 relaxation, L2 first-order U for 300 iterations then second order
+  (`SolverOverrides.first_order_iters`, two solver stages), L3 potentialFoam + viscosity ratio 1, L4 re-mesh (first
+  cell x4, growth 1.10, smoothing x8, far field 50 c), L5 drop to XFoil. Classification from the monitor signature
+  (early < it 50 or checkMesh: mesh; later: numerics; persistent bounding: turbulence) and a per-class
+  preference. Code forbids repeats, bounds the ladder, and allows only L4/L5 after a checkMesh failure.
+- `RecoveryAction` (state.py), `swarm/agents/cfd.py` (choose / sanitize / fallback), prompt `cfd.md`,
+  `briefs.cfd_brief` (signature, iteration, class, residual tail, checkMesh numbers, the failed setup, levels
+  tried). MockClient answers RecoveryAction with the policy. `solver.evaluate_with_recovery` runs the ladder.
+- `scripts/of_recovery.py`, `docs/OPENFOAM_RECOVERY.md`: 5 failing setups (early blow-up and late divergence from
+  injected relaxation, a mesh failing checkMesh, and two divergences found by the mesh study: 160 cells around and
+  growth 1.16 at Re 6e6); both policies recover all five in <= 2 levels and chose the same levels; the LLM agent
+  (6 calls, $0.036) re-meshed first on the early blow-up although it cited relax_U 0.9 (the prompt's "early means
+  mesh" guidance won). Part 1's crashes (thin
+  first cell, 300 c far field) no longer happen with the part-1 numerics.
+
+### Part 3a: mesh independence (`scripts/of_mesh_study.py`, `docs/OPENFOAM_MESH.md`)
+One parameter at a time (cells around 160-480, first cell 1e-5 to 4e-5 c, growth 1.08-1.16, far field 50-150 c)
+on NACA 0012 (Re 6e6) and the witness (Re 3e5); 20 solves.
+- Witness: converged within 0.3% in Cl, ~3% in Cd (every variant within 0.014 in Cl): the Re 3e5 gap to XFoil
+  is not a mesh effect. NACA 0012: cells around / first cell within 0.0015 in Cl and 2% in Cd; far field 100 c
+  within 0.5% of 150 c (50 c: Cd +8.9%). Default mesh kept.
+- 160 cells around and growth 1.16 diverged at Re 6e6: added to the recovery evaluation.
+- Growth 1.08 ended quietly with a wrong answer (Cl 0.96, separation at 0.87) after only 4.5 orders of U drop:
+  **`solver.convergence_status` now judges a quiet exit by the criteria** (`not_converged` goes up the ladder,
+  `unsteady` goes to the CAD agent) instead of calling it converged.
+
+### Part 3b: of2d in the graph
+- `run(of2d=False)` / `--of2d`; state `of2d_allowed`; meta `of2d`. The Chief may set fidelity of2d only as a
+  promotion of a design with an XFoil result (`of2d_needs_xfoil_result`; refused when the run does not allow it);
+  its prompt describes of2d (fully turbulent, minutes, may disagree with XFoil at low Re) only then.
+- `cfd_solve` at of2d runs `evaluate_with_recovery` with the CFD agent (deterministic policy on a failed call,
+  counted as its fallback; coercions logged); events `of2d_recovery`, `of2d_unsimulatable`. An unconverged design
+  is evaluated at XFoil with `fallback_from="of2d"` (cannot end the run). `cfd_recover` never re-runs an of2d
+  result (its ladder already ran).
+- Validator at of2d (`numeric.cfd_checks`): residual drop p >= 4 / U >= 5 orders (else NUMERICAL_FAILURE, or
+  UNSTEADY when the coefficients still move), coefficient window <= 0.5%, checkMesh OK, mean y+ <= 5 (suspect).
+  Stall probe at the result's fidelity (of2d: L0 per probe point). Report: an "OpenFOAM recovery ladder" section
+  from the ledger. The CFD agent is not required for LLM validity (called only after failures).
+
+### Tests and smoke run
+`tests/test_openfoam_recovery.py` (18), `tests/test_of2d_graph.py` (5); 360 pass offline (no OpenFOAM, XFoil,
+network or key). Real-solver smoke run (default preset, cl_tol 0.002 so XFoil misses, a mock that promotes the
+first XFoil design to of2d once): the promotion ran OpenFOAM (184 s, converged at L0, Cl -1.310 vs XFoil -1.487);
+the validator flagged fidelity_gap and te_separation; the report's OpenFOAM section came from the ledger. On the
+hard preset the mock never reached XFoil (the NeuralFoil screen blocked every promotion), so of2d never ran there.
+
+### Next
+- Benchmark 4 (offline arms free; hybrid ~$5-10; LLM-only ~$40-45), then milestone 6 (diffuser: needs a ground
+  plane and ride height, a new mesh topology) and the stretch goal.
+- Open: the "early means mesh" guidance in the CFD prompt; SST-LM mesh convergence; of2d at Re 3e5 is a
+  cross-check only.
+
 ## Session 15 (2026-10-15): milestone 5 part 1, the OpenFOAM T2 tier (mesh, case, solve, forces, validation)
 
 PR #13 merged. The user chose to finish the remaining milestones before running benchmark 4 (offline arms free,
