@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AeroSwarm Run Viewer</title>
 <meta name="description" content="Replay of a multi-agent LLM optimization of a race-car wing section: agent decisions, wing morph and Cl–Cd polar, from the run ledger.">
+<!-- Live server address when it is not this page's own origin, e.g. "https://api.example.com/" (docs/DEPLOY.md) -->
+<meta name="aeroswarm-api" content="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -52,6 +54,7 @@
         <div class="live-row"><label for="live-llm">Agents</label>
           <select id="live-llm"><option value="anthropic">Claude (real LLM)</option><option value="mock">Mock (free, not an LLM)</option></select></div>
         <div class="live-row"><label for="live-model">Model</label><select id="live-model"></select></div>
+        <div class="live-row" id="live-code-row" hidden><label for="live-code">Access code</label><input id="live-code" type="password" autocomplete="off" spellcheck="false"></div>
         <div class="live-row"><label for="live-evals">Evaluations</label><input id="live-evals" type="number" min="1" max="40" step="1" value="15"></div>
         <div class="live-row"><label for="live-budget">Cost cap ($)</label><input id="live-budget" type="number" min="0.25" max="5" step="0.25" value="1"></div>
         <label class="check" for="live-inner"><input id="live-inner" type="checkbox" checked> Hybrid: Optuna inner loop allowed</label>

@@ -1,0 +1,11 @@
+.git
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+runs/*
+!runs/examples
+viewer/runs/live
+evals
+docs
+tests

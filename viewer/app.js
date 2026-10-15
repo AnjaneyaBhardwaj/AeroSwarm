@@ -5,6 +5,12 @@
 "use strict";
 
 const $ = (s) => document.querySelector(s);
+// Where the live server is. Empty: the page's own origin (the server also serves this page). Set the
+// <meta name="aeroswarm-api"> tag when the page and the server live on different addresses (docs/DEPLOY.md).
+const API = (() => {
+  const v = (document.querySelector('meta[name="aeroswarm-api"]')?.content || "").trim();
+  return v && !v.endsWith("/") ? v + "/" : v;
+})();
 const SVGNS = "http://www.w3.org/2000/svg";
 const BASE_DWELL_MS = 2600; // per generation at 1x
 const TWEEN_MS = 750;
@@ -46,6 +52,7 @@ const S = {
   bannerDismissed: false,
   cidParams: {},
   cidOutline: {},
+  dataBase: "", // where runs/*.json come from: this page's folder, or the live server's
 };
 
 /* ------------------------------------------------------------------ helpers */
@@ -90,7 +97,7 @@ async function boot() {
   wireTips();
   wireIntro();
   try {
-    S.index = await fetchJSON("runs/index.json");
+    S.index = await fetchJSON(`${S.dataBase}runs/index.json`);
   } catch (e) {
     fatal(`Could not load runs/index.json (${e.message}). Serve the viewer over HTTP: <code>python -m http.server -d viewer</code>, and export a run with <code>scripts/export_run.py</code>.`);
     return;
@@ -129,7 +136,7 @@ function fatal(html) {
 }
 
 async function loadRun(file, { autoplay = true, gen = null, keepPick = false } = {}) {
-  const data = await fetchJSON(`runs/${file}`);
+  const data = await fetchJSON(`${S.dataBase}runs/${file}`);
   $("#run-select").value = file;
   setRun(data, { keepPick });
   const startFi = gen != null ? Math.max(0, S.frames.findIndex((g) => g.gen >= Number(gen))) : 0;
@@ -1018,13 +1025,18 @@ async function probeLive() {
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 1500);
-    const r = await fetch("api/health", { signal: ctl.signal, cache: "no-cache" });
+    const r = await fetch(`${API}api/health`, { signal: ctl.signal, cache: "no-cache" });
     clearTimeout(t);
     if (r.ok && (r.headers.get("content-type") || "").includes("json")) h = await r.json();
   } catch (_) { /* no server: recorded replays only */ }
   if (!h || !h.ok) return;
   S.live.available = true;
   S.live.health = h;
+  if (API) { // the server's gallery includes finished live runs; its files are served from there
+    try { S.index = await fetchJSON(`${API}runs/index.json`); S.dataBase = API; fillSelect(); } catch (_) { /* keep the static one */ }
+  }
+  $("#live-code-row").hidden = !h.access_code_required;
+  try { $("#live-code").value = sessionStorage.getItem("aeroswarm-code") || ""; } catch (_) { /* optional */ }
   $("#live").hidden = false;
   $("#intro-live").hidden = false;
   const sel = $("#live-model");
@@ -1038,7 +1050,7 @@ async function probeLive() {
   $("#live-budget").max = h.caps.budget_usd;
   $("#live-inner").checked = h.defaults.inner_optimizer;
   $("#live-llm").value = h.anthropic_key ? "anthropic" : "mock";
-  for (const id of ["#live-llm", "#live-model", "#live-evals", "#live-budget"]) $(id).addEventListener("input", liveEstimate);
+  for (const id of ["#live-llm", "#live-model", "#live-evals", "#live-budget", "#live-code"]) $(id).addEventListener("input", liveEstimate);
   $("#live-go").onclick = startLiveRun;
   liveEstimate();
   checkLiveStart();
@@ -1057,10 +1069,15 @@ function liveEstimate() {
     go.disabled = true;
     return;
   }
-  go.disabled = S.live.running || S.live.startOk === false;
+  const needCode = !mock && h.access_code_required && !$("#live-code").value.trim();
+  go.disabled = S.live.running || S.live.startOk === false || needCode;
+  const left = h.daily ? Math.max(0, h.daily.cap_usd - h.daily.spent_usd) : null;
   $("#live-est").innerHTML = mock
     ? `Free. The mock is a rule-based stand-in, <b>not an LLM</b>; the run is labelled as such.`
-    : `Estimated ≈ <b>$${Math.min(cap, per * evals).toFixed(2)}</b>; stops at <b>$${cap.toFixed(2)}</b> or ${evals} evaluations, whichever comes first. Target Cl ${clTxt(h.spec.target_cl)} ± ${h.spec.cl_tol}, Cd ≤ ${h.spec.cd_max}.`;
+    : `Estimated ≈ <b>$${Math.min(cap, per * evals).toFixed(2)}</b>; stops at <b>$${cap.toFixed(2)}</b> or ${evals} evaluations, whichever comes first. Target Cl ${clTxt(h.spec.target_cl)} ± ${h.spec.cl_tol}, Cd ≤ ${h.spec.cd_max}.` +
+      (left != null ? ` Today's live budget: $${left.toFixed(2)} of $${h.daily.cap_usd.toFixed(2)} left.` : "") +
+      (needCode ? ` <b>Enter the access code</b> to run Claude (the mock needs none).` : "");
+  if (h.xfoil === false) $("#live-est").innerHTML += ` <b>XFoil is not installed on this server</b>, so designs cannot be verified and no run can pass.`;
 }
 
 /* Ask the server whether the dial-set start passes the run's geometry and rule checks (debounced). */
@@ -1072,7 +1089,7 @@ function checkLiveStart() {
     const start = Object.fromEntries(Object.keys(h.bounds).map((k) => [k, Number((S.pick[k] ?? S.run.start[k]).toFixed(4))]));
     let out = null;
     try {
-      const r = await fetch("api/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start }) });
+      const r = await fetch(`${API}api/check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start }) });
       out = await r.json();
       if (!r.ok) out = { ok: false, violations: [typeof out.detail === "string" ? out.detail : "invalid start"] };
     } catch (_) { return; }
@@ -1109,12 +1126,14 @@ async function startLiveRun() {
     llm: $("#live-llm").value,
     model: $("#live-model").value,
     inner_optimizer: $("#live-inner").checked,
+    access_code: $("#live-code").value.trim(),
   };
+  try { sessionStorage.setItem("aeroswarm-code", body.access_code); } catch (_) { /* optional */ }
   $("#live-go").disabled = true;
   liveStatus("Starting…");
   let r, out;
   try {
-    r = await fetch("api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    r = await fetch(`${API}api/runs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     out = await r.json();
   } catch (e) {
     liveStatus(`Could not reach the server (${e.message}).`);
@@ -1127,10 +1146,11 @@ async function startLiveRun() {
     liveEstimate();
     return;
   }
-  attachLive(out.run_id);
+  S.live.token = out.control_token;
+  attachLive(out.run_id, { own: true });
 }
 
-function attachLive(runId) {
+function attachLive(runId, { own = false } = {}) {
   detachLive();
   setPlaying(false);
   S.live.runId = runId;
@@ -1138,8 +1158,9 @@ function attachLive(runId) {
   S.live.attached = true;
   S.live.gens = new Set();
   $("#live-go").disabled = true;
+  if (!own) S.live.token = null; // watching someone else's run: only its starter can stop it
   const stop = $("#live-stop");
-  stop.hidden = false;
+  stop.hidden = !S.live.token;
   stop.disabled = false;
   stop.textContent = "Stop run";
   stop.onclick = () => stopLiveRun(runId);
@@ -1147,7 +1168,7 @@ function attachLive(runId) {
   const chip = $("#source-chip");
   chip.textContent = "Live run";
   chip.classList.add("live");
-  const es = new EventSource(`api/runs/${encodeURIComponent(runId)}/stream`);
+  const es = new EventSource(`${API}api/runs/${encodeURIComponent(runId)}/stream`);
   S.live.es = es;
   es.addEventListener("run", (e) => {
     if (S.run && S.run.run_id === runId && S.live.gens.size) return; // reconnect: keep what is on screen
@@ -1176,11 +1197,12 @@ function attachLive(runId) {
     const fi = S.fi;
     setRun(final, { keepPick: true });
     endLiveChip("Live run · saved to gallery");
-    try { S.index = await fetchJSON("runs/index.json"); fillSelect(); } catch (_) { /* gallery refresh is optional */ }
+    try { S.index = await fetchJSON(`${S.dataBase}runs/index.json`); fillSelect(); } catch (_) { /* gallery refresh is optional */ }
     const entry = S.index.runs.find((x) => x.name === final.name);
     if (entry) $("#run-select").value = entry.file;
     goTo(Math.min(fi, S.frames.length - 1), { instant: true });
     goTo(S.frames.length - 1);
+    try { S.live.health = await (await fetch(`${API}api/health`, { cache: "no-cache" })).json(); } catch (_) { /* keep */ }
     liveStatus(`Finished: ${final.termination}, ${final.evals} evaluations${final.cost_usd != null ? `, est. $${final.cost_usd.toFixed(2)}` : ""}. Saved as ${final.name}.`);
     liveEstimate();
   });
@@ -1218,7 +1240,7 @@ function detachLive() {
     S.live.attached = false;
     endLiveChip("Recorded run");
     $("#live-go").disabled = true;
-    liveStatus(`Run ${id} keeps going on the server and joins the gallery when it ends.`, "Back to it", () => attachLive(id));
+    liveStatus(`Run ${id} keeps going on the server and joins the gallery when it ends.`, "Back to it", () => attachLive(id, { own: !!S.live.token }));
   }
 }
 
@@ -1227,7 +1249,10 @@ async function stopLiveRun(runId) {
   b.disabled = true;
   b.textContent = "Stopping…";
   try {
-    await fetch(`api/runs/${encodeURIComponent(runId)}/stop`, { method: "POST" });
+    const r = await fetch(`${API}api/runs/${encodeURIComponent(runId)}/stop`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: S.live.token || "" }),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || `HTTP ${r.status}`);
   } catch (e) {
     b.disabled = false;
     b.textContent = "Stop run";

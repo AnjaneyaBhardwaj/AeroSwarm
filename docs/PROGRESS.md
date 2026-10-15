@@ -88,10 +88,28 @@ OpenFOAM work) until the viewer is done.
   "The solver is running", "The Critic is reviewing the result", ...); the page shows it above the feed with a
   spinner, so a real-LLM generation (30-60 s) never looks frozen.
 
+### Deployable on the user's own website (same session)
+- The user will host it on their own site. The Artifact link stays replay-only (its frame blocks requests to
+  any server).
+- Server: `AEROSWARM_LIVE_ACCESS_CODE` (needed to start a real-LLM run; mock runs stay open),
+  `AEROSWARM_LIVE_DAILY_USD` (`DailySpend`: a run reserves its cap at start, the unused part is returned at the
+  end; kept in `runs/live/_daily_spend.json` across restarts), `AEROSWARM_LIVE_ORIGINS` (CORS for a page on
+  another origin), a per-run control token for Stop, `X-Accel-Buffering: no` on the stream, `--proxy-headers`,
+  and `main()` refuses a non-local bind without an access code unless `--allow-open`. `/api/health` reports
+  `xfoil` (without it no run can pass; the page says so) and the daily budget.
+- Page: `<meta name="aeroswarm-api">` for a separate API origin (then the gallery comes from the server's merged
+  index), an access-code field when required, today's remaining budget in the estimate.
+- `Dockerfile` (XFoil built in a builder stage, non-root runtime, health check, volumes for runs and the live
+  gallery), `.dockerignore`, `docs/DEPLOY.md` (layouts, settings, safety rules, nginx/Caddy, no-Docker path).
+- Tested: 4 new server tests (access code, daily cap reserve/settle/restart, CORS, public-bind refusal). The
+  image was built and run here without its XFoil stage: refuses to start without a code; with one, serves the
+  page, refuses a wrong code, streams a mock run (8 generations) and adds it to the gallery, runs as non-root.
+  **The XFoil build stage is untested**: this sandbox's network policy blocks deb.debian.org.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
-- Live runs need the local server; the hosted Artifact page cannot reach any server (its frame blocks outside
-  requests). Options are with the user.
+- The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.
+- One instance only: the active run lives in memory.
 
 ### Next
 - Part 4: GitHub Pages workflow and a replay GIF at the top of the README; export the bench3 runs.

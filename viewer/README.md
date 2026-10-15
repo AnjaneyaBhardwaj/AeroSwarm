@@ -33,3 +33,6 @@ spend an API key. Before a run, the dials are checked against the run's own geom
 - A finished run is saved to `runs/live/<id>/` and exported, with its Optuna comparison, to
   `viewer/runs/live/` (git-ignored); it joins the gallery through the server's merged `runs/index.json`. To
   publish one, export it into `viewer/runs/` with `scripts/export_run.py runs/live/<id>`.
+
+To put the viewer and live runs on your own website (access code, daily spend cap, Docker image, reverse
+proxy settings), see [docs/DEPLOY.md](../docs/DEPLOY.md).
