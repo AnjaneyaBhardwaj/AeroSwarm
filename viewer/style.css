@@ -337,7 +337,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* desktop: one screen, panels scroll inside */
 @media (min-width: 1251px) and (min-height: 700px) {
-  body { height: 100vh; overflow: hidden; }
+  html, body { height: 100%; }
+  body { overflow: hidden; }
   .grid { min-height: 0; overflow: hidden; }
   .left, .right { min-height: 0; overflow: auto; }
   .right { overflow: hidden; }
