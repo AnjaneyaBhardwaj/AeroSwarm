@@ -39,6 +39,7 @@ def test_health_and_static(setup):
     assert h["ok"] and h["anthropic_key"] is False and h["busy"] is None
     assert h["defaults"]["model"] in h["models"] and h["caps"]["max_evals"] == 40
     assert set(h["bounds"]) == set(START)
+    assert client.post("/api/check", json={"start": h["default_start"]}).json()["ok"] is True
     assert "AeroSwarm" in client.get("/").text
     assert client.get("/runs/index.json").json()["runs"][0]["name"] == "example_hard_llm"
 

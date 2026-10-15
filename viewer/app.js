@@ -35,7 +35,7 @@ const S = {
   frames: [],      // generations that have at least one evaluation
   fi: 0,           // current frame index
   playing: false,
-  speed: 2,
+  speed: 1,
   nextAt: 0,
   tween: null,     // {from, to, fromP, toP, fromCl, toCl, t0, dur}
   shown: null,     // {outline, params, cl}
@@ -87,6 +87,8 @@ async function fetchJSON(url) {
 async function boot() {
   initTheme();
   wireControls();
+  wireTips();
+  wireIntro();
   try {
     S.index = await fetchJSON("runs/index.json");
   } catch (e) {
@@ -100,7 +102,9 @@ async function boot() {
   const want = q.get("run");
   const first = S.index.runs.find((r) => r.name === want || r.file === want) || S.index.runs[0];
   if (!first) return fatal("No exported runs in runs/index.json.");
-  await loadRun(first.file, { autoplay: q.get("autoplay") !== "0", gen: q.get("gen") });
+  const intro = !introSeen() && q.get("intro") !== "0";
+  await loadRun(first.file, { autoplay: !intro && q.get("autoplay") !== "0", gen: q.get("gen") });
+  if (intro) openIntro();
   if (q.get("speed")) setSpeed(Number(q.get("speed")));
   requestAnimationFrame(loop);
   probeLive();
@@ -504,6 +508,7 @@ function renderFrame() {
   const sm = ev.stall;
   $("#ro-stall").textContent = sm && sm.dcl_dalpha != null ? `${sm.dcl_dalpha.toFixed(3)}/° ${sm.source === "xfoil_probe" ? "XF" : "NF"}` : "—";
   $("#ro-stall").title = sm ? `d|Cl|/dα ${sm.dcl_dalpha} vs threshold ${sm.threshold} (${sm.source === "xfoil_probe" ? "XFoil α+1/α+2 probe" : "NeuralFoil screen"}); ${sm.ok ? "ok" : "fails"}` : "no stall-margin evidence for this record";
+  $("#story").innerHTML = narrate(g);
   for (const t of document.querySelectorAll("#ticks i")) t.style.opacity = Number(t.dataset.fi) <= S.fi ? 1 : 0.28;
   if (!S.tween) updateDials(ev.params);
   stageFoot();
@@ -658,14 +663,14 @@ function card(g, current, i) {
   const c = g.chief;
   if (c) {
     const tags = [c.mode === "inner_optimizer" ? "inner optimizer" : "reasoned step", SOLVER[c.fidelity] || c.fidelity, `trust ${c.trust_radius}`];
-    out.push(`<div class="agent chief"><div class="who">Chief <span class="tag">${esc(tags.join(" · "))}</span></div>
+    out.push(`<div class="agent chief"><div class="who"><span data-tip="${esc(TIP.chief)}">Chief</span> <span class="tag">${esc(tags.join(" · "))}</span></div>
       <p class="quote">${esc(c.hypothesis)}</p>
       ${c.focus.length ? `<div class="focus">${c.focus.map((f) => `<span>${esc(SHORT[f.name] || f.name)} ${dirArrow(f.direction)}${f.locked ? " 🔒" : ""}</span>`).join("")}</div>` : ""}
       ${c.promote_cid ? `<div class="note">promote <code>${esc(c.promote_cid)}</code> to ${esc(SOLVER[c.fidelity] || c.fidelity)}</div>` : ""}
       ${c.declare_plateau ? `<div class="note">declares a plateau</div>` : ""}
       ${c.screen_override ? `<div class="override"><b>Screen override:</b> ${esc(c.screen_override)}</div>` : ""}</div>`);
   }
-  if (g.parent && i > 0) out.push(`<div class="agent sys"><div class="who">Parent <span class="tag">${esc(g.parent.cid)}</span></div><div class="note">${esc(g.parent.why)}</div></div>`);
+  if (g.parent && i > 0) out.push(`<div class="agent sys"><div class="who"><span data-tip="${esc(TIP.parent)}">Parent</span> <span class="tag">${esc(g.parent.cid)}</span></div><div class="note">${esc(g.parent.why)}</div></div>`);
   g.cad.forEach((a, k) => {
     const rejected = a.outcome === "rejected";
     const head = g.cad.length > 1 ? `attempt ${k + 1}${rejected ? " · rejected" : a.outcome ? " · accepted" : ""}` : rejected ? "rejected" : "";
@@ -676,7 +681,7 @@ function card(g, current, i) {
         <div class="mech">${esc(x.mechanism)}</div>
         ${x.override_reason ? `<div class="override"><b>Overrides the Chief${dis ? ` (Chief ${dirArrow(dis.chief)}, CAD ${dirArrow(dis.cad)})` : ""}:</b> ${esc(x.override_reason)}</div>` : ""}</div>`;
     }).join("");
-    out.push(`<div class="agent cad attempt ${rejected ? "rejected" : ""}"><div class="who">CAD <span class="tag">${esc(head)}</span></div>${ch}
+    out.push(`<div class="agent cad attempt ${rejected ? "rejected" : ""}"><div class="who"><span data-tip="${esc(TIP.cad)}">CAD</span> <span class="tag">${esc(head)}</span></div>${ch}
       ${a.rejection ? `<div class="rej">✕ ${esc(a.rejection)}</div>` : ""}</div>`);
   });
   const inner = g.notes.find((n) => n.event === "inner_optimizer_finished");
@@ -687,11 +692,11 @@ function card(g, current, i) {
       (e.failing.length && !e.inner_optimizer ? `<ul class="ev">${e.failing.slice(0, 3).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : "");
   });
   const shownSolves = solves.length > 4 ? solves.slice(0, 4).join("") + `<div class="note">+ ${solves.length - 4} more evaluations</div>` : solves.join("");
-  out.push(`<div class="agent sys"><div class="who">Solver <span class="tag">${esc(ev.cid)}</span></div>${shownSolves}</div>`);
+  out.push(`<div class="agent sys"><div class="who"><span data-tip="${esc(TIP.solver)}">Solver</span> <span class="tag">${esc(ev.cid)}</span></div>${shownSolves}</div>`);
   const cr = g.critic;
   if (cr) {
     const evid = cr.evidence.map((x, j) => `<li ${j >= 3 ? "hidden" : ""}>${esc(x)}</li>`).join("");
-    out.push(`<div class="agent critic"><div class="who">Critic <span class="tag">${esc(cr.status)} · ${esc(cr.symptom)}${cr.confidence != null ? ` · conf ${cr.confidence}` : ""}${g.critic_source === "numeric" ? " · numeric verdict (no LLM text)" : ""}</span></div>
+    out.push(`<div class="agent critic"><div class="who"><span data-tip="${esc(TIP.critic)}">Critic</span> <span class="tag">${esc(cr.status)} · ${esc(cr.symptom)}${cr.confidence != null ? ` · conf ${cr.confidence}` : ""}${g.critic_source === "numeric" ? " · numeric verdict (no LLM text)" : ""}</span></div>
       <ul class="ev">${evid}</ul>${cr.evidence.length > 3 ? `<button class="more">${cr.evidence.length - 3} more</button>` : ""}</div>`);
   }
   const other = g.notes.filter((n) => !["inner_optimizer_finished", "geometry_rejected", "proposal_rejected"].includes(n.event));
@@ -860,6 +865,148 @@ function initTheme() {
   };
 }
 
+/* ------------------------------------------------------------------ plain-language layer */
+// Everything here is generated from the export's facts (ledger numbers, check names, which agent acted).
+// It never paraphrases agent text: the agents' own words stay verbatim in the feed.
+const TIP = {
+  chief: "Chief aerodynamicist (LLM). Reads the results so far and decides the next move: which shape parameters to change and in which direction, or which design to verify with the accurate solver.",
+  cad: "CAD engineer (LLM). Turns the Chief's plan into concrete numbers for camber, camber position, thickness and angle, and explains the physics. It may overrule the Chief, but must say why. Code checks every proposal against the rules.",
+  solver: "Physics solvers, not an LLM. NeuralFoil is a fast neural-network airfoil model used for exploring; XFoil is the slower, more accurate panel code that must confirm a design before it can pass.",
+  critic: "Critic (LLM). An independent reviewer that sees the solver output and the automatic checks, and diagnoses what is wrong. It can downgrade a result but never upgrade one.",
+  parent: "The design this generation starts from: the best one so far, picked by code (smallest violation of the targets).",
+  cl: "Lift coefficient. Negative means downforce (the wing is upside down). The target is a band around one value: too little or too much both miss.",
+  cd: "Drag coefficient. Must stay at or below the cap; more drag costs straight-line speed.",
+  solverRo: "Which solver produced these numbers. NeuralFoil: fast estimate. XFoil: accurate check; only XFoil can produce a final pass. L0–L3 is XFoil's recovery level if it had trouble converging.",
+  stall: "Stall margin: how much extra downforce the wing still gains if the angle increases by 1–2°. Near zero or negative means it is about to stall (flow separating), so a gust or a bump would cost downforce. NF = NeuralFoil screen, XF = measured by XFoil.",
+  polar: "Each dot is one evaluated design: drag to the right, downforce up. The green box is the target. Circles are NeuralFoil estimates, squares are XFoil checks; the ring marks the current generation.",
+  dials: "The four shape parameters of the wing section (a NACA 4-digit profile): how curved it is (camber), where the curve peaks, how thick it is, and its angle to the airflow.",
+  target: "What the team must reach: a downforce coefficient within the band, drag at or under the cap, a healthy stall margin, inside the racing rulebook's geometry limits, and confirmed by XFoil.",
+  feed: "What each agent decided this generation, quoted from the run's trace log. Long text is shortened, never reworded.",
+};
+const SYMPTOM = {
+  TE_SEPARATION_MAIN: "flow separating near the trailing edge",
+  TE_SEPARATION_FLAP: "flow separating on the flap",
+  LE_SUCTION_SPIKE: "a sharp suction spike at the leading edge",
+  SLOT_CHOKED: "a choked slot",
+  EARLY_STALL: "the wing is close to stalling",
+  INSUFFICIENT_LOADING: "not enough downforce",
+  EXCESS_PRESSURE_DRAG: "too much pressure drag",
+  NONE: "no problem found",
+};
+const PLAIN = { main_camber: "camber", main_camber_pos: "camber position", main_thickness: "thickness", alpha_deg: "angle" };
+const unitOf = (n) => (PARAM_META[n]?.unit === "deg" ? "°" : "%");
+
+function verdictSentence(ev, spec) {
+  const off = ev.cl - spec.target_cl;
+  const inCl = Math.abs(off) <= spec.cl_tol, inCd = ev.cd <= spec.cd_max;
+  const fc = new Set(ev.failed_checks || []);
+  const solver = ev.solver === "neuralfoil" ? "NeuralFoil estimates" : `${SOLVER[ev.solver] || ev.solver} measures`;
+  let s = `${solver} Cl <b>${clTxt(ev.cl)}</b> and Cd <b>${fmt(ev.cd, 4)}</b>: `;
+  const why = [];
+  if (!inCl) why.push(off > 0 ? `${Math.abs(off).toFixed(3)} short of the downforce target` : `${Math.abs(off).toFixed(3)} more downforce than the target band allows`);
+  if (!inCd) why.push("too much drag");
+  if (fc.has("neuralfoil_screen") || fc.has("stall_margin")) why.push("it fails the stall check (too close to stalling)");
+  if (fc.has("te_separation")) why.push("the flow separates before the trailing edge");
+  if (ev.passing) return s + `inside the target box with a healthy stall margin, confirmed by XFoil. <b>This design passes.</b>`;
+  if (ev.verdict && !["PASS", "TARGET_MISS"].includes(ev.verdict)) return s + `the result was rejected as ${ev.verdict.replaceAll("_", " ").toLowerCase()}.`;
+  if (!why.length && ev.solver === "neuralfoil") return s + `inside the target box. Only XFoil can confirm it, so it needs a verification run.`;
+  if (!why.length) return s + "not a pass yet.";
+  return s + (inCl && inCd ? "inside the target box, but " : "") + why.join(", and ") + ".";
+}
+
+function narrate(g) {
+  const r = S.run, ev = headOf(g), spec = r.spec, out = [];
+  const c = g.chief;
+  if (g.gen === 0 || !g.parent && !g.cad.length && !(c && c.promote_cid) && ev.rationale === "baseline") {
+    const p = ev.params;
+    out.push(`<b>Start.</b> The team evaluates the starting wing (camber ${pval("main_camber", p.main_camber)}%, thickness ${pval("main_thickness", p.main_thickness)}%, angle ${pval("alpha_deg", p.alpha_deg)}°).`);
+  } else if (ev.solver !== "neuralfoil" && /^promotion of/.test(ev.rationale || "")) {
+    out.push(`<b>Verification.</b> The Chief sends design <code>${esc(ev.cid)}</code> to ${esc(SOLVER[ev.solver] || ev.solver)}, the accurate solver, to check the fast estimate.`);
+  } else if (g.evals.some((e) => e.inner_optimizer)) {
+    const n = g.evals.filter((e) => e.inner_optimizer).length;
+    out.push(`<b>Search.</b> The Chief hands ${esc((c?.focus || []).map((f) => PLAIN[f.name] || f.name).join(", ") || "a few parameters")} to Optuna, a numerical optimizer (no LLM), for ${n} quick evaluations. Shown: the best of them.`);
+  } else {
+    const acc = g.cad.find((a) => a.outcome === "accepted") || g.cad[g.cad.length - 1];
+    const parentP = S.cidParams[ev.parent_cid] || null;
+    if (acc) {
+      const ch = acc.changes.map((x) => {
+        const old = parentP ? parentP[x.name] : null;
+        const dir = old == null ? "set" : x.new_value > old ? "raised" : x.new_value < old ? "lowered" : "kept";
+        return `${dir} ${PLAIN[x.name] || x.name}${old != null ? ` ${pval(x.name, old)} → ${pval(x.name, x.new_value)}${unitOf(x.name)}` : ""}`;
+      });
+      const rejected = g.cad.filter((a) => a.outcome === "rejected");
+      const why = (a) => (/^duplicate/.test(a.rejection || "") ? "it repeated a design already tested"
+        : /^(bounds|trust_region|direction|not_allowed|unknown_param|no_change)/.test(a.rejection || "") ? "it broke the Chief's limits"
+        : "it broke a geometry or rulebook check");
+      const rej = rejected.length ? ` (Code rejected ${rejected.length === 1 ? "its first proposal" : `${rejected.length} earlier proposals`}: ${[...new Set(rejected.map(why))].join("; ")}.)` : "";
+      const dis = acc.disagreements || [];
+      const ovr = dis.length ? ` It <b>overruled the Chief</b> on ${dis.map((d) => PLAIN[d.param] || d.param).join(", ")}; its reason is in the feed.` : "";
+      out.push(`<b>Change.</b> The CAD agent ${ch.join(", ")}.${rej}${ovr}`);
+    }
+  }
+  out.push(verdictSentence(ev, spec));
+  if (g.critic && g.critic_source === "llm" && g.critic.symptom && g.critic.symptom !== "NONE" && !ev.passing)
+    out.push(`The Critic's diagnosis: ${SYMPTOM[g.critic.symptom] || g.critic.symptom.toLowerCase()}.`);
+  return out.join(" ");
+}
+
+/* One floating tooltip for every [data-tip] element (hover or keyboard focus). */
+function wireTips() {
+  const tip = document.createElement("div");
+  tip.className = "gtip";
+  tip.hidden = true;
+  tip.setAttribute("role", "tooltip");
+  document.body.appendChild(tip);
+  const show = (t) => {
+    tip.textContent = t.dataset.tip;
+    tip.hidden = false;
+    const b = t.getBoundingClientRect(), w = Math.min(320, window.innerWidth - 24);
+    tip.style.width = `${w}px`;
+    const left = Math.max(12, Math.min(b.left + b.width / 2 - w / 2, window.innerWidth - w - 12));
+    const below = b.bottom + 8 + tip.offsetHeight < window.innerHeight;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${below ? b.bottom + 8 : b.top - tip.offsetHeight - 8}px`;
+  };
+  const hide = () => (tip.hidden = true);
+  document.addEventListener("pointerover", (e) => { const t = e.target.closest("[data-tip]"); if (t) show(t); });
+  document.addEventListener("pointerout", (e) => { if (e.target.closest("[data-tip]")) hide(); });
+  document.addEventListener("focusin", (e) => { const t = e.target.closest("[data-tip]"); if (t) show(t); });
+  document.addEventListener("focusout", hide);
+  document.addEventListener("scroll", hide, true);
+  for (const el2 of document.querySelectorAll("[data-tip-key]")) {
+    el2.dataset.tip = TIP[el2.dataset.tipKey];
+    if (!el2.hasAttribute("tabindex") && !/^(BUTTON|INPUT|SELECT)$/.test(el2.tagName)) el2.tabIndex = 0;
+  }
+}
+
+/* "How to read this": shown on the first visit, reopened with the ? button. Filled from the run's own spec. */
+function openIntro() {
+  const r = S.run, s = r?.spec;
+  const box = $("#intro");
+  if (s) {
+    $("#intro-target").innerHTML = `Cl <b>${clTxt(s.target_cl)} ± ${s.cl_tol}</b> (downforce), Cd <b>≤ ${s.cd_max}</b> (drag), a healthy stall margin, inside the ${esc(s.rulebook)} geometry rules, confirmed by XFoil. Budget: ${s.max_evals} evaluations.`;
+  }
+  $("#intro-live").hidden = !S.live.available;
+  box.hidden = false;
+  $("#intro-go").focus();
+}
+function closeIntro(play = true) {
+  $("#intro").hidden = true;
+  try { localStorage.setItem("aeroswarm-intro-seen", "1"); } catch (_) { /* optional */ }
+  if (play && S.frames.length > 1) { if (S.fi >= S.frames.length - 1) goTo(0, { instant: true }); setPlaying(true); }
+}
+function wireIntro() {
+  $("#help").onclick = () => { setPlaying(false); openIntro(); };
+  $("#intro-go").onclick = () => closeIntro(true);
+  $("#intro-close").onclick = () => closeIntro(false);
+  $("#intro-live").onclick = () => { closeIntro(false); $("#live").scrollIntoView({ behavior: "smooth", block: "center" }); $("#live-go").focus(); };
+  $("#intro").addEventListener("click", (e) => { if (e.target.id === "intro") closeIntro(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#intro").hidden) closeIntro(false); });
+}
+function introSeen() {
+  try { return localStorage.getItem("aeroswarm-intro-seen") === "1"; } catch (_) { return false; }
+}
+
 /* ------------------------------------------------------------------ live mode (local server only) */
 // The page offers live runs only when it is served by `python -m swarm.live` (api/health answers). The stream
 // carries the same per-generation records as a recorded export; when the run ends it is saved to the gallery.
@@ -879,6 +1026,7 @@ async function probeLive() {
   S.live.available = true;
   S.live.health = h;
   $("#live").hidden = false;
+  $("#intro-live").hidden = false;
   const sel = $("#live-model");
   sel.innerHTML = Object.entries(h.models)
     .filter(([, per]) => per != null)
@@ -933,7 +1081,15 @@ function checkLiveStart() {
     box.className = `live-check ${out.ok ? "ok" : "bad"}`;
     box.textContent = out.ok
       ? `Start design passes the geometry and ${out.rulebook} checks.`
-      : `Start design is not allowed (${out.rulebook || "rules"}): ${out.violations.join("; ")}`;
+      : `These dials break the ${out.rulebook || "rule"} checks: ${out.violations[0].split(" (")[0].split("; increase")[0]}${out.violations.length > 1 ? ` (+${out.violations.length - 1} more)` : ""}. `;
+    box.title = out.ok ? "" : out.violations.join("\n");
+    if (!out.ok && h.default_start) {
+      const b = document.createElement("button");
+      b.className = "more";
+      b.textContent = "Use the preset start";
+      b.onclick = () => { S.pick = { ...h.default_start }; updateDials(S.pick); renderNearest(); checkLiveStart(); };
+      box.appendChild(b);
+    }
     liveEstimate();
   }, 250);
 }

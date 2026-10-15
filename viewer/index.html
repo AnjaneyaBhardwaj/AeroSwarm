@@ -27,6 +27,9 @@
   <div class="top-right">
     <label class="sr-only" for="run-select">Run</label>
     <select id="run-select" aria-label="Run"></select>
+    <button id="help" class="icon-btn" title="How to read this page" aria-label="How to read this page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm2.1-7.7-.9.9c-.7.7-1.2 1.3-1.2 2.8h-2v-.5c0-1.1.4-2.1 1.2-2.8l1.2-1.3a1.9 1.9 0 0 0-1.4-3.2 2 2 0 0 0-2 2H8a4 4 0 0 1 8 0c0 .9-.4 1.6-.9 2.1z"/></svg>
+    </button>
     <button id="theme-toggle" class="icon-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
     </button>
@@ -37,7 +40,7 @@
   <!-- LEFT: start design, nearest run, run facts -->
   <section class="panel left" aria-labelledby="h-start">
     <div class="panel-head">
-      <h2 id="h-start">Start design</h2>
+      <h2 id="h-start" data-tip-key="dials">Start design</h2>
       <span class="hint">drag a dial</span>
     </div>
     <div id="dials" class="dials"></div>
@@ -59,7 +62,7 @@
       </div>
     </div>
 
-    <div class="panel-head sub"><h2>Target</h2></div>
+    <div class="panel-head sub"><h2 data-tip-key="target">Target</h2></div>
     <dl id="spec" class="facts"></dl>
 
     <div class="panel-head sub"><h2>Run</h2></div>
@@ -74,19 +77,20 @@
         <div class="gen-badge"><span class="k">GEN</span><span id="gen-num">0</span><span class="of" id="gen-of">/ 0</span></div>
         <div id="stage-status" class="status"></div>
         <div class="readout">
-          <div><span class="k">Cl</span><span id="ro-cl" class="v">—</span></div>
-          <div><span class="k">Cd</span><span id="ro-cd" class="v">—</span></div>
-          <div><span class="k">Solver</span><span id="ro-solver" class="v">—</span></div>
-          <div><span class="k">Stall margin</span><span id="ro-stall" class="v">—</span></div>
+          <div><span class="k" data-tip-key="cl">Cl</span><span id="ro-cl" class="v">—</span></div>
+          <div><span class="k" data-tip-key="cd">Cd</span><span id="ro-cd" class="v">—</span></div>
+          <div><span class="k" data-tip-key="solverRo">Solver</span><span id="ro-solver" class="v">—</span></div>
+          <div><span class="k" data-tip-key="stall">Stall margin</span><span id="ro-stall" class="v">—</span></div>
         </div>
       </div>
+      <p id="story" class="story" aria-live="polite"></p>
       <div id="banner" class="banner" hidden></div>
       <svg id="stage" class="stage" role="img" aria-label="Wing section at the current generation"></svg>
       <div id="stage-foot" class="stage-foot"></div>
     </div>
     <div class="panel polar-panel">
       <div class="panel-head">
-        <h2>Cl–Cd polar</h2>
+        <h2 data-tip-key="polar">Cl–Cd polar</h2>
         <div class="legend" id="polar-legend"></div>
       </div>
       <div class="polar-wrap">
@@ -99,7 +103,7 @@
   <!-- RIGHT: agent decision feed -->
   <section class="panel right" aria-labelledby="h-feed">
     <div class="panel-head">
-      <h2 id="h-feed">Agent decisions</h2>
+      <h2 id="h-feed" data-tip-key="feed">Agent decisions</h2>
       <span class="hint">verbatim from traces.jsonl</span>
     </div>
     <div id="feed" class="feed" aria-live="polite"></div>
@@ -113,7 +117,7 @@
     <button id="btn-play" class="icon-btn play" title="Play / pause (space)" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path id="play-icon" d="M7 5v14l12-7z"/></svg></button>
     <button id="btn-next" class="icon-btn" title="Next generation" aria-label="Next generation"><svg viewBox="0 0 24 24"><path d="M9 5v14l9-7z"/></svg></button>
     <div class="speed" role="group" aria-label="Replay speed">
-      <button data-speed="0.5">0.5×</button><button data-speed="1">1×</button><button data-speed="2" class="on">2×</button><button data-speed="4">4×</button>
+      <button data-speed="0.5">0.5×</button><button data-speed="1" class="on">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button>
     </div>
     <button id="btn-morph" class="pill" title="Morph from the start design to the final design">Start → final</button>
   </div>
@@ -122,6 +126,34 @@
     <input id="scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Generation">
   </div>
 </footer>
+
+<div id="intro" class="intro" hidden>
+  <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="intro-h">
+    <button id="intro-close" class="close" aria-label="Close">×</button>
+    <p class="eyebrow">AeroSwarm · how to read this replay</p>
+    <h2 id="intro-h">A team of AI agents designs a race-car wing</h2>
+    <p class="lede">Three language-model agents take turns improving a wing section until it makes a target amount of
+      downforce without stalling. Every number comes from physics solvers and automatic checks, not from the agents.</p>
+    <div class="intro-goal"><span class="lbl">The goal</span><span id="intro-target"></span></div>
+    <ol class="loop" aria-label="One generation">
+      <li><b class="r chief">Chief</b><span>reads the results so far and picks the next move</span></li>
+      <li><b class="r cad">CAD</b><span>changes the shape: camber, thickness, angle</span></li>
+      <li><b class="r solver">Solvers</b><span>measure it: NeuralFoil (fast) and XFoil (accurate)</span></li>
+      <li><b class="r critic">Critic</b><span>checks the result and diagnoses what is wrong</span></li>
+    </ol>
+    <p class="loop-note">That loop is one <b>generation</b>. It repeats until a design passes or the budget runs out.</p>
+    <div class="intro-map">
+      <div><b>Wing</b> (centre): the current design, the previous one dashed, and its downforce against the target.</div>
+      <div><b>Polar</b> (below): every design so far. The aim is the green box.</div>
+      <div><b>Feed</b> (right): each agent's reasoning in its own words.</div>
+      <div><b>Timeline</b> (bottom): play, pause, step or scrub. Hover any underlined term for an explanation.</div>
+    </div>
+    <div class="intro-actions">
+      <button id="intro-go" class="go">Watch the replay</button>
+      <button id="intro-live" class="pill" hidden>Start a live run instead</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

@@ -63,6 +63,21 @@ OpenFOAM work) until the viewer is done.
   T.7.1.4 (LE radius ≥ 5 mm needs thickness ≥ 0.123), so a live run from the default dials is refused; the panel
   now says so before the click.
 
+### Self-explanatory demo (same session)
+- Intro dialog on the first visit ("How to read this replay"; the ? button reopens it): the goal filled from the run's
+  spec, the Chief → CAD → solvers → Critic loop, what each panel shows; "Watch the replay", or "Start a live run"
+  when the local server is up. Remembered per browser; `?intro=0` skips it.
+- A caption per generation above the wing, generated from the export's facts only (never paraphrasing agent text):
+  what kind of step it was (start, CAD change with old → new values, XFoil verification, Optuna search), why code
+  rejected earlier proposals (duplicate / Chief's limits / geometry or rulebook), whether the CAD overruled the Chief
+  (from the code's disagreement record, not from the presence of an override reason), the solver's numbers and in
+  plain words why it is not a pass, and the Critic's symptom.
+- Hover/focus explanations on the jargon (Cl, Cd, solver, stall margin, polar, dials, target, feed, each agent).
+- Default replay speed 1× (about 1 minute for the example run). Live panel: one-line rule message with
+  "Use the preset start" (`/api/health` returns `default_start`, the hard preset's start).
+- Fixed: `[hidden]` now always hides (the intro's `display: grid` had kept a closed intro over the page); phone header
+  no longer overflows.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
 - No cancel button: a started run ends at its caps. The page shows the mock's label but not a per-agent health

@@ -40,7 +40,7 @@ from pydantic import BaseModel, Field, ValidationError
 from swarm.cad.build import build
 from swarm.llm.client import PRICES, AnthropicClient, MissingAPIKey, TraceLogger, require_api_key
 from swarm.llm.mock import MockClient
-from swarm.run import HARD_SPEC, run
+from swarm.run import HARD_SPEC, HARD_START, run
 from swarm.state import SINGLE_ELEMENT_PARAMS, WingParams
 from swarm.viz.export import export_run, index_entries, make_index, optuna_baseline
 
@@ -130,6 +130,7 @@ def create_app(
             "caps": {"max_evals": MAX_EVALS, "budget_usd": MAX_BUDGET_USD, "wall_minutes": MAX_WALL_HOURS * 60},
             "models": {m: cost_per_eval(m) for m in PRICES},
             "bounds": {k: v for k, v in WingParams.bounds().items() if k in SINGLE_ELEMENT_PARAMS},
+            "default_start": {k: getattr(HARD_START, k) for k in SINGLE_ELEMENT_PARAMS},
         }
 
     def parse_start(values: dict[str, float]) -> WingParams:
