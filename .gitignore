@@ -7,3 +7,4 @@ runs/*
 !runs/examples/
 evals/critic_traces_*.jsonl
 evals/of_recovery_traces.jsonl
+viewer/runs/live/

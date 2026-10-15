@@ -17,9 +17,7 @@ import argparse
 import json
 from pathlib import Path
 
-from swarm.baselines import search
-from swarm.state import DesignSpec, WingParams
-from swarm.viz.export import export_run, summarise_baseline, write_index
+from swarm.viz.export import export_run, optuna_baseline, summarise_baseline, write_index
 
 OUT = Path("viewer/runs")
 BASELINES = Path("runs/viewer_baselines")
@@ -30,18 +28,10 @@ def optuna_for(run_dir: Path, name: str, choice: str) -> dict | None:
         return None
     if choice != "auto":
         return summarise_baseline(choice)
-    meta = json.loads((run_dir / "meta.json").read_text())
-    if meta.get("method") in ("random", "optuna"):
-        return None  # a baseline run is not compared with itself
     out = BASELINES / f"{name}_optuna"
-    done = out / "meta.json"
-    if not (done.exists() and "termination" in json.loads(done.read_text())):
-        spec = DesignSpec.model_validate(meta["spec"])
-        start = WingParams.model_validate(meta["start"])
-        seed = meta.get("start_seed") or 0
-        print(f"{name}: running Optuna TPE from the same start (seed {seed}, {spec.max_evals} evals) -> {out}")
-        search("optuna", spec, start, seed, out, write_report=False)
-    return summarise_baseline(out)
+    if not (out / "meta.json").exists():
+        print(f"{name}: running Optuna TPE from the same start -> {out}")
+    return optuna_baseline(run_dir, out)
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -93,15 +93,9 @@ async function boot() {
     fatal(`Could not load runs/index.json (${e.message}). Serve the viewer over HTTP: <code>python -m http.server -d viewer</code>, and export a run with <code>scripts/export_run.py</code>.`);
     return;
   }
+  fillSelect();
   const sel = $("#run-select");
-  for (const r of S.index.runs) {
-    const o = document.createElement("option");
-    o.value = r.file;
-    const res = r.outcome.result === "no_pass" ? "no pass" : "target met";
-    o.textContent = `${r.name} · ${r.is_mock ? "MOCK" : "LLM"} · ${res}`;
-    sel.appendChild(o);
-  }
-  sel.addEventListener("change", () => loadRun(sel.value, { autoplay: true }));
+  sel.addEventListener("change", () => { detachLive(); loadRun(sel.value, { autoplay: true }); });
   const q = new URLSearchParams(location.search);
   const want = q.get("run");
   const first = S.index.runs.find((r) => r.name === want || r.file === want) || S.index.runs[0];
@@ -109,6 +103,21 @@ async function boot() {
   await loadRun(first.file, { autoplay: q.get("autoplay") !== "0", gen: q.get("gen") });
   if (q.get("speed")) setSpeed(Number(q.get("speed")));
   requestAnimationFrame(loop);
+  probeLive();
+}
+
+function fillSelect() {
+  const sel = $("#run-select");
+  const cur = sel.value;
+  sel.innerHTML = "";
+  for (const r of S.index.runs) {
+    const o = document.createElement("option");
+    o.value = r.file;
+    const res = r.outcome.result === "no_pass" ? "no pass" : "target met";
+    o.textContent = `${r.name} · ${r.is_mock ? "MOCK" : "LLM"} · ${res}`;
+    sel.appendChild(o);
+  }
+  if (cur) sel.value = cur;
 }
 
 function fatal(html) {
@@ -145,6 +154,25 @@ function setRun(data, { keepPick = false } = {}) {
   layoutStage();
   $("#scrubber").max = Math.max(0, S.frames.length - 1);
   $("#gen-of").textContent = `/ ${S.frames.length ? S.frames[S.frames.length - 1].gen : 0}`;
+  if (!S.frames.length) renderWaiting();
+  checkLiveStart();
+}
+
+/* Live run before its first generation: the start outline and an empty feed. */
+function renderWaiting() {
+  const r = S.run;
+  S.shown = { outline: r.outlines[r.start_cid], params: r.start, cl: null, clLabel: "", ghostCid: null };
+  $("#gen-num").textContent = "–";
+  const st = $("#stage-status");
+  st.className = "status";
+  st.textContent = "STARTING";
+  for (const id of ["#ro-cl", "#ro-cd", "#ro-solver", "#ro-stall"]) $(id).textContent = "—";
+  updateDials(r.start);
+  stageFoot();
+  drawStage();
+  drawPolar();
+  hideBanner();
+  $("#feed").innerHTML = `<div class="card"><div class="card-body"><p class="note">Waiting for generation 0: the Chief is planning and the start design is being solved.</p></div></div>`;
 }
 
 /* ------------------------------------------------------------------ header + facts */
@@ -266,6 +294,7 @@ function wireDial(svg, name, lo, hi) {
     S.pick[name] = Math.min(hi, Math.max(lo, v));
     setDial(svg, S.pick[name]);
     renderNearest();
+    checkLiveStart();
   };
   svg.addEventListener("pointerdown", (e) => {
     svg.setPointerCapture(e.pointerId);
@@ -341,6 +370,7 @@ function renderNearest() {
 }
 
 async function commitPick() {
+  if (liveRunning()) { renderNearest(); return; } // the dials set the next live run's start; keep watching this one
   const best = nearestRuns()[0];
   if (!best) return;
   if (best.r.file !== $("#run-select").value) await loadRun(best.r.file, { autoplay: true, keepPick: true });
@@ -481,7 +511,7 @@ function renderFrame() {
   renderFeed();
   drawPolar();
   const last = S.fi === S.frames.length - 1;
-  if (last && !S.bannerDismissed) showBanner(); else hideBanner();
+  if (last && !S.bannerDismissed && !liveRunning()) showBanner(); else hideBanner();
 }
 
 function loop(now) {
@@ -498,7 +528,7 @@ function loop(now) {
   if (S.morph) stepMorph(now);
   if (S.playing && !S.tween && now >= S.nextAt) {
     if (S.fi < S.frames.length - 1) goTo(S.fi + 1);
-    else setPlaying(false);
+    else if (!liveRunning()) setPlaying(false);
   }
   requestAnimationFrame(loop);
 }
@@ -685,6 +715,7 @@ function drawPolar() {
   svg.innerHTML = "";
   const r = S.run, s = r.spec;
   const all = r.generations.flatMap((g) => g.evals).filter((e) => e.cl != null && e.cd != null);
+  if (!all.length) all.push({ cl: s.target_cl, cd: s.cd_max * 0.7 }); // empty live run: frame the target box
   const b = r.baseline && r.baseline.cl != null ? r.baseline : null;
   const cds = all.map((e) => e.cd).concat([s.cd_max], b ? [b.cd] : []);
   const cls = all.map((e) => e.cl).concat([s.target_cl - s.cl_tol, s.target_cl + s.cl_tol], b ? [b.cl] : []);
@@ -731,7 +762,7 @@ function drawPolar() {
   // trail through the headline record of each generation so far
   const shown = S.frames.slice(0, S.fi + 1);
   const trail = shown.map((f) => headOf(f)).filter((e) => e.cl != null && e.cd != null);
-  el("path", { class: "trail", d: "M" + trail.map((e) => `${X(e.cd).toFixed(1)} ${Y(e.cl).toFixed(1)}`).join("L") }, g);
+  if (trail.length) el("path", { class: "trail", d: "M" + trail.map((e) => `${X(e.cd).toFixed(1)} ${Y(e.cl).toFixed(1)}`).join("L") }, g);
 
   // Optuna's best / closest design
   if (b) {
@@ -827,6 +858,210 @@ function initTheme() {
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("aeroswarm-theme", next); } catch (_) { /* ignore */ }
   };
+}
+
+/* ------------------------------------------------------------------ live mode (local server only) */
+// The page offers live runs only when it is served by `python -m swarm.live` (api/health answers). The stream
+// carries the same per-generation records as a recorded export; when the run ends it is saved to the gallery.
+S.live = { startOk: null, available: false, health: null, runId: null, es: null, running: false, attached: false, gens: new Set() };
+const liveRunning = () => S.live.running && S.live.attached;
+
+async function probeLive() {
+  let h = null;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 1500);
+    const r = await fetch("api/health", { signal: ctl.signal, cache: "no-cache" });
+    clearTimeout(t);
+    if (r.ok && (r.headers.get("content-type") || "").includes("json")) h = await r.json();
+  } catch (_) { /* no server: recorded replays only */ }
+  if (!h || !h.ok) return;
+  S.live.available = true;
+  S.live.health = h;
+  $("#live").hidden = false;
+  const sel = $("#live-model");
+  sel.innerHTML = Object.entries(h.models)
+    .filter(([, per]) => per != null)
+    .map(([m, per]) => `<option value="${esc(m)}">${esc(m)} (≈$${per.toFixed(3)}/eval)</option>`).join("");
+  sel.value = h.defaults.model;
+  $("#live-evals").value = h.defaults.max_evals;
+  $("#live-evals").max = h.caps.max_evals;
+  $("#live-budget").value = h.defaults.budget_usd;
+  $("#live-budget").max = h.caps.budget_usd;
+  $("#live-inner").checked = h.defaults.inner_optimizer;
+  $("#live-llm").value = h.anthropic_key ? "anthropic" : "mock";
+  for (const id of ["#live-llm", "#live-model", "#live-evals", "#live-budget"]) $(id).addEventListener("input", liveEstimate);
+  $("#live-go").onclick = startLiveRun;
+  liveEstimate();
+  checkLiveStart();
+  if (h.busy) { liveStatus(`Run ${h.busy} is in progress on the server.`, "Watch it", () => attachLive(h.busy)); }
+}
+
+function liveEstimate() {
+  const h = S.live.health;
+  const mock = $("#live-llm").value === "mock";
+  $("#live-model").disabled = mock;
+  const evals = Number($("#live-evals").value), cap = Number($("#live-budget").value);
+  const per = h.models[$("#live-model").value];
+  const go = $("#live-go");
+  if (!mock && !h.anthropic_key) {
+    $("#live-est").textContent = "No Anthropic API key on the server: set AEROSWARM_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY and restart it, or use the mock.";
+    go.disabled = true;
+    return;
+  }
+  go.disabled = S.live.running || S.live.startOk === false;
+  $("#live-est").innerHTML = mock
+    ? `Free. The mock is a rule-based stand-in, <b>not an LLM</b>; the run is labelled as such.`
+    : `Estimated ≈ <b>$${Math.min(cap, per * evals).toFixed(2)}</b>; stops at <b>$${cap.toFixed(2)}</b> or ${evals} evaluations, whichever comes first. Target Cl ${clTxt(h.spec.target_cl)} ± ${h.spec.cl_tol}, Cd ≤ ${h.spec.cd_max}.`;
+}
+
+/* Ask the server whether the dial-set start passes the run's geometry and rule checks (debounced). */
+function checkLiveStart() {
+  if (!S.live.available) return;
+  clearTimeout(S.live.checkT);
+  S.live.checkT = setTimeout(async () => {
+    const h = S.live.health;
+    const start = Object.fromEntries(Object.keys(h.bounds).map((k) => [k, Number((S.pick[k] ?? S.run.start[k]).toFixed(4))]));
+    let out = null;
+    try {
+      const r = await fetch("api/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start }) });
+      out = await r.json();
+      if (!r.ok) out = { ok: false, violations: [typeof out.detail === "string" ? out.detail : "invalid start"] };
+    } catch (_) { return; }
+    S.live.startOk = out.ok;
+    const box = $("#live-check");
+    box.className = `live-check ${out.ok ? "ok" : "bad"}`;
+    box.textContent = out.ok
+      ? `Start design passes the geometry and ${out.rulebook} checks.`
+      : `Start design is not allowed (${out.rulebook || "rules"}): ${out.violations.join("; ")}`;
+    liveEstimate();
+  }, 250);
+}
+
+function liveStatus(text, action, fn) {
+  const box = $("#live-status");
+  box.innerHTML = esc(text) + (action ? ` <button class="more" id="live-act">${esc(action)}</button>` : "");
+  if (action) $("#live-act").onclick = fn;
+}
+
+async function startLiveRun() {
+  const h = S.live.health;
+  const body = {
+    start: Object.fromEntries(Object.keys(h.bounds).map((k) => [k, Number((S.pick[k] ?? S.run.start[k]).toFixed(4))])),
+    max_evals: Number($("#live-evals").value),
+    budget_usd: Number($("#live-budget").value),
+    llm: $("#live-llm").value,
+    model: $("#live-model").value,
+    inner_optimizer: $("#live-inner").checked,
+  };
+  $("#live-go").disabled = true;
+  liveStatus("Starting…");
+  let r, out;
+  try {
+    r = await fetch("api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    out = await r.json();
+  } catch (e) {
+    liveStatus(`Could not reach the server (${e.message}).`);
+    liveEstimate();
+    return;
+  }
+  if (!r.ok) {
+    const msg = typeof out.detail === "string" ? out.detail : JSON.stringify(out.detail);
+    liveStatus(`Not started: ${msg}`);
+    liveEstimate();
+    return;
+  }
+  attachLive(out.run_id);
+}
+
+function attachLive(runId) {
+  detachLive();
+  setPlaying(false);
+  S.live.runId = runId;
+  S.live.running = true;
+  S.live.attached = true;
+  S.live.gens = new Set();
+  $("#live-go").disabled = true;
+  const chip = $("#source-chip");
+  chip.textContent = "Live run";
+  chip.classList.add("live");
+  const es = new EventSource(`api/runs/${encodeURIComponent(runId)}/stream`);
+  S.live.es = es;
+  es.addEventListener("run", (e) => {
+    if (S.run && S.run.run_id === runId && S.live.gens.size) return; // reconnect: keep what is on screen
+    const head = JSON.parse(e.data);
+    setRun({ ...head, generations: [], baseline: null }, { keepPick: true });
+    S.live.budget = head.budget_usd;
+    $("#run-select").value = "";
+  });
+  es.addEventListener("generation", (e) => {
+    const { generation: g, outlines } = JSON.parse(e.data);
+    if (S.live.gens.has(g.gen)) return;
+    S.live.gens.add(g.gen);
+    addLiveGeneration(g, outlines);
+  });
+  es.addEventListener("progress", (e) => {
+    const p = JSON.parse(e.data);
+    const mm = Math.floor(p.elapsed_s / 60), ss = String(Math.floor(p.elapsed_s % 60)).padStart(2, "0");
+    liveStatus(`${p.evals} evaluations · $${p.cost_usd.toFixed(2)} of $${(S.live.budget ?? 0).toFixed(2)} · ${p.llm_calls} LLM calls · ${mm}:${ss}`);
+  });
+  es.addEventListener("done", async (e) => {
+    es.close();
+    const final = JSON.parse(e.data);
+    S.live.running = false;
+    S.live.attached = false;
+    const fi = S.fi;
+    setRun(final, { keepPick: true });
+    endLiveChip("Live run · saved to gallery");
+    try { S.index = await fetchJSON("runs/index.json"); fillSelect(); } catch (_) { /* gallery refresh is optional */ }
+    const entry = S.index.runs.find((x) => x.name === final.name);
+    if (entry) $("#run-select").value = entry.file;
+    goTo(Math.min(fi, S.frames.length - 1), { instant: true });
+    goTo(S.frames.length - 1);
+    liveStatus(`Finished: ${final.termination}, ${final.evals} evaluations${final.cost_usd != null ? `, est. $${final.cost_usd.toFixed(2)}` : ""}. Saved as ${final.name}.`);
+    liveEstimate();
+  });
+  es.addEventListener("error", (e) => {
+    if (e.data) { // a server-sent error event (the run failed), not a dropped connection
+      es.close();
+      S.live.running = false;
+      endLiveChip("Live run · failed");
+      liveStatus(`The run stopped with an error: ${JSON.parse(e.data).message}`);
+      liveEstimate();
+    }
+  });
+}
+
+function addLiveGeneration(g, outlines) {
+  const r = S.run;
+  Object.assign(r.outlines, outlines);
+  r.generations.push(g);
+  for (const e of g.evals) S.cidParams[e.cid] ??= e.params;
+  const following = !S.frames.length || S.fi === S.frames.length - 1;
+  S.frames = r.generations.filter((x) => x.head >= 0);
+  r.evals = r.generations.reduce((n, x) => n + x.evals.length, 0);
+  buildTicks();
+  layoutStage();
+  $("#scrubber").max = Math.max(0, S.frames.length - 1);
+  $("#gen-of").textContent = `/ ${g.gen}`;
+  if (following) goTo(S.frames.length - 1, { instant: S.frames.length === 1 });
+}
+
+function detachLive() {
+  if (S.live.es) S.live.es.close();
+  S.live.es = null;
+  if (S.live.running && S.live.attached) {
+    const id = S.live.runId;
+    S.live.attached = false;
+    endLiveChip("Recorded run");
+    liveStatus(`Run ${id} keeps going on the server and joins the gallery when it ends.`, "Back to it", () => attachLive(id));
+  }
+}
+
+function endLiveChip(text) {
+  const chip = $("#source-chip");
+  chip.textContent = text;
+  chip.classList.remove("live");
 }
 
 boot();

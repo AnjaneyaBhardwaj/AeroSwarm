@@ -1,4 +1,4 @@
-.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export clean-runs
+.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export live clean-runs
 
 install:
 	uv sync
@@ -35,6 +35,11 @@ viewer-export:
 
 viewer:
 	python3 -m http.server 8000 -d viewer
+
+# Viewer + live runs (local only): http://127.0.0.1:8000. Real-LLM runs need AEROSWARM_ANTHROPIC_API_KEY
+# (or ANTHROPIC_API_KEY); every run is capped (default 15 evaluations, $1). Without a key only the mock runs.
+live:
+	uv run python -m swarm.live
 
 clean-runs:
 	rm -rf runs/

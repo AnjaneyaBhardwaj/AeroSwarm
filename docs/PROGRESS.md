@@ -41,9 +41,35 @@ OpenFOAM work) until the viewer is done.
   Optuna for seeds 33/44/55 from the same starts) the gallery holds one run, so the nearest-start search always
   picks it.
 
+### Part 3: live mode (same session)
+- Cost check first, from the recorded runs: LLM-only ≈ $0.06–0.09 per evaluation on Sonnet (example run $1.47 / 23
+  evaluations, 17 min; bench3 $2.45–2.98); hybrid $0.61–0.68 per 40-evaluation run. The repo default model
+  (`claude-opus-5-5`) costs twice Sonnet per token. Decision: the public page replays only; live runs only through
+  the local server, capped, Sonnet 5.5 by default.
+- `swarm/live.py` (FastAPI, `make live`): serves `viewer/`; `POST /api/check` runs the start design through the
+  run's own geometry/rule checks; `POST /api/runs` starts `swarm.run.run` (hard preset, the dial values as the start)
+  in a thread with caps (≤ 40 evaluations, ≤ $5 via `max_cost_usd`, 30 min, one run at a time) and returns an
+  estimate; `GET /api/runs/{id}/stream` (SSE) re-exports the run directory with `export_run` and sends `run`, each
+  complete `generation` (complete = a later generation has started, or the run ended), `progress` (evaluations,
+  spend, calls, time) and `done` (the full export with the Optuna comparison, also written to `viewer/runs/live/`,
+  git-ignored) or `error`. `/runs/index.json` merges the committed gallery with finished live runs.
+- Viewer: a "Live run" panel appears only when `api/health` answers (agents Claude/mock, model with $/evaluation,
+  evaluations, cost cap, hybrid; live rule check on every dial change; estimate; status line with spend). The
+  replay engine follows the stream; leaving for a recorded run detaches without stopping the server run, "Back to
+  it" re-attaches. When the run ends it is selected in the gallery.
+- `tests/test_live.py` (3 tests, mock, offline): health/static, request validation and the rule check, and a full
+  streamed run whose generation records equal its saved export. Browser-checked with a mock run.
+- Found while testing: the committed example run's start (thickness 0.10, Formula Student 2026) fails FSAE 2027
+  T.7.1.4 (LE radius ≥ 5 mm needs thickness ≥ 0.123), so a live run from the default dials is refused; the panel
+  now says so before the click.
+
+### Known issues (live)
+- No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
+- No cancel button: a started run ends at its caps. The page shows the mock's label but not a per-agent health
+  summary during the run (it is in the final export's meta).
+
 ### Next
-- Show the user; then part 3 live mode (FastAPI + SSE reusing `swarm.run`), part 4 GitHub Pages workflow and a replay
-  GIF at the top of the README.
+- Part 4: GitHub Pages workflow and a replay GIF at the top of the README; export the bench3 runs.
 
 ## Session 16 (2026-10-15): milestone 5 parts 2 and 3: recovery ladder, CFD agent, mesh study, graph wiring
 

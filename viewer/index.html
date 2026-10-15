@@ -43,6 +43,22 @@
     <div id="dials" class="dials"></div>
     <div id="nearest" class="nearest" aria-live="polite"></div>
 
+    <div id="live" class="live" hidden>
+      <div class="panel-head sub"><h2>Live run</h2><span class="hint">local server</span></div>
+      <div class="live-body">
+        <div class="live-row"><label for="live-llm">Agents</label>
+          <select id="live-llm"><option value="anthropic">Claude (real LLM)</option><option value="mock">Mock (free, not an LLM)</option></select></div>
+        <div class="live-row"><label for="live-model">Model</label><select id="live-model"></select></div>
+        <div class="live-row"><label for="live-evals">Evaluations</label><input id="live-evals" type="number" min="1" max="40" step="1" value="15"></div>
+        <div class="live-row"><label for="live-budget">Cost cap ($)</label><input id="live-budget" type="number" min="0.25" max="5" step="0.25" value="1"></div>
+        <label class="check" for="live-inner"><input id="live-inner" type="checkbox" checked> Hybrid: Optuna inner loop allowed</label>
+        <div id="live-check" class="live-check"></div>
+        <div id="live-est" class="live-est"></div>
+        <button id="live-go" class="go">Run live from the dials</button>
+        <div id="live-status" class="live-status" aria-live="polite"></div>
+      </div>
+    </div>
+
     <div class="panel-head sub"><h2>Target</h2></div>
     <dl id="spec" class="facts"></dl>
 

@@ -414,11 +414,10 @@ def _label(meta: dict) -> str:
     return f"LLM swarm ({meta.get('llm_client')})"
 
 
-def write_index(runs_dir: str | Path) -> dict:
-    """viewer/runs/index.json: one entry per exported run, enough for the gallery and nearest-start search."""
-    runs_dir = Path(runs_dir)
+def index_entries(runs_dir: str | Path, prefix: str = "") -> list[dict]:
+    """One gallery entry per exported run in `runs_dir` (file paths relative to viewer/runs/ via `prefix`)."""
     entries = []
-    for p in sorted(runs_dir.glob("*.json")):
+    for p in sorted(Path(runs_dir).glob("*.json")):
         if p.name == "index.json":
             continue
         d = json.loads(p.read_text())
@@ -426,7 +425,7 @@ def write_index(runs_dir: str | Path) -> dict:
             continue
         entries.append(
             {
-                "file": p.name,
+                "file": prefix + p.name,
                 "name": d["name"],
                 "label": d["label"],
                 "is_mock": d["is_mock"],
@@ -438,6 +437,32 @@ def write_index(runs_dir: str | Path) -> dict:
                 "outcome": {k: d["outcome"][k] for k in ("result", "cl", "cd", "evals_to_target")},
             }
         )
-    index = {"schema": SCHEMA_VERSION, "bounds": WingParams.bounds(), "runs": entries}
-    (runs_dir / "index.json").write_text(json.dumps(index, indent=1))
+    return entries
+
+
+def make_index(entries: list[dict]) -> dict:
+    return {"schema": SCHEMA_VERSION, "bounds": WingParams.bounds(), "runs": entries}
+
+
+def write_index(runs_dir: str | Path) -> dict:
+    """viewer/runs/index.json: one entry per exported run, enough for the gallery and nearest-start search."""
+    index = make_index(index_entries(runs_dir))
+    (Path(runs_dir) / "index.json").write_text(json.dumps(index, indent=1))
     return index
+
+
+def optuna_baseline(run_dir: str | Path, out_dir: str | Path) -> dict | None:
+    """Optuna TPE (swarm.baselines, no LLM) from the run's start, spec and budget, run once into `out_dir` and
+    reused after that; the sampler seed is the run's start_seed, else 0. None for a baseline run itself."""
+    from swarm.baselines import search
+
+    meta = json.loads((Path(run_dir) / "meta.json").read_text())
+    if meta.get("method") in ("random", "optuna"):
+        return None
+    out = Path(out_dir)
+    done = out / "meta.json"
+    if not (done.exists() and "termination" in json.loads(done.read_text())):
+        spec = DesignSpec.model_validate(meta["spec"])
+        start = WingParams.model_validate(meta["start"])
+        search("optuna", spec, start, meta.get("start_seed") or 0, out, write_report=False)
+    return summarise_baseline(out)
