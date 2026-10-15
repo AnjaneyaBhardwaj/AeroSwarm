@@ -46,9 +46,10 @@ exhausted ladder), sign scoring (joint/mixed/deadband/no parent/other fidelity/q
 fake solver, and the committed cache (matches the case list, counts add up, the doc is regenerated from it).
 
 ### Next (waiting for the user)
-- **Decide on the panel count** (finding 4 in docs/FAILURE_ZOO.md). Options: keep 160 and note the bias; or move
-  L0–L2 to 320 panels and re-derive the gated sweep, target box and screen calibration (all benchmarks would then
-  need re-running). The witness design moves from −1.824 to −1.845, still inside the box.
+- **Panel count: decided, keep 160** (user, 2026-10-15). Measured against 320 on the 46 FSAE-legal zoo cases
+  at L0: 320 converged 44 vs 42, ~0.26 s vs ~0.05 s per solve, Cl 0.006–0.022 more downforce in the target
+  region (320 is within 0.004 of 400). Results stay consistent with the target, gated sweep and screen (all at
+  160); a reported Cl is "XFoil at 160 panels" and carries a ~0.016 under-prediction of downforce.
 - Optional: a ladder that does not stop at the first converged level above some alpha (e.g. also run L2 and
   take continuation when they disagree). No FSAE-legal zoo case needs it; it only matters at the domain edge.
 - LLM runs still wait on the API usage limit (resets 2026-11-01): hybrid seed 33, then the full arms.
@@ -59,7 +60,7 @@ fake solver, and the committed cache (matches the case list, counts add up, the 
   coarse mesh; BLUEPRINT §3) belongs with OpenFOAM (milestone 5).
 
 ### Known issues
-- XFoil at 160 panels under-predicts downforce by ~0.016 in the target region (see Next).
+- XFoil at 160 panels under-predicts downforce by ~0.016 in the target region (kept by decision; see Next).
 - CMA-ES (BLUEPRINT §3) is not implemented; TPE only.
 
 ## Session 13 (2026-10-06): milestone 4, the hybrid inner optimizer; offline benchmark 4

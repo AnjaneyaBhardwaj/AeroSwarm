@@ -144,4 +144,4 @@ Hand-written (session 14, 2026-10-15); `scripts/failure_zoo.py report` keeps thi
    tolerance of ±0.03. Cd drops by 0.00015–0.00034. The XFoil results that "came back under-loaded" in
    benchmark 4 and the hybrid pilot (Cl −1.785 to −1.798, box edge −1.80) are within that bias. The
    gated sweep (and so the target and the screen calibration) ran at 160 panels, and run results come from
-   L0–L2 (160 panels) unless the ladder reaches L3, so they are consistent with each other. Changing the panel count would move all of them (not changed here).
+   L0–L2 (160 panels) unless the ladder reaches L3, so they are consistent with each other. Changing the panel count would move all of them. Decision (user, 2026-10-15): keep 160.
