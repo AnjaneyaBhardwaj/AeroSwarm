@@ -46,6 +46,7 @@ from swarm.briefs import near_target, screen_blocked
 from swarm.cad.apply import apply_delta, fallback_params
 from swarm.cad.build import build
 from swarm.critic.numeric import VALIDATION, NumericReport, stall_check_required, suggest_diagnosis, validate
+from swarm.critic.render import render as render_critic
 from swarm.critic.screen import compare_with_xfoil, surrogate_screen
 from swarm.critic.stall import measure_stall_margin
 from swarm.evals.recovery import report_section as ladder_section
@@ -541,6 +542,17 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         }
 
     # ------------------------------------------------------------ critic
+    def critic_images(s: SwarmState, parent_rec: EvalRecord | None, gen: int, events: list) -> dict[str, str]:
+        """The vision Critic's images (swarm.critic.render); {} if rendering fails (the Critic still runs)."""
+        p, res = s["params"], s.get("result")
+        sub = f"critic_{res.fidelity if res else 'none'}"
+        parent = (parent_rec.params, parent_rec.result) if parent_rec else None
+        try:
+            return render_critic(p, res, s["spec"], files.dir / p.cid / sub, parent=parent)
+        except Exception as e:  # an image is a second opinion; never worth a node error
+            events.append({"node": "critic", "gen": gen, "event": "critic_render_failed", "error": repr(e)[:300]})
+            return {}
+
     @node_boundary("critic", files)
     def critic(s: SwarmState) -> dict:
         spec, ledger, p = s["spec"], s.get("ledger", []), s["params"]
@@ -548,6 +560,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
         parent_rec = _record_for(ledger, parent.cid) if parent else None
         gen = s.get("generation", 0)
         events = []
+        images: dict[str, str] = {}
         rep: NumericReport = s["numeric"]
         if aborted(s):
             v = Verdict(
@@ -564,8 +577,10 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             )
             events.append({**cap_event("critic", s), "action": "numeric verdict, no LLM call"})
         else:
+            sees = getattr(llm, "sees_images", False)
+            images = critic_images(s, parent_rec, gen, events) if s.get("vision_allowed") and sees else {}
             try:
-                v = critic_agent.review(llm, s, parent_rec)
+                v = critic_agent.review(llm, s, parent_rec, images=images)
             except Exception as e:
                 fallback("critic", "numeric_verdict", e)
                 v = Verdict(
@@ -605,6 +620,7 @@ def build_graph(llm: LLMClient, files: RunFiles, initial: WingParams):
             stall_margin=s.get("stall"),
             screen=s.get("screen"),
             failed_checks=[c.name for c in rep.checks if not c.ok and c.severity != "skipped"],
+            critic_images=images,
         )
         files.append_record(rec)
         events.append(

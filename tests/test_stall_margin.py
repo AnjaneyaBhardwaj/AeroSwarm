@@ -70,7 +70,7 @@ def test_reattaching_bubble_is_not_te_separation(spec):
 
 def test_critic_cannot_relabel_te_separation(spec):
     class Liar:  # an LLM that calls the separated design a clean PASS
-        def structured(self, role, system, user, schema, facts=None):
+        def structured(self, role, system, user, schema, facts=None, images=None):
             return Verdict(status="PASS", diagnosis=Diagnosis(symptom="NONE"), confidence=0.9)
 
     r = res(bl=sep_bl())

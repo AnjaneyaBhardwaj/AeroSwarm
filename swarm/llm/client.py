@@ -18,6 +18,8 @@ which any agent never got a successful call, is INVALID; `require_real_llm` refu
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import threading
@@ -309,9 +311,41 @@ class TraceLogger:
 class LLMClient(Protocol):
     kind: str  # "anthropic" | "mock" | "scripted"
     is_mock: bool
+    sees_images: bool  # whether `images` reach the model (the graph renders them only then)
     label: str  # what goes in run metadata
 
-    def structured(self, role: str, system: str, user: str, schema: type[T], facts: dict | None = None) -> T: ...
+    def structured(
+        self,
+        role: str,
+        system: str,
+        user: str,
+        schema: type[T],
+        facts: dict | None = None,
+        images: dict[str, str] | None = None,
+    ) -> T:
+        """`images`: {label: PNG path}, sent after the text in label order (the vision Critic)."""
+        ...
+
+
+def image_blocks(images: dict[str, str] | None) -> list[dict]:
+    """Anthropic content blocks for {label: PNG path}: a text label before each image."""
+    blocks: list[dict] = []
+    for label, path in (images or {}).items():
+        data = base64.standard_b64encode(Path(path).read_bytes()).decode()
+        blocks.append({"type": "text", "text": f"Image `{label}`:"})
+        blocks.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}})
+    return blocks
+
+
+def image_record(images: dict[str, str] | None) -> dict:
+    """What a trace stores about the images: paths and content hashes, never the bytes."""
+    if not images:
+        return {}
+    return {
+        "images": {
+            k: {"path": str(v), "sha1": hashlib.sha1(Path(v).read_bytes()).hexdigest()[:12]} for k, v in images.items()
+        }
+    }
 
 
 def _meta_of(source: Any) -> dict:
@@ -375,6 +409,7 @@ def preflight_llm(which: str = "auto") -> None:
 class AnthropicClient:
     kind = "anthropic"
     is_mock = False
+    sees_images = True
 
     def __init__(
         self,
@@ -396,14 +431,15 @@ class AnthropicClient:
         self._sdk = sdk_client
         self.label = f"anthropic:{self.model}"
 
-    def structured(self, role, system, user, schema, facts=None):
+    def structured(self, role, system, user, schema, facts=None, images=None):
         t0 = time.perf_counter()
+        content = [{"type": "text", "text": user}, *image_blocks(images)] if images else user
         try:
             resp = self._sdk.beta.messages.parse(
                 model=self.model,
                 max_tokens=self.max_tokens,
                 system=system,
-                messages=[{"role": "user", "content": user}],
+                messages=[{"role": "user", "content": content}],
                 output_format=schema,
                 thinking={"type": "adaptive"},
                 output_config={"effort": self.effort},
@@ -444,7 +480,7 @@ class AnthropicClient:
             output=parsed.model_dump() if parsed is not None else None,
             usage=usage,
             latency_s=latency,
-            extra={"stop_reason": resp.stop_reason, "requested_model": self.model},
+            extra={"stop_reason": resp.stop_reason, "requested_model": self.model, **image_record(images)},
             ok=error is None,
             error=None if error is None else str(error)[:500],
         )
@@ -458,6 +494,7 @@ class ScriptedClient:
 
     kind = "scripted"
     is_mock = True
+    sees_images = True  # records them, so tests can check what a vision Critic would be sent
     label = "scripted (test replay, not an LLM)"
 
     def __init__(self, responses: list[BaseModel], trace: TraceLogger | None = None):
@@ -465,8 +502,10 @@ class ScriptedClient:
         self.trace = trace or TraceLogger(None)
         self.calls: list[dict] = []
 
-    def structured(self, role, system, user, schema, facts=None):
-        self.calls.append({"role": role, "schema": schema.__name__, "system": system, "user": user})
+    def structured(self, role, system, user, schema, facts=None, images=None):
+        self.calls.append(
+            {"role": role, "schema": schema.__name__, "system": system, "user": user, "images": dict(images or {})}
+        )
         if not self.responses:
             raise RuntimeError(f"ScriptedClient exhausted at {role}/{schema.__name__}")
         out = self.responses.pop(0)
@@ -482,6 +521,7 @@ class ScriptedClient:
             output=out.model_dump(),
             usage={},
             latency_s=0.0,
+            extra=image_record(images),
         )
         return out
 

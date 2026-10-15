@@ -417,7 +417,28 @@ def cad_brief(state: SwarmState, base: WingParams, base_rec: EvalRecord | None, 
     return Brief(_system("cad", spec), user, facts)
 
 
-def critic_brief(state: SwarmState, suggested, parent_rec: EvalRecord | None) -> Brief:
+IMAGE_TEXT = """
+You also receive images, rendered deterministically (same axes and ranges for every design; candidate
+solid, parent dashed; the key numbers are printed in each title). They are a second opinion:
+- `cp`: -Cp(x/c) on the suction and pressure sides. A pressure plateau before the trailing edge is
+  separation; a sharp suction spike at the leading edge is a leading-edge suction peak; a local kink,
+  jag or step that the geometry does not explain is a geometry or discretization defect. The area
+  between the two curves grows with |Cl|: check it agrees with the printed Cl and with the parent.
+- `boundary_layer`: suction-side shape factor H(x/c) and, at XFoil, skin friction Cf(x/c); Cf < 0
+  that reaches the trailing edge is trailing-edge separation.
+- `section`: the section in the car frame (side view) with the rulebook's lines.
+An image finding sets `source` to the image name and gives an x/c location. Use severity "fatal" only
+when an image shows the numbers cannot be trusted (e.g. a Cp distribution inconsistent with the
+printed coefficients, a non-physical feature); it makes the result NON_PHYSICAL."""
+
+
+def image_text(vision: bool) -> str:
+    return IMAGE_TEXT if vision else "\nNo images in this run: judge from the numbers only."
+
+
+def critic_brief(
+    state: SwarmState, suggested, parent_rec: EvalRecord | None, images: dict[str, str] | None = None
+) -> Brief:
     spec, res, params, numeric = state["spec"], state["result"], state["params"], state["numeric"]
     parent = parent_rec.result if parent_rec else None
     facts = {
@@ -453,8 +474,10 @@ def critic_brief(state: SwarmState, suggested, parent_rec: EvalRecord | None) ->
             "## Parent design result\n" + (json.dumps(facts["parent"]) if parent else "(none)"),
             "## Suggested diagnosis (deterministic, from solver data)\n" + suggested.model_dump_json(indent=1),
         ]
+        + (["## Images\nAttached after this text: " + ", ".join(f"`{k}`" for k in images)] if images else [])
     )
-    return Brief(_system("critic", spec), user, facts)
+    facts["images"] = sorted(images or {})
+    return Brief(_system("critic", spec, image_text=image_text(bool(images))), user, facts)
 
 
 def strategy_summary(s: StrategyMemo | None) -> str:
