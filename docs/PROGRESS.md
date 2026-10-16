@@ -1,5 +1,127 @@
 # Progress
 
+## Session 17 (2026-10-15): run viewer for the portfolio, part 1 (exporter + gallery replay)
+
+New priority from the user: a visual run viewer. **Research features are frozen** (no FSAE preset work, no
+OpenFOAM work) until the viewer is done.
+
+### Done
+- `swarm/viz/export.py` + `scripts/export_run.py <run_dir>...`: one run directory becomes `viewer/runs/<name>.json`,
+  and `viewer/runs/index.json` is rebuilt. It holds the spec and target, the start params, and per generation: the
+  parent choice, the Chief's hypothesis, focus directions and the mode/fidelity actually executed, every CAD attempt
+  (changes, mechanisms, override reasons, Chief/CAD disagreements, rejection reason), every evaluation (params,
+  solver and ladder level, Cl, Cd, verdict, failing checks from `ledger.failing_checks`, stall margin from the
+  XFoil probe or else the NeuralFoil screen), the Critic's diagnosis, and notable events (overrides, screen/XFoil
+  disagreements, recoveries, inner-optimizer summaries, LLM failures). Numbers come from the ledger; agent text is
+  verbatim from `traces.jsonl` (cut at a word boundary with " …", never rewritten). A trace is matched to its
+  generation by the first later event from its role's node. A failed Critic call shows the numeric verdict,
+  labelled. NACA outlines (race-car orientation, 81 points) are included per candidate (`cad.build.placed` takes `n`).
+- Optuna comparison line: `--optuna auto` (default) runs `baselines.search("optuna")` from the same start, spec
+  and budget (sampler seed = start_seed, else 0) into `runs/viewer_baselines/<name>_optuna/`, reused after that;
+  `--optuna <dir>` uses an existing baseline run, `--optuna none` skips it. Caveat shown on the page: the baseline
+  runs with the current pipeline code, while an older LLM run ran with the code of its day (the example run used
+  Formula Student 2026 and the 0.05 screen threshold).
+- `viewer/` (static HTML/CSS/JS, no build step): `make viewer` serves it on :8000. Start-design dials (drag, scroll,
+  arrow keys); on release the page picks the nearest recorded start (RMS of range-normalised differences), says which
+  run and how far, and replays it. Replay: the wing tweens between generations with the parent ghosted and a
+  downforce arrow ∝ |Cl| against the target; dials follow the params; the agent feed shows the generation's Chief /
+  CAD / solver / Critic text; the Cl–Cd polar fills in with the target box, status colours (with icons and labels) and
+  NeuralFoil/XFoil shapes; scrubber, step, 0.5–4× speed, keyboard; final banner (target met, or "no passing
+  design" with the closest candidate's failing checks; mock and invalid-LLM runs labelled); start→final morph.
+  Readouts snap to recorded values; only animation frames are tweened. Dark/light themes, works at phone width.
+- `tests/test_export.py` (6 tests: ledger numbers, verbatim text, CAD outcomes/overrides, outlines, index, baseline).
+- Exported: `viewer/runs/example_hard_llm.json` (the committed example run; Optuna from the same start: no pass in
+  40 evaluations, closest Cl −1.8271 / Cd 0.0205 at NeuralFoil).
+
+### Known issues / gaps
+- `docs/viewer-prototype.html` (the design reference) is not in the repository on any branch, so the page layout is a
+  new design; align it with the prototype once it is committed.
+- The bench3 LLM runs (`runs/bench3/llm_s33`, `_s44`, `_s55`) are not committed; until they are exported
+  (`uv run python scripts/export_run.py runs/bench3/llm_s33 runs/bench3/llm_s44 runs/bench3/llm_s55`, which runs
+  Optuna for seeds 33/44/55 from the same starts) the gallery holds one run, so the nearest-start search always
+  picks it.
+
+### Part 3: live mode (same session)
+- Cost check first, from the recorded runs: LLM-only ≈ $0.06–0.09 per evaluation on Sonnet (example run $1.47 / 23
+  evaluations, 17 min; bench3 $2.45–2.98); hybrid $0.61–0.68 per 40-evaluation run. The repo default model
+  (`claude-opus-5-5`) costs twice Sonnet per token. Decision: the public page replays only; live runs only through
+  the local server, capped, Sonnet 5.5 by default.
+- `swarm/live.py` (FastAPI, `make live`): serves `viewer/`; `POST /api/check` runs the start design through the
+  run's own geometry/rule checks; `POST /api/runs` starts `swarm.run.run` (hard preset, the dial values as the start)
+  in a thread with caps (≤ 40 evaluations, ≤ $5 via `max_cost_usd`, 30 min, one run at a time) and returns an
+  estimate; `GET /api/runs/{id}/stream` (SSE) re-exports the run directory with `export_run` and sends `run`, each
+  complete `generation` (complete = a later generation has started, or the run ended), `progress` (evaluations,
+  spend, calls, time) and `done` (the full export with the Optuna comparison, also written to `viewer/runs/live/`,
+  git-ignored) or `error`. `/runs/index.json` merges the committed gallery with finished live runs.
+- Viewer: a "Live run" panel appears only when `api/health` answers (agents Claude/mock, model with $/evaluation,
+  evaluations, cost cap, hybrid; live rule check on every dial change; estimate; status line with spend). The
+  replay engine follows the stream; leaving for a recorded run detaches without stopping the server run, "Back to
+  it" re-attaches. When the run ends it is selected in the gallery.
+- `tests/test_live.py` (3 tests, mock, offline): health/static, request validation and the rule check, and a full
+  streamed run whose generation records equal its saved export. Browser-checked with a mock run.
+- Found while testing: the committed example run's start (thickness 0.10, Formula Student 2026) fails FSAE 2027
+  T.7.1.4 (LE radius ≥ 5 mm needs thickness ≥ 0.123), so a live run from the default dials is refused; the panel
+  now says so before the click.
+
+### Self-explanatory demo (same session)
+- Intro dialog on the first visit ("How to read this replay"; the ? button reopens it): the goal filled from the run's
+  spec, the Chief → CAD → solvers → Critic loop, what each panel shows; "Watch the replay", or "Start a live run"
+  when the local server is up. Remembered per browser; `?intro=0` skips it.
+- A caption per generation above the wing, generated from the export's facts only (never paraphrasing agent text):
+  what kind of step it was (start, CAD change with old → new values, XFoil verification, Optuna search), why code
+  rejected earlier proposals (duplicate / Chief's limits / geometry or rulebook), whether the CAD overruled the Chief
+  (from the code's disagreement record, not from the presence of an override reason), the solver's numbers and in
+  plain words why it is not a pass, and the Critic's symptom.
+- Hover/focus explanations on the jargon (Cl, Cd, solver, stall margin, polar, dials, target, feed, each agent).
+- Default replay speed 1× (about 1 minute for the example run). Live panel: one-line rule message with
+  "Use the preset start" (`/api/health` returns `default_start`, the hard preset's start).
+- Fixed: `[hidden]` now always hides (the intro's `display: grid` had kept a closed intro over the page); phone header
+  no longer overflows.
+
+### Stop button and "now" line (same session)
+- `TraceLogger.request_stop()`; the graph's `capped()` is also true once a stop is requested, so a stop takes the
+  cost-cap path (no further LLM call; an in-flight candidate is still solved and recorded) and ends with the new
+  termination `stopped` (`termination_reason(..., stopped=True)`, event `stopped_by_user`). `POST
+  /api/runs/{id}/stop`; the page's Stop button. Tested in `test_report.py` and `test_live.py` (a mock run stopped
+  early ends `stopped` and is saved).
+- `progress` events carry `gen` and `phase` (from the newest event's node: "The CAD agent is choosing the change",
+  "The solver is running", "The Critic is reviewing the result", ...); the page shows it above the feed with a
+  spinner, so a real-LLM generation (30-60 s) never looks frozen.
+
+### Deployable on the user's own website (same session)
+- The user will host it on their own site. The Artifact link stays replay-only (its frame blocks requests to
+  any server).
+- Server: `AEROSWARM_LIVE_ACCESS_CODE` (needed to start a real-LLM run; mock runs stay open),
+  `AEROSWARM_LIVE_DAILY_USD` (`DailySpend`: a run reserves its cap at start, the unused part is returned at the
+  end; kept in `runs/live/_daily_spend.json` across restarts), `AEROSWARM_LIVE_ORIGINS` (CORS for a page on
+  another origin), a per-run control token for Stop, `X-Accel-Buffering: no` on the stream, `--proxy-headers`,
+  and `main()` refuses a non-local bind without an access code unless `--allow-open`. `/api/health` reports
+  `xfoil` (without it no run can pass; the page says so) and the daily budget.
+- Page: `<meta name="aeroswarm-api">` for a separate API origin (then the gallery comes from the server's merged
+  index), an access-code field when required, today's remaining budget in the estimate.
+- `Dockerfile` (XFoil built in a builder stage, non-root runtime, health check, volumes for runs and the live
+  gallery), `.dockerignore`, `docs/DEPLOY.md` (layouts, settings, safety rules, nginx/Caddy, no-Docker path).
+- Tested: 4 new server tests (access code, daily cap reserve/settle/restart, CORS, public-bind refusal). The
+  image was built and run here without its XFoil stage: refuses to start without a code; with one, serves the
+  page, refuses a wrong code, streams a mock run (8 generations) and adds it to the gallery, runs as non-root.
+  **The XFoil build stage is untested**: this sandbox's network policy blocks deb.debian.org.
+
+### Subdomain deployment (same session)
+- The user chose layout A on a subdomain. `deploy/docker-compose.yml` (the app plus Caddy for automatic HTTPS;
+  Caddy waits for the app's health check, which takes about 20 s), `deploy/Caddyfile`, `deploy/.env.example`
+  (`deploy/.env` git-ignored); docs/DEPLOY.md "Subdomain on a server" (VPS, DNS A record, `.env`, one command).
+- Tested here with the XFoil-less test image and `DOMAIN=localhost` (Caddy's self-signed certificate): page over
+  HTTPS, HTTP redirects to HTTPS, a mock run streamed through Caddy (6 generations), the finished run still in the
+  gallery after an app restart. Not testable here: a real certificate (needs a public domain) and the XFoil stage.
+
+### Known issues (live)
+- No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
+- The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.
+- One instance only: the active run lives in memory.
+
+### Next
+- Part 4: GitHub Pages workflow and a replay GIF at the top of the README; export the bench3 runs.
+
 ## Session 16 (2026-10-15): milestone 5 parts 2 and 3: recovery ladder, CFD agent, mesh study, graph wiring
 
 PR #14 (part 1) merged.

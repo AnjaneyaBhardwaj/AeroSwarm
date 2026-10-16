@@ -1,0 +1,74 @@
+{
+ "schema": 1,
+ "bounds": {
+  "main_camber": [
+   0.0,
+   0.09
+  ],
+  "main_camber_pos": [
+   0.2,
+   0.6
+  ],
+  "main_thickness": [
+   0.08,
+   0.18
+  ],
+  "alpha_deg": [
+   -2.0,
+   14.0
+  ],
+  "flap_chord_ratio": [
+   0.0,
+   0.45
+  ],
+  "flap_deflection_deg": [
+   0.0,
+   45.0
+  ],
+  "slot_gap": [
+   0.005,
+   0.06
+  ],
+  "slot_overlap": [
+   -0.01,
+   0.07
+  ],
+  "gurney_h": [
+   0.0,
+   0.02
+  ]
+ },
+ "runs": [
+  {
+   "file": "example_hard_llm.json",
+   "name": "example_hard_llm",
+   "label": "LLM swarm (anthropic:claude-sonnet-5)",
+   "is_mock": false,
+   "start": {
+    "main_camber": 0.06,
+    "main_camber_pos": 0.4,
+    "main_thickness": 0.1,
+    "alpha_deg": 8.0
+   },
+   "start_seed": null,
+   "spec": {
+    "component": "wing_1el",
+    "target_cl": -1.83,
+    "cl_tol": 0.03,
+    "cd_max": 0.025,
+    "reynolds": 300000,
+    "speed_mps": 15.0,
+    "max_evals": 40,
+    "rulebook": "FS2026_v1.1"
+   },
+   "termination": "target_met",
+   "evals": 23,
+   "outcome": {
+    "result": "target_met",
+    "cl": -1.8526,
+    "cd": 0.02222,
+    "evals_to_target": 23
+   }
+  }
+ ]
+}

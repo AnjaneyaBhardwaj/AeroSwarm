@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSwarm Run Viewer</title>
+<meta name="description" content="Replay of a multi-agent LLM optimization of a race-car wing section: agent decisions, wing morph and Cl–Cd polar, from the run ledger.">
+<!-- Live server address when it is not this page's own origin, e.g. "https://api.example.com/" (docs/DEPLOY.md) -->
+<meta name="aeroswarm-api" content="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3 18 C9 10 22 9 29 13 C22 16 10 19 3 18Z' fill='%2336c2b4'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 18 C9 10 22 9 29 13 C22 16 10 19 3 18Z"/></svg>
+    <div>
+      <h1>AeroSwarm</h1>
+      <p>Multi-agent wing optimization: replay</p>
+    </div>
+  </div>
+  <div class="top-mid">
+    <span id="source-chip" class="chip chip-source" title="Where the data on screen comes from">Recorded run</span>
+    <span id="label-chip" class="chip"></span>
+  </div>
+  <div class="top-right">
+    <label class="sr-only" for="run-select">Run</label>
+    <select id="run-select" aria-label="Run"></select>
+    <button id="help" class="icon-btn" title="How to read this page" aria-label="How to read this page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm2.1-7.7-.9.9c-.7.7-1.2 1.3-1.2 2.8h-2v-.5c0-1.1.4-2.1 1.2-2.8l1.2-1.3a1.9 1.9 0 0 0-1.4-3.2 2 2 0 0 0-2 2H8a4 4 0 0 1 8 0c0 .9-.4 1.6-.9 2.1z"/></svg>
+    </button>
+    <button id="theme-toggle" class="icon-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- LEFT: start design, nearest run, run facts -->
+  <section class="panel left" aria-labelledby="h-start">
+    <div class="panel-head">
+      <h2 id="h-start" data-tip-key="dials">Start design</h2>
+      <span class="hint">drag a dial</span>
+    </div>
+    <div id="dials" class="dials"></div>
+    <div id="nearest" class="nearest" aria-live="polite"></div>
+
+    <div id="live" class="live" hidden>
+      <div class="panel-head sub"><h2>Live run</h2><span class="hint">local server</span></div>
+      <div class="live-body">
+        <div class="live-row"><label for="live-llm">Agents</label>
+          <select id="live-llm"><option value="anthropic">Claude (real LLM)</option><option value="mock">Mock (free, not an LLM)</option></select></div>
+        <div class="live-row"><label for="live-model">Model</label><select id="live-model"></select></div>
+        <div class="live-row" id="live-code-row" hidden><label for="live-code">Access code</label><input id="live-code" type="password" autocomplete="off" spellcheck="false"></div>
+        <div class="live-row"><label for="live-evals">Evaluations</label><input id="live-evals" type="number" min="1" max="40" step="1" value="15"></div>
+        <div class="live-row"><label for="live-budget">Cost cap ($)</label><input id="live-budget" type="number" min="0.25" max="5" step="0.25" value="1"></div>
+        <label class="check" for="live-inner"><input id="live-inner" type="checkbox" checked> Hybrid: Optuna inner loop allowed</label>
+        <div id="live-check" class="live-check"></div>
+        <div id="live-est" class="live-est"></div>
+        <button id="live-go" class="go">Run live from the dials</button>
+        <button id="live-stop" class="pill stop" hidden>Stop run</button>
+        <div id="live-status" class="live-status" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="panel-head sub"><h2 data-tip-key="target">Target</h2></div>
+    <dl id="spec" class="facts"></dl>
+
+    <div class="panel-head sub"><h2>Run</h2></div>
+    <dl id="run-facts" class="facts"></dl>
+    <div id="baseline" class="baseline"></div>
+  </section>
+
+  <!-- CENTER: wing stage + polar -->
+  <section class="center">
+    <div class="panel stage-panel">
+      <div class="stage-head">
+        <div class="gen-badge"><span class="k">GEN</span><span id="gen-num">0</span><span class="of" id="gen-of">/ 0</span></div>
+        <div id="stage-status" class="status"></div>
+        <div class="readout">
+          <div><span class="k" data-tip-key="cl">Cl</span><span id="ro-cl" class="v">—</span></div>
+          <div><span class="k" data-tip-key="cd">Cd</span><span id="ro-cd" class="v">—</span></div>
+          <div><span class="k" data-tip-key="solverRo">Solver</span><span id="ro-solver" class="v">—</span></div>
+          <div><span class="k" data-tip-key="stall">Stall margin</span><span id="ro-stall" class="v">—</span></div>
+        </div>
+      </div>
+      <p id="story" class="story" aria-live="polite"></p>
+      <div id="banner" class="banner" hidden></div>
+      <svg id="stage" class="stage" role="img" aria-label="Wing section at the current generation"></svg>
+      <div id="stage-foot" class="stage-foot"></div>
+    </div>
+    <div class="panel polar-panel">
+      <div class="panel-head">
+        <h2 data-tip-key="polar">Cl–Cd polar</h2>
+        <div class="legend" id="polar-legend"></div>
+      </div>
+      <div class="polar-wrap">
+        <svg id="polar" class="polar" role="img" aria-label="Evaluated designs on a lift–drag plot with the target box"></svg>
+        <div id="tip" class="tip" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: agent decision feed -->
+  <section class="panel right" aria-labelledby="h-feed">
+    <div class="panel-head">
+      <h2 id="h-feed" data-tip-key="feed">Agent decisions</h2>
+      <span class="hint">verbatim from traces.jsonl</span>
+    </div>
+    <div id="now" class="now" hidden><span class="spin" aria-hidden="true"></span><span id="now-text"></span></div>
+    <div id="feed" class="feed" aria-live="polite"></div>
+  </section>
+</main>
+
+<footer class="timeline panel">
+  <div class="controls">
+    <button id="btn-restart" class="icon-btn" title="Restart" aria-label="Restart"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+    <button id="btn-prev" class="icon-btn" title="Previous generation" aria-label="Previous generation"><svg viewBox="0 0 24 24"><path d="M15 5v14L6 12z"/></svg></button>
+    <button id="btn-play" class="icon-btn play" title="Play / pause (space)" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path id="play-icon" d="M7 5v14l12-7z"/></svg></button>
+    <button id="btn-next" class="icon-btn" title="Next generation" aria-label="Next generation"><svg viewBox="0 0 24 24"><path d="M9 5v14l9-7z"/></svg></button>
+    <div class="speed" role="group" aria-label="Replay speed">
+      <button data-speed="0.5">0.5×</button><button data-speed="1" class="on">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button>
+    </div>
+    <button id="btn-morph" class="pill" title="Morph from the start design to the final design">Start → final</button>
+  </div>
+  <div class="scrub">
+    <div id="ticks" class="ticks" aria-hidden="true"></div>
+    <input id="scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Generation">
+  </div>
+</footer>
+
+<div id="intro" class="intro" hidden>
+  <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="intro-h">
+    <button id="intro-close" class="close" aria-label="Close">×</button>
+    <p class="eyebrow">AeroSwarm · how to read this replay</p>
+    <h2 id="intro-h">A team of AI agents designs a race-car wing</h2>
+    <p class="lede">Three language-model agents take turns improving a wing section until it makes a target amount of
+      downforce without stalling. Every number comes from physics solvers and automatic checks, not from the agents.</p>
+    <div class="intro-goal"><span class="lbl">The goal</span><span id="intro-target"></span></div>
+    <ol class="loop" aria-label="One generation">
+      <li><b class="r chief">Chief</b><span>reads the results so far and picks the next move</span></li>
+      <li><b class="r cad">CAD</b><span>changes the shape: camber, thickness, angle</span></li>
+      <li><b class="r solver">Solvers</b><span>measure it: NeuralFoil (fast) and XFoil (accurate)</span></li>
+      <li><b class="r critic">Critic</b><span>checks the result and diagnoses what is wrong</span></li>
+    </ol>
+    <p class="loop-note">That loop is one <b>generation</b>. It repeats until a design passes or the budget runs out.</p>
+    <div class="intro-map">
+      <div><b>Wing</b> (centre): the current design, the previous one dashed, and its downforce against the target.</div>
+      <div><b>Polar</b> (below): every design so far. The aim is the green box.</div>
+      <div><b>Feed</b> (right): each agent's reasoning in its own words.</div>
+      <div><b>Timeline</b> (bottom): play, pause, step or scrub. Hover any underlined term for an explanation.</div>
+    </div>
+    <div class="intro-actions">
+      <button id="intro-go" class="go">Watch the replay</button>
+      <button id="intro-live" class="pill" hidden>Start a live run instead</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

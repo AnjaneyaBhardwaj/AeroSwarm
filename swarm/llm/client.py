@@ -191,6 +191,7 @@ class TraceLogger:
             "cost_unknown_calls": 0,
         }
         self.health = LLMHealth()
+        self.stop_requested = False  # set by request_stop (the live viewer's Stop button)
         self._lock = threading.Lock()
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -297,6 +298,10 @@ class TraceLogger:
                 **({"error": f"{type(error).__name__}: {error}"[:500]} if error else {}),
             }
         )
+
+    def request_stop(self) -> None:
+        """Ask the run to end at the next routing boundary, as the cost cap does (termination "stopped")."""
+        self.stop_requested = True
 
     def over_budget(self, cap_usd: float | None) -> bool:
         """True once estimated spend reaches `cap_usd`.

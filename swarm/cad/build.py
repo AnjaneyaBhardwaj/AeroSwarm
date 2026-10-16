@@ -46,9 +46,9 @@ def main_section(params: WingParams, n: int = 161) -> np.ndarray:
     return naca4(params.main_camber, params.main_camber_pos, params.main_thickness, n=n)
 
 
-def placed(params: WingParams, inverted: bool = True) -> np.ndarray:
+def placed(params: WingParams, inverted: bool = True, n: int = 161) -> np.ndarray:
     """Unit-chord section in race-car orientation: inverted, TE rotated up by alpha."""
-    xy = main_section(params).copy()
+    xy = main_section(params, n=n).copy()
     if inverted:
         xy[:, 1] *= -1
     a = np.deg2rad(params.alpha_deg)
