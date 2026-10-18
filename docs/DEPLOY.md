@@ -1,4 +1,4 @@
-# Deploying the run viewer with live runs
+# Deploying the run viewer
 
 The viewer (`viewer/`) is a static page. On its own it replays recorded runs. When it can reach the live
 server (`swarm/live.py`), it also offers live runs: the real swarm code, started from the dials, streamed
@@ -7,6 +7,29 @@ generation by generation. This guide puts both on your own website.
 The server holds your Anthropic API key; the browser never sees it. Visitors can always replay recorded runs
 and start mock runs (free, rule-based, labelled "not an LLM"). Starting a real-Claude run needs an access code
 that you hand out.
+
+## GitHub Pages: replays only, no server (the current setup)
+
+`.github/workflows/pages.yml` publishes `viewer/` to GitHub Pages on every push to `main` that touches it.
+Visitors get the guided replay of every run in `viewer/runs/`; the Live run panel stays hidden because no server
+answers. Nothing runs on a server and no API key is involved. Live runs stay on your own machine (`make live`).
+
+One-time setup for `https://aeroswarm.anjaneyabhardwaj.com`:
+
+1. **Turn Pages on.** GitHub → the repository → Settings → Pages → Build and deployment → Source:
+   **GitHub Actions**.
+2. **Publish once.** Merge the viewer into `main` (or run the "Pages" workflow by hand from the Actions tab).
+   The site then appears at `https://anjaneyabhardwaj.github.io/AeroSwarm/`.
+3. **DNS.** At the provider that manages `anjaneyabhardwaj.com`, add one record:
+   `CNAME`, name `aeroswarm`, value `anjaneyabhardwaj.github.io`. It does not affect the rest of the domain.
+4. **Custom domain.** Settings → Pages → Custom domain: `aeroswarm.anjaneyabhardwaj.com` → Save. When the DNS
+   check passes (minutes to a few hours), tick **Enforce HTTPS**.
+5. **Recommended:** verify `anjaneyabhardwaj.com` under your GitHub account (Settings → Pages → Verified
+   domains) so no other repository can claim a subdomain of it.
+
+To add a run to the public site: export it into `viewer/runs/` (`scripts/export_run.py`), commit, push to `main`.
+
+The sections below are for putting **live runs** on a public address as well. They need a machine that stays on.
 
 ## What runs where
 
@@ -25,7 +48,7 @@ Pick one layout:
   `<meta name="aeroswarm-api" content="https://api.example.com/">`, and on the server set
   `AEROSWARM_LIVE_ORIGINS=https://example.com` so the browser may call it (CORS).
 
-## Subdomain on a server (recommended)
+## Live runs on a subdomain (needs a server)
 
 This is layout A at `https://aeroswarm.<your-domain>`, using `deploy/`: the app container behind
 [Caddy](https://caddyserver.com), a web server that obtains and renews the HTTPS certificate for the subdomain by

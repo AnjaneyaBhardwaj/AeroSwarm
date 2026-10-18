@@ -114,6 +114,16 @@ OpenFOAM work) until the viewer is done.
   HTTPS, HTTP redirects to HTTPS, a mock run streamed through Caddy (6 generations), the finished run still in the
   gallery after an app restart. Not testable here: a real certificate (needs a public domain) and the XFoil stage.
 
+### Public site: GitHub Pages, no server (same session)
+- The user owns `anjaneyabhardwaj.com` and has no need for a cloud server: the public demo is replay-only on
+  GitHub Pages at `aeroswarm.anjaneyabhardwaj.com` (repository is public, so Pages is free); live runs stay local
+  (`make live`). `.github/workflows/pages.yml` publishes `viewer/` on pushes to `main` that touch it, after
+  checking that every file `runs/index.json` lists exists. One-time steps (Pages source, DNS CNAME, custom
+  domain, HTTPS) in docs/DEPLOY.md "GitHub Pages". The server deployment (`deploy/`) stays for later.
+- Next: real CAD output. The user wants a real CAD program connected (no CAD, wing or team of their own);
+  FreeCAD (free, scriptable, runs headless) is the candidate, generating the CAD files at export time so they
+  ship as static downloads on Pages.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
 - The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.
