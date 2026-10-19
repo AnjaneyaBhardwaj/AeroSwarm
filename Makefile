@@ -1,4 +1,4 @@
-.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export live local-live local-export clean-runs
+.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export readme-gif live local-live local-export clean-runs
 
 install:
 	uv sync
@@ -35,6 +35,10 @@ viewer-export:
 
 viewer:
 	python3 -m http.server 8000 -d viewer
+
+# README hero GIF (light + dark) from the example run's export -> docs/media/replay-{light,dark}.gif
+readme-gif:
+	uv run python scripts/replay_gif.py viewer/runs/example_hard_llm.json
 
 # Viewer + live runs (local only): http://127.0.0.1:8000. Real-LLM runs need AEROSWARM_ANTHROPIC_API_KEY
 # (or ANTHROPIC_API_KEY); every run is capped (default 15 evaluations, $1). Without a key only the mock runs.
