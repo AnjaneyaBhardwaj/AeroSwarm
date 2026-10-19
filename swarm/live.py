@@ -52,7 +52,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
 from swarm.cad.build import build
-from swarm.cad.freecad_export import cad_for_viewer, freecad_available
+from swarm.cad.freecad_export import cad_for_viewer, freecad_available, freecad_probe
 from swarm.llm.client import PRICES, AnthropicClient, MissingAPIKey, TraceLogger, require_api_key
 from swarm.llm.mock import MockClient
 from swarm.run import HARD_SPEC, HARD_START, run
@@ -200,7 +200,8 @@ def create_app(
             "anthropic_key": has_key(),
             "access_code_required": bool(access_code),
             "xfoil": xfoil_available(),  # without it designs cannot be verified, so no run can pass
-            "freecad": with_cad and freecad_available(),  # CAD files of each finished run
+            # CAD files of each finished run: installed AND starts (probed once; see freecad_export.freecad_probe)
+            "freecad": with_cad and freecad_available() and freecad_probe() is None,
             "daily": {"cap_usd": spend.cap, "spent_usd": round(spend.spent(), 2)},
             "busy": cur.id if cur else None,
             "spec": {"target_cl": HARD_SPEC.target_cl, "cl_tol": HARD_SPEC.cl_tol, "cd_max": HARD_SPEC.cd_max},

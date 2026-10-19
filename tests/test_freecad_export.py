@@ -64,3 +64,28 @@ def test_freecad_export_round_trip(tmp_path):
     assert out["check"]["step_round_trip"] == {**out["check"]["step_round_trip"], "faces": 2, "ok": True}
     dat = (tmp_path / "ex_cad" / "ex.dat").read_text().splitlines()
     assert dat[0] == "aeroswarm-abb9803ead" and len(dat) == 2 * fx.POINTS
+
+
+def _fake_cmd(tmp_path, body):
+    exe = tmp_path / "freecadcmd"
+    exe.write_text("#!/bin/sh\n" + body + "\n")
+    exe.chmod(0o755)
+    return str(exe)
+
+
+def test_probe_reports_a_freecad_that_does_not_start(tmp_path, monkeypatch):
+    fx._probe.cache_clear()
+    bad = _fake_cmd(tmp_path, "echo 'Segmentation fault in getPythonPath' >&2; exit 1")
+    monkeypatch.setattr(fx, "freecad_cmd", lambda: bad)
+    problem = fx.freecad_probe()
+    assert problem and "does not start" in problem and "getPythonPath" in problem
+    out = fx.cad_for_viewer(EXAMPLE, tmp_path / "v", "x_cad", "x")
+    assert out == {"error": problem}  # reported, nothing built
+    assert not (tmp_path / "v").exists()
+
+
+def test_probe_accepts_a_working_freecad(tmp_path, monkeypatch):
+    fx._probe.cache_clear()
+    good = _fake_cmd(tmp_path, f"echo {fx.PROBE_MARKER}")
+    monkeypatch.setattr(fx, "freecad_cmd", lambda: good)
+    assert fx.freecad_probe() is None
