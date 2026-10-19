@@ -1,5 +1,56 @@
 # Progress
 
+## Session 18 (2026-10-19): viewer redesign: headline first, calm replay, details collapsed
+
+The page showed everything at once (three dense columns plus a ticked timeline); on a phone the result and the
+story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`); no exporter, server or data change.
+
+### Done
+- **Headline first:** what the project is (one-sentence lede naming the Chief → CAD → solvers → Critic loop), the
+  result from the export's `outcome` (target met in N evaluations, final Cl and Cd tiles against the target band
+  and drag cap, "confirmed by XFoil at generation N with a healthy stall margin", est. cost; or the closest design
+  and its first failing check), mock / invalid-LLM labels, and one "Watch the replay" button (plays from gen 0 and
+  scrolls the replay into view when it is off screen). The first-visit intro dialog no longer opens by itself; it
+  stays behind the ? button (`?intro=1` opens it).
+- **Calm main view:** wing and polar side by side (stacked on phones: wing, controls, polar), the generation's story
+  above them, controls below (prev / play / next, scrubber, speed, Start → final). The page opens on the last
+  generation, paused (`?autoplay=1` plays from the start). Removed: the in-stage final banner (its facts are in the
+  headline, its CAD links in Details), the coloured timeline ticks, the restart button. Cl / Cd readouts turn green
+  inside the target (BLUEPRINT §5). The run selector shows only when the gallery has more than one run.
+- **One line per agent step** ("What each agent did"): Chief, CAD, Optuna, Solver, Critic, Events, each written by
+  code from the export's structured fields (focus directions, promotion, accepted changes with old → new values,
+  rejection reasons, Chief/CAD disagreements, ledger numbers and failed checks, Critic status/symptom/confidence,
+  event names). **"Show reasoning"** reveals the verbatim text under each line (hypothesis, focus, parent choice,
+  every CAD attempt with mechanisms, overrides, rejection and the CAD `note`, all evaluations with failing checks,
+  all Critic evidence, event details such as the NeuralFoil/XFoil stall slopes); opening it pauses playback.
+  The CAD `note` was exported but never shown before.
+- **Details** (closed `<details>`): start-design dials and nearest start, live-run panel, target and run facts,
+  Optuna comparison, CAD downloads.
+- Live mode: the headline shows "Live run in progress" with the latest Cl/Cd and the spend line ("Follow the run");
+  Stop moved onto the "now" line above the wing; "Start a live run" link under the headline (only when a live
+  server answers) opens Details at the panel; a failed run says so in the headline.
+- **Fixed (older bug):** when code rejected every CAD proposal and made the step itself (`cad_fallback`), the story
+  described the last *rejected* proposal as the CAD agent's change (e.g. "raised angle 10.52 → 10.66°" when the
+  evaluated design had 10.49°). Story and CAD line now say code rejected the proposals and describe the evaluated
+  design against its parent, from the ledger.
+- docs/DEPLOY.md, GitHub Pages section: the CNAME name is `aeroptimize`, not `aeroswarm`. viewer/README.md describes
+  the new layout and URL options.
+
+### Tested
+- Headless Chromium at 1440×900 and 390×844, light and dark: no horizontal scroll, no page errors; reasoning,
+  Details, Watch (plays from gen 0; on a phone scrolls the replay to the top), Start → final, keyboard.
+- The story of all 23 generations of `example_hard_llm` matches the previous page word for word, except the new
+  pointer "its reason is under “Show reasoning”" (was "in the feed") in gens 9, 10, 11, 20.
+- A 6-evaluation mock live run through the page on the local server (no API key set): headline progress, Stop
+  button, result in the headline when done, run joins the gallery and the selector appears; the fallback
+  generation reads correctly. Its files were deleted afterwards (git-ignored anyway).
+- `pytest -m "not xfoil"`: 373 passed, 1 skipped. ruff clean.
+
+### Next
+- Unchanged from session 17: 2-3 more recorded runs in the gallery, a replay GIF at the top of the README, one
+  real-Claude live run on the Mac (asks before spending credit). Still never tested: the Dockerfile's XFoil stage,
+  the Mac setup, a real-Claude live run.
+
 ## Session 17 (2026-10-15): run viewer for the portfolio, part 1 (exporter + gallery replay)
 
 New priority from the user: a visual run viewer. **Research features are frozen** (no FSAE preset work, no
