@@ -48,8 +48,7 @@ const S = {
   pick: {},        // dial-set start design
   dragging: null,
   morph: null,     // start -> final morph state
-  open: new Set(), // feed cards the viewer expanded
-  bannerDismissed: false,
+  reasoning: false, // agent steps show their verbatim reasoning
   cidParams: {},
   cidOutline: {},
   dataBase: "", // where runs/*.json come from: this page's folder, or the live server's
@@ -83,6 +82,9 @@ function statusOf(ev) {
 }
 const headOf = (g) => (g && g.head >= 0 ? g.evals[g.head] : null);
 const dur = (ms) => ms / S.speed;
+const listJoin = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+const cap1 = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const smooth = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
 
 /* ------------------------------------------------------------------ loading */
 async function fetchJSON(url) {
@@ -109,9 +111,10 @@ async function boot() {
   const want = q.get("run");
   const first = S.index.runs.find((r) => r.name === want || r.file === want) || S.index.runs[0];
   if (!first) return fatal("No exported runs in runs/index.json.");
-  const intro = !introSeen() && q.get("intro") !== "0";
-  await loadRun(first.file, { autoplay: !intro && q.get("autoplay") !== "0", gen: q.get("gen") });
-  if (intro) openIntro();
+  // The page opens on the result (last generation, paused); "Watch the replay" plays it from the start.
+  const autoplay = q.get("autoplay") === "1";
+  await loadRun(first.file, { autoplay, gen: q.get("gen") ?? (autoplay ? null : "last") });
+  if (q.get("intro") === "1") openIntro();
   if (q.get("speed")) setSpeed(Number(q.get("speed")));
   requestAnimationFrame(loop);
   probeLive();
@@ -129,18 +132,20 @@ function fillSelect() {
     sel.appendChild(o);
   }
   if (cur) sel.value = cur;
+  sel.hidden = S.index.runs.length < 2; // one run: nothing to choose
 }
 
 function fatal(html) {
-  $("#feed").innerHTML = `<div class="card"><div class="card-body"><p>${html}</p></div></div>`;
+  $("#steps").innerHTML = `<li class="waiting">${html}</li>`;
 }
 
 async function loadRun(file, { autoplay = true, gen = null, keepPick = false } = {}) {
   const data = await fetchJSON(`${S.dataBase}runs/${file}`);
   $("#run-select").value = file;
   setRun(data, { keepPick });
-  const startFi = gen != null ? Math.max(0, S.frames.findIndex((g) => g.gen >= Number(gen))) : 0;
-  goTo(startFi, { instant: true });
+  const startFi = gen === "last" ? S.frames.length - 1
+    : gen != null ? S.frames.findIndex((g) => g.gen >= Number(gen)) : 0;
+  goTo(Math.max(0, startFi), { instant: true });
   setPlaying(autoplay && S.frames.length > 1);
 }
 
@@ -151,48 +156,93 @@ function setRun(data, { keepPick = false } = {}) {
   for (const g of data.generations) for (const e of g.evals) S.cidParams[e.cid] ??= e.params;
   S.cidParams[data.start_cid] ??= data.start;
   S.cidOutline = data.outlines;
-  S.open = new Set();
-  S.bannerDismissed = false;
   S.morph = null;
   $("#btn-morph").classList.remove("on");
   if (!keepPick) S.pick = { ...data.start };
   S.shown = null;
   renderChips();
+  renderHero();
   renderFacts();
   renderDials();
   renderNearest();
-  buildTicks();
   layoutStage();
   $("#scrubber").max = Math.max(0, S.frames.length - 1);
-  $("#gen-of").textContent = `/ ${S.frames.length ? S.frames[S.frames.length - 1].gen : 0}`;
+  $("#gen-of").textContent = `of ${S.frames.length ? S.frames[S.frames.length - 1].gen : 0}`;
   if (!S.frames.length) renderWaiting();
   checkLiveStart();
 }
 
-/* Live run before its first generation: the start outline and an empty feed. */
+/* Live run before its first generation: the start outline and no steps yet. */
 function renderWaiting() {
   const r = S.run;
   S.shown = { outline: r.outlines[r.start_cid], params: r.start, cl: null, clLabel: "", ghostCid: null };
   $("#gen-num").textContent = "–";
+  $("#gen-of").hidden = true;
   const st = $("#stage-status");
   st.className = "status";
   st.textContent = "STARTING";
   for (const id of ["#ro-cl", "#ro-cd", "#ro-solver", "#ro-stall"]) $(id).textContent = "—";
+  for (const id of ["#ro-cl", "#ro-cd"]) $(id).classList.remove("ok");
+  $("#story").textContent = "The run is starting: the Chief is planning and the start design is being solved.";
   updateDials(r.start);
   stageFoot();
   drawStage();
   drawPolar();
-  hideBanner();
-  $("#feed").innerHTML = `<div class="card"><div class="card-body"><p class="note">Waiting for generation 0: the Chief is planning and the start design is being solved.</p></div></div>`;
+  $("#steps").innerHTML = `<li class="waiting">Waiting for generation 0.</li>`;
 }
 
-/* ------------------------------------------------------------------ header + facts */
+/* ------------------------------------------------------------------ headline + facts */
 function renderChips() {
   const r = S.run;
   const lab = $("#label-chip");
   lab.textContent = r.label;
   lab.classList.toggle("mock", !!r.is_mock);
   lab.title = r.mock_notice || r.llm_client || "";
+}
+
+/* The headline's result: the run's outcome from the ledger against the spec (or a live run's progress). */
+function renderHero() {
+  const r = S.run, s = r.spec, o = r.outcome;
+  const verdict = $("#hero-verdict"), note = $("#hero-note");
+  const tile = (k, v, t, ok) => `<div class="tile ${ok == null ? "" : ok ? "ok" : "bad"}"><span class="k">${k}</span><span class="v">${v}</span><span class="t">${t}</span></div>`;
+  const num = (x) => (x < 0 ? "−" : "") + Math.abs(x); // spec values as written (−1.83, not −1.8300)
+  const clT = `target ${num(s.target_cl)} ± ${s.cl_tol}`, cdT = `at most ${s.cd_max}`;
+  const inCl = (cl) => cl != null && Math.abs(cl - s.target_cl) <= s.cl_tol;
+  const inCd = (cd) => cd != null && cd <= s.cd_max;
+  const flags = [];
+  if (r.is_mock) flags.push(`<b>Mock run:</b> ${esc((r.mock_notice || "a rule-based stand-in, not an LLM").replace(/\.\s*$/, ""))}.`);
+  if (r.llm_valid === false) flags.push("<b>Invalid LLM run</b> (see meta.json llm_health).");
+  $("#watch").textContent = liveRunning() ? "Follow the run" : "Watch the replay";
+  $("#hero-live").hidden = !S.live.available || liveRunning();
+
+  if (r._liveError || liveRunning()) {
+    const last = headOf(S.frames[S.frames.length - 1]);
+    verdict.className = `verdict ${r._liveError ? "fail" : ""}`;
+    verdict.innerHTML = r._liveError ? `${ICON.fail}The live run stopped with an error` : `<span class="spin" aria-hidden="true"></span>Live run in progress`;
+    $("#hero-tiles").innerHTML = tile("Downforce (Cl), latest", last ? clTxt(last.cl) : "—", clT, last ? inCl(last.cl) : null)
+      + tile("Drag (Cd), latest", last ? fmt(last.cd, 4) : "—", cdT, last ? inCd(last.cd) : null);
+    note.innerHTML = esc(r._liveError || S.live.progress || "Starting…");
+    return;
+  }
+  let line;
+  if (o.result !== "no_pass") {
+    const sm = finalRecord()?.e.stall?.dcl_dalpha;
+    verdict.className = "verdict pass";
+    verdict.innerHTML = `${ICON.pass}Target met in ${o.evals_to_target} evaluations`;
+    $("#hero-tiles").innerHTML = tile("Downforce (Cl)", clTxt(o.cl), clT, inCl(o.cl)) + tile("Drag (Cd)", fmt(o.cd, 4), cdT, inCd(o.cd));
+    line = `Confirmed by ${esc(SOLVER[o.solver] || o.solver)} at generation ${o.generation}, with a healthy stall margin${sm != null ? ` (${sm.toFixed(3)}/°)` : ""}.`
+      + (r.cost_usd != null ? ` Estimated LLM cost $${r.cost_usd.toFixed(2)}.` : "");
+  } else {
+    verdict.className = "verdict nopass";
+    verdict.innerHTML = `${ICON.miss}No passing design in ${r.evals} evaluations`;
+    $("#hero-tiles").innerHTML = tile("Closest Cl", clTxt(o.cl), clT, o.cl != null ? inCl(o.cl) : null)
+      + tile("Closest Cd", fmt(o.cd, 4), cdT, o.cd != null ? inCd(o.cd) : null);
+    const f = o.failing || [];
+    line = o.cid
+      ? `The closest design (generation ${o.generation}, ${esc(SOLVER[o.solver] || o.solver)}) fails: ${esc(f[0] || "—")}${f.length > 1 ? ` (+${f.length - 1} more)` : ""}.`
+      : "No design was evaluated.";
+  }
+  note.innerHTML = [line, ...flags].join(" ");
 }
 
 function renderFacts() {
@@ -215,7 +265,7 @@ function renderFacts() {
   ];
   if (r.start_seed != null) rows.splice(5, 0, ["Start seed", r.start_seed]);
   $("#run-facts").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
-  $("#cad-box").innerHTML = cadLinks(r, true);
+  $("#cad-box").innerHTML = `<div class="dhead"><h3>CAD files</h3></div>${cadLinks(r)}`;
   $("#cad-box").hidden = !r.cad;
 
   const b = r.baseline, box = $("#baseline");
@@ -225,11 +275,11 @@ function renderFacts() {
   const opt = b.result === "no_pass"
     ? `no pass in ${b.evals} evals; closest Cl ${clTxt(b.cl)}, Cd ${fmt(b.cd, 4)} (${SOLVER[b.solver] || b.solver})`
     : `target met in ${b.evals_to_target} evals (Cl ${clTxt(b.cl)}, Cd ${fmt(b.cd, 4)})`;
-  box.innerHTML = `<div class="t">vs Optuna TPE, same start</div>
-    <div><b>Swarm:</b> ${esc(swarm)}</div>
-    <div><b>Optuna:</b> ${esc(opt)}</div>
-    ${b.failing && b.failing.length ? `<div class="why">closest fails: ${esc(b.failing[0])}</div>` : ""}
-    <div class="why">Same spec, gates and budget, no LLM; sampler seed ${esc(b.seed)}. Run with the current pipeline code.</div>`;
+  box.innerHTML = `<div class="dhead"><h3>Compared with Optuna</h3><span class="hint">same start</span></div>
+    <p><b>Swarm:</b> ${esc(swarm)}</p>
+    <p><b>Optuna TPE:</b> ${esc(opt)}</p>
+    ${b.failing && b.failing.length ? `<div class="why">Its closest design fails: ${esc(b.failing[0])}</div>` : ""}
+    <div class="why">Same spec, checks and budget, no LLM; sampler seed ${esc(b.seed)}. Run with the current pipeline code.</div>`;
 }
 
 /* ------------------------------------------------------------------ dials */
@@ -476,10 +526,10 @@ function drawStage() {
 function stageFoot() {
   const items = S.morph
     ? [["var(--chief)", "start design (gen 0)", "2 3"], ["var(--good)", S.run.outcome.result === "no_pass" ? "closest candidate" : "final passing design", ""]]
-    : [["var(--accent)", "current candidate", ""], ["var(--ghost)", "parent (base for this step)", "5 4"]];
+    : [["var(--accent)", "this generation", ""], ["var(--ghost)", "the design it started from", "5 4"]];
   $("#stage-foot").innerHTML =
     items.map(([c, t, d]) => `<span><i class="sw" style="border-color:${c};${d ? "border-top-style:dashed" : ""}"></i>${t}</span>`).join("") +
-    `<span>arrow: downforce ∝ |Cl| · race-car orientation (inverted, α applied)</span>`;
+    `<span>arrow: downforce ∝ |Cl|</span><span>upside down, as on a race car</span>`;
 }
 
 /* ------------------------------------------------------------------ frames */
@@ -503,8 +553,9 @@ function goTo(fi, { instant = false } = {}) {
 }
 
 function renderFrame() {
-  const g = S.frames[S.fi], ev = headOf(g);
+  const g = S.frames[S.fi], ev = headOf(g), spec = S.run.spec;
   $("#gen-num").textContent = g.gen;
+  $("#gen-of").hidden = false;
   $("#scrubber").value = S.fi;
   const st = statusOf(ev);
   const status = $("#stage-status");
@@ -513,19 +564,19 @@ function renderFrame() {
   status.title = (ev.failing || []).join("\n");
   $("#ro-cl").textContent = clTxt(ev.cl);
   $("#ro-cd").textContent = fmt(ev.cd, 5);
+  // green when inside the target band / under the drag cap
+  $("#ro-cl").classList.toggle("ok", ev.cl != null && Math.abs(ev.cl - spec.target_cl) <= spec.cl_tol);
+  $("#ro-cd").classList.toggle("ok", ev.cd != null && ev.cd <= spec.cd_max);
   $("#ro-solver").textContent = (SOLVER[ev.solver] || ev.solver) + (ev.solver_level != null ? ` L${ev.solver_level}` : "");
   const sm = ev.stall;
   $("#ro-stall").textContent = sm && sm.dcl_dalpha != null ? `${sm.dcl_dalpha.toFixed(3)}/° ${sm.source === "xfoil_probe" ? "XF" : "NF"}` : "—";
   $("#ro-stall").title = sm ? `d|Cl|/dα ${sm.dcl_dalpha} vs threshold ${sm.threshold} (${sm.source === "xfoil_probe" ? "XFoil α+1/α+2 probe" : "NeuralFoil screen"}); ${sm.ok ? "ok" : "fails"}` : "no stall-margin evidence for this record";
   $("#story").innerHTML = narrate(g);
-  for (const t of document.querySelectorAll("#ticks i")) t.style.opacity = Number(t.dataset.fi) <= S.fi ? 1 : 0.28;
   if (!S.tween) updateDials(ev.params);
   stageFoot();
   drawStage();
-  renderFeed();
+  renderSteps();
   drawPolar();
-  const last = S.fi === S.frames.length - 1;
-  if (last && !S.bannerDismissed && !liveRunning()) showBanner(); else hideBanner();
 }
 
 function loop(now) {
@@ -552,75 +603,57 @@ function setPlaying(on) {
   $("#play-icon").setAttribute("d", on ? "M7 5h4v14H7zM13 5h4v14h-4z" : "M7 5v14l12-7z");
   if (on) {
     if (S.morph) stopMorph(true);
-    if (S.fi >= S.frames.length - 1) { S.bannerDismissed = false; goTo(0, { instant: true }); }
+    if (S.fi >= S.frames.length - 1) goTo(0, { instant: true });
     S.nextAt = performance.now() + dur(BASE_DWELL_MS) * 0.6;
   }
+}
+
+/* The headline's button: play the recorded run from generation 0 (or follow a live one), bringing the replay into view. */
+function watchReplay() {
+  if (!liveRunning() && S.frames.length) {
+    if (S.morph) stopMorph(true);
+    goTo(0, { instant: true });
+    setPlaying(S.frames.length > 1);
+  }
+  const mv = $("#main-view"), b = mv.getBoundingClientRect();
+  if (b.top < 0 || b.bottom > window.innerHeight) mv.scrollIntoView({ behavior: smooth(), block: "start" });
 }
 function setSpeed(v) {
   S.speed = v;
   for (const b of document.querySelectorAll(".speed button")) b.classList.toggle("on", Number(b.dataset.speed) === v);
 }
 
-/* ------------------------------------------------------------------ banner + morph */
+/* ------------------------------------------------------------------ result record + morph */
 function finalRecord() {
   const o = S.run.outcome;
   for (const g of S.run.generations) for (const e of g.evals) if (e.cid === o.cid && e.solver === o.solver && e.cl === o.cl) return { g, e };
   return null;
 }
-function showBanner() {
-  const r = S.run, o = r.outcome, b = $("#banner");
-  const fr = finalRecord();
-  const mockNote = r.is_mock ? `<div class="b"><b>Mock run:</b> ${esc(r.mock_notice || "rule-based stand-in, not an LLM")}</div>` : "";
-  const invalid = r.llm_valid === false ? `<div class="b"><b>Invalid LLM run</b> (see meta.json llm_health).</div>` : "";
-  if (o.result !== "no_pass") {
-    b.className = "banner pass";
-    b.innerHTML = `<button class="close" aria-label="Dismiss">×</button>
-      <div class="h">${ICON.pass}Target met · generation ${o.generation}</div>
-      <div class="b">${SOLVER[o.solver] || o.solver} PASS <code>${esc(o.cid)}</code>: Cl <code>${clTxt(o.cl)}</code> (target ${clTxt(r.spec.target_cl)} ± ${r.spec.cl_tol}), Cd <code>${fmt(o.cd, 5)}</code> ≤ ${r.spec.cd_max}, stall margin ${fr?.e.stall?.dcl_dalpha != null ? `<code>${fr.e.stall.dcl_dalpha.toFixed(3)}/°</code>` : "ok"}.</div>
-      <div class="b">${o.evals_to_target} evaluations${r.cost_usd != null ? ` · est. LLM cost $${r.cost_usd.toFixed(2)}` : ""} · termination <code>${esc(r.termination)}</code></div>${cadLinks(r)}${mockNote}${invalid}`;
-  } else {
-    b.className = "banner nopass";
-    b.innerHTML = `<button class="close" aria-label="Dismiss">×</button>
-      <div class="h">${ICON.miss}No passing design · ${esc(r.termination || "run ended")} after ${r.evals} evaluations</div>
-      <div class="b">Closest candidate <code>${esc(o.cid || "—")}</code> (gen ${o.generation ?? "—"}, ${SOLVER[o.solver] || o.solver || "—"}): Cl <code>${clTxt(o.cl)}</code>, Cd <code>${fmt(o.cd, 5)}</code>. It fails:</div>
-      <ul>${(o.failing || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>${cadLinks(r)}${mockNote}${invalid}`;
-  }
-  const was = b.hidden;
-  b.hidden = false;
-  b.querySelector(".close").onclick = () => { S.bannerDismissed = true; hideBanner(); };
-  if (was) layoutStage();
-}
 /* Download links for the run's CAD files (FreeCAD document, STEP, coordinates), built by the exporter. */
-function cadLinks(r, panel = false) {
+function cadLinks(r) {
   const c = r.cad;
   if (!c) return "";
-  if (c.error) return `<div class="b cad-files"><b>CAD files:</b> not built (${esc(c.error)})</div>`;
+  if (c.error) return `<div class="cad-files">Not built (${esc(c.error)}).</div>`;
   const href = (f) => `${S.dataBase}runs/${c.dir}/${encodeURIComponent(f)}`;
   const kinds = [["fcstd", "FreeCAD model"], ["step", "STEP"], ["dat", "Coordinates (.dat)"]];
   const links = kinds.filter(([k]) => c.files[k]).map(([k, t]) => `<a href="${href(c.files[k])}" download>${t}</a>`).join("");
   const what = c.final_label && c.final_label.startsWith("closest") ? "closest candidate" : "optimized design";
-  return `<div class="${panel ? "" : "b "}cad-files"><b>CAD files</b> (start and ${what}, ${c.chord_mm} mm chord, built in FreeCAD ${esc(c.check?.freecad_version || "")}):<span class="dl">${links}</span></div>`;
-}
-
-function hideBanner() {
-  const b = $("#banner");
-  if (b.hidden) return;
-  b.hidden = true;
-  layoutStage();
+  return `<div class="cad-files">The start and the ${what}, ${c.chord_mm} mm chord, built in FreeCAD ${esc(c.check?.freecad_version || "")}.<span class="dl">${links}</span></div>`;
 }
 
 function toggleMorph() {
   if (S.morph) { stopMorph(); return; }
   const o = S.run.outcome;
-  if (!o.cid) return;
+  if (!o.cid || !S.frames.length) return;
   setPlaying(false);
-  hideBanner();
   const startEv = headOf(S.frames[0]);
   const fr = finalRecord();
   S.morph = { startCid: startEv.cid, finalCid: o.cid, startEv, finalEv: fr?.e, t0: performance.now(), done: false };
   $("#btn-morph").classList.add("on");
   stageFoot();
   $("#gen-num").textContent = `0→${o.generation}`;
+  $("#gen-of").hidden = true;
+  for (const id of ["#ro-cl", "#ro-cd"]) $(id).classList.remove("ok");
   const st = statusOf(fr?.e);
   $("#stage-status").className = `status ${st.cls}`;
   $("#stage-status").innerHTML = `${ICON[st.cls] || ""}START → ${o.result === "no_pass" ? "CLOSEST" : "FINAL"}`;
@@ -654,45 +687,147 @@ function stopMorph(silent) {
   if (!silent) goTo(S.fi, { instant: true });
 }
 
-/* ------------------------------------------------------------------ feed */
+/* ------------------------------------------------------------------ agent steps */
+// One line per step, written by code from the export's structured fields (never paraphrasing agent text).
+// "Show reasoning" adds each agent's own words under its line, verbatim from the traces.
 function dirArrow(d) { return d === "+" ? "↑" : d === "-" ? "↓" : "↕"; }
+const EVENT = {
+  screen_override: "the Chief overrode the stall screen",
+  screen_override_refused: "code refused a stall-screen override",
+  direct_xfoil_screened_out: "a direct XFoil request was screened out",
+  screen_xfoil_disagreement: "NeuralFoil and XFoil disagree",
+  xfoil_recovery: "XFoil needed a recovery step",
+  xfoil_ladder_exhausted: "XFoil failed at every recovery level",
+  escalate_to_xfoil: "escalated to XFoil",
+  cad_fallback: "the CAD step fell back to code",
+  cad_attempts_exhausted: "the CAD agent ran out of attempts",
+  llm_error: "an LLM call failed",
+  llm_error_reused_strategy: "an LLM call failed and the last plan was reused",
+  llm_error_numeric_verdict: "the Critic call failed and the numeric verdict was used",
+  cost_cap_reached: "the cost cap was reached",
+  llm_run_aborted: "the run was aborted after LLM failures",
+};
+const QUIET_EVENTS = ["inner_optimizer_finished", "geometry_rejected", "proposal_rejected"]; // shown in their own steps
 
-function renderFeed() {
-  const feed = $("#feed");
-  const parts = [];
-  for (let i = S.fi; i >= 0; i--) parts.push(card(S.frames[i], i === S.fi, i));
-  feed.innerHTML = parts.join("");
-  feed.scrollTop = 0;
-  for (const h of feed.querySelectorAll(".card-head")) {
-    h.addEventListener("click", () => {
-      const g = Number(h.dataset.gen);
-      const c = h.parentElement;
-      c.classList.toggle("collapsed");
-      if (c.classList.contains("collapsed")) S.open.delete(g); else S.open.add(g);
-    });
-  }
-  for (const b of feed.querySelectorAll(".more")) {
-    b.addEventListener("click", () => { b.previousElementSibling.querySelectorAll("[hidden]").forEach((n) => (n.hidden = false)); b.remove(); });
-  }
+function setReasoning(on) {
+  S.reasoning = on;
+  $("#steps").classList.toggle("show", on);
+  $("#steps-note").hidden = !on;
+  const b = $("#reasoning-toggle");
+  b.textContent = on ? "Hide reasoning" : "Show reasoning";
+  b.setAttribute("aria-expanded", String(on));
+  if (on) setPlaying(false); // reading needs a still frame
 }
 
-function card(g, current, i) {
-  const ev = headOf(g), st = statusOf(ev);
-  const collapsed = !current && !S.open.has(g.gen);
+function renderSteps() {
+  const g = S.frames[S.fi];
+  $("#steps").innerHTML = stepRows(g, S.fi).map((s) => `<li class="step ${s.cls}">
+    <span class="who" data-tip="${esc(s.tip)}">${s.who}</span>
+    <div><p class="line">${s.line}</p>${s.why ? `<div class="why">${s.why}</div>` : ""}</div></li>`).join("");
+}
+
+function stepRows(g, i) {
+  const ev = headOf(g), rows = [];
   const parentP = S.cidParams[g.parent?.cid || ev?.parent_cid] || null;
-  const out = [];
   const c = g.chief;
   if (c) {
-    const tags = [c.mode === "inner_optimizer" ? "inner optimizer" : "reasoned step", SOLVER[c.fidelity] || c.fidelity, `trust ${c.trust_radius}`];
-    out.push(`<div class="agent chief"><div class="who"><span data-tip="${esc(TIP.chief)}">Chief</span> <span class="tag">${esc(tags.join(" · "))}</span></div>
-      <p class="quote">${esc(c.hypothesis)}</p>
-      ${c.focus.length ? `<div class="focus">${c.focus.map((f) => `<span>${esc(SHORT[f.name] || f.name)} ${dirArrow(f.direction)}${f.locked ? " 🔒" : ""}</span>`).join("")}</div>` : ""}
-      ${c.promote_cid ? `<div class="note">promote <code>${esc(c.promote_cid)}</code> to ${esc(SOLVER[c.fidelity] || c.fidelity)}</div>` : ""}
-      ${c.declare_plateau ? `<div class="note">declares a plateau</div>` : ""}
-      ${c.screen_override ? `<div class="override"><b>Screen override:</b> ${esc(c.screen_override)}</div>` : ""}</div>`);
+    const tags = [c.mode === "inner_optimizer" ? "inner optimizer" : "reasoned step", SOLVER[c.fidelity] || c.fidelity, `trust radius ${c.trust_radius}`];
+    rows.push({
+      cls: "chief", who: "Chief", tip: TIP.chief, line: chiefLine(c),
+      why: `<p class="quote">${esc(c.hypothesis)}</p>
+        ${c.focus.length ? `<div class="focus">${c.focus.map((f) => `<span>${esc(SHORT[f.name] || f.name)} ${dirArrow(f.direction)}${f.locked ? " 🔒" : ""}</span>`).join("")}</div>` : ""}
+        <div class="note">${esc(tags.join(" · "))}</div>
+        ${c.screen_override ? `<div class="override"><b>Screen override:</b> ${esc(c.screen_override)}</div>` : ""}
+        ${g.parent && i > 0 ? `<div class="note"><span data-tip="${esc(TIP.parent)}">Starts from</span> <code>${esc(g.parent.cid)}</code>: ${esc(g.parent.why)}</div>` : ""}`,
+    });
   }
-  if (g.parent && i > 0) out.push(`<div class="agent sys"><div class="who"><span data-tip="${esc(TIP.parent)}">Parent</span> <span class="tag">${esc(g.parent.cid)}</span></div><div class="note">${esc(g.parent.why)}</div></div>`);
-  g.cad.forEach((a, k) => {
+  if (g.cad.length) rows.push({ cls: "cad", who: "CAD", tip: TIP.cad, line: cadLine(g, parentP), why: cadWhy(g, parentP) });
+  const inner = g.notes.find((n) => n.event === "inner_optimizer_finished");
+  if (inner) {
+    rows.push({
+      cls: "sys", who: "Optuna", tip: TIP.optuna,
+      line: `Ran ${esc(inner.evals)} quick evaluations without an LLM; stopped: ${esc(String(inner.stopped).replaceAll("_", " "))}.`,
+      why: inner.promotable?.length ? `<div class="note">Promotable: ${esc(inner.promotable.join(", "))}</div>` : "",
+    });
+  }
+  if (ev) rows.push({ cls: "sys", who: "Solver", tip: TIP.solver, line: solverLine(g), why: solverWhy(g) });
+  const cr = g.critic;
+  if (cr) {
+    rows.push({
+      cls: "critic", who: "Critic", tip: TIP.critic, line: criticLine(g),
+      why: `<div class="note">${esc([cr.status, cr.symptom, cr.confidence != null ? `confidence ${cr.confidence}` : null].filter(Boolean).join(" · "))}</div>
+        ${cr.evidence.length ? `<ul class="ev">${cr.evidence.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`,
+    });
+  }
+  const other = g.notes.filter((n) => !QUIET_EVENTS.includes(n.event));
+  if (other.length || g.llm_failures.length) {
+    const names = [...new Set(other.map((n) => EVENT[n.event] || n.event.replaceAll("_", " ")))];
+    if (g.llm_failures.length) names.push(`${g.llm_failures.length === 1 ? "an LLM call" : `${g.llm_failures.length} LLM calls`} failed`);
+    rows.push({
+      cls: "sys", who: "Events", tip: TIP.events, line: `${esc(cap1(listJoin([...new Set(names)])))}.`,
+      why: other.map((n) => `<div class="note">${esc(n.event.replaceAll("_", " "))}${eventDetail(n)}</div>`).join("")
+        + g.llm_failures.map((f) => `<div class="note">LLM call failed (${esc(f.role)}): ${esc(f.error)}</div>`).join(""),
+    });
+  }
+  return rows;
+}
+
+function chiefLine(c) {
+  const names = (fs) => listJoin(fs.map((f) => PLAIN[f.name] || f.name));
+  const out = [];
+  if (c.promote_cid) out.push(`Sends design <code>${esc(c.promote_cid)}</code> to ${esc(SOLVER[c.fidelity] || c.fidelity)} to check the fast estimate.`);
+  else if (c.mode === "inner_optimizer") out.push(`Hands ${esc(names(c.focus) || "a few parameters")} to Optuna, a numerical optimizer, for a quick search.`);
+  else {
+    const moves = c.focus.filter((f) => f.direction === "+" || f.direction === "-").map((f) => `${f.direction === "+" ? "more" : "less"} ${PLAIN[f.name] || f.name}`);
+    const free = c.focus.filter((f) => f.direction !== "+" && f.direction !== "-");
+    if (moves.length) out.push(`Asks for ${listJoin(moves)}${free.length ? `, with ${names(free)} free to move` : ""}.`);
+    else if (free.length) out.push(`Lets the CAD agent move ${names(free)}.`);
+    else out.push("Plans the next step.");
+  }
+  if (c.declare_plateau) out.push("Declares a plateau.");
+  if (c.screen_override) out.push("Overrides the stall screen.");
+  return out.join(" ");
+}
+
+/* "raised angle 7.58 → 7.97°" for each change of an attempt, against the parent's values. */
+function changeList(a, parentP) {
+  return a.changes.map((x) => {
+    const old = parentP ? parentP[x.name] : null;
+    const dir = old == null ? "set" : x.new_value > old ? "raised" : x.new_value < old ? "lowered" : "kept";
+    return `${dir} ${PLAIN[x.name] || x.name}${old != null ? ` ${pval(x.name, old)} → ${pval(x.name, x.new_value)}${unitOf(x.name)}` : ""}`;
+  });
+}
+const rejectWhy = (a) => (/^duplicate/.test(a.rejection || "") ? "it repeated a design already tested"
+  : /^(bounds|trust_region|direction|not_allowed|unknown_param|no_change)/.test(a.rejection || "") ? "it broke the Chief's limits"
+  : "it broke a geometry or rulebook check");
+/* What changed between two recorded designs (the step code evaluates when every CAD proposal was rejected). */
+function diffList(oldP, newP) {
+  if (!oldP || !newP) return [];
+  return S.run.free_params.filter((n) => n in oldP && n in newP && pval(n, oldP[n]) !== pval(n, newP[n]))
+    .map((n) => `${newP[n] > oldP[n] ? "raised" : "lowered"} ${PLAIN[n] || n} ${pval(n, oldP[n])} → ${pval(n, newP[n])}${unitOf(n)}`);
+}
+const codeFallback = (g) => g.notes.some((n) => n.event === "cad_fallback") || /^deterministic fallback/.test(headOf(g)?.rationale || "");
+const acceptedOf = (g) => g.cad.find((a) => a.outcome === "accepted") || (g.cad.length && g.cad[g.cad.length - 1].outcome !== "rejected" ? g.cad[g.cad.length - 1] : null);
+
+function cadLine(g, parentP) {
+  const acc = acceptedOf(g), rejected = g.cad.filter((a) => a.outcome === "rejected");
+  const why = [...new Set(rejected.map(rejectWhy))].join("; ");
+  let s = acc ? `${cap1(listJoin(changeList(acc, parentP)))}.` : "";
+  if (rejected.length) {
+    s += acc ? ` Code rejected ${rejected.length === 1 ? "an earlier proposal" : `${rejected.length} earlier proposals`} (${why}).`
+      : `Code rejected ${rejected.length === 1 ? "its proposal" : `all ${rejected.length} proposals`} (${why}).`;
+  }
+  if (!acc && codeFallback(g)) {
+    const fb = diffList(parentP, headOf(g)?.params);
+    s += ` Code made the step itself${fb.length ? `: ${listJoin(fb)}` : ""}.`;
+  }
+  const dis = acc?.disagreements || [];
+  if (dis.length) s += ` Overruled the Chief on ${listJoin(dis.map((d) => PLAIN[d.param] || d.param))}.`;
+  return esc(s.trim());
+}
+
+function cadWhy(g, parentP) {
+  return g.cad.map((a, k) => {
     const rejected = a.outcome === "rejected";
     const head = g.cad.length > 1 ? `attempt ${k + 1}${rejected ? " · rejected" : a.outcome ? " · accepted" : ""}` : rejected ? "rejected" : "";
     const ch = a.changes.map((x) => {
@@ -702,33 +837,51 @@ function card(g, current, i) {
         <div class="mech">${esc(x.mechanism)}</div>
         ${x.override_reason ? `<div class="override"><b>Overrides the Chief${dis ? ` (Chief ${dirArrow(dis.chief)}, CAD ${dirArrow(dis.cad)})` : ""}:</b> ${esc(x.override_reason)}</div>` : ""}</div>`;
     }).join("");
-    out.push(`<div class="agent cad attempt ${rejected ? "rejected" : ""}"><div class="who"><span data-tip="${esc(TIP.cad)}">CAD</span> <span class="tag">${esc(head)}</span></div>${ch}
-      ${a.rejection ? `<div class="rej">✕ ${esc(a.rejection)}</div>` : ""}</div>`);
-  });
-  const inner = g.notes.find((n) => n.event === "inner_optimizer_finished");
-  if (inner) out.push(`<div class="agent sys"><div class="who">Inner optimizer <span class="tag">Optuna TPE · no LLM</span></div><div class="note">${esc(inner.evals)} evaluations; stopped: ${esc(inner.stopped)}${inner.promotable?.length ? `; promotable ${esc(inner.promotable.join(", "))}` : ""}</div></div>`);
-  const solves = g.evals.map((e) => {
-    const s = statusOf(e);
-    return `<div class="solve">${esc(SOLVER[e.solver] || e.solver)}${e.inner_optimizer ? " (inner)" : ""} · Cl ${clTxt(e.cl)} · Cd ${fmt(e.cd, 5)} · ${esc(s.text)}</div>` +
-      (e.failing.length && !e.inner_optimizer ? `<ul class="ev">${e.failing.slice(0, 3).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : "");
-  });
-  const shownSolves = solves.length > 4 ? solves.slice(0, 4).join("") + `<div class="note">+ ${solves.length - 4} more evaluations</div>` : solves.join("");
-  out.push(`<div class="agent sys"><div class="who"><span data-tip="${esc(TIP.solver)}">Solver</span> <span class="tag">${esc(ev.cid)}</span></div>${shownSolves}</div>`);
+    return `<div class="attempt ${rejected ? "rejected" : ""}">${head ? `<div class="att">${esc(head)}</div>` : ""}${ch}
+      ${a.note ? `<div class="note">${esc(a.note)}</div>` : ""}
+      ${a.rejection ? `<div class="rej">✕ ${esc(a.rejection)}</div>` : ""}</div>`;
+  }).join("");
+}
+
+/* Why a result is not a pass, in a few words (from the ledger's numbers and failed check names). */
+function shortWhy(ev, spec) {
+  if (ev.passing) return "Passes.";
+  if (ev.verdict && !["PASS", "TARGET_MISS"].includes(ev.verdict)) return `Rejected as ${ev.verdict.replaceAll("_", " ").toLowerCase()}.`;
+  const off = ev.cl - spec.target_cl, fc = new Set(ev.failed_checks || []), why = [];
+  if (Math.abs(off) > spec.cl_tol) why.push(off > 0 ? `${Math.abs(off).toFixed(3)} short of the target Cl` : `${Math.abs(off).toFixed(3)} past the target band`);
+  if (ev.cd > spec.cd_max) why.push("too much drag");
+  if (fc.has("neuralfoil_screen") || fc.has("stall_margin")) why.push("fails the stall check");
+  if (fc.has("te_separation")) why.push("flow separates before the trailing edge");
+  if (!why.length) return ev.solver === "neuralfoil" ? "In the target box; only XFoil can confirm it." : "Not a pass yet.";
+  return `Not a pass: ${listJoin(why)}.`;
+}
+
+function solverLine(g) {
+  const ev = headOf(g), n = g.evals.length;
+  const res = `${SOLVER[ev.solver] || ev.solver}${ev.solver_level ? ` (recovery level ${ev.solver_level})` : ""}: Cl ${clTxt(ev.cl)}, Cd ${fmt(ev.cd, 5)}.`;
+  return esc(`${n > 1 ? `Best of ${n} evaluations, ` : ""}${res} ${shortWhy(ev, S.run.spec)}`);
+}
+
+function solverWhy(g) {
+  const solves = g.evals.map((e) => `<div class="solve">${esc(e.cid)} · ${esc(SOLVER[e.solver] || e.solver)}${e.inner_optimizer ? " (inner)" : ""} · Cl ${clTxt(e.cl)} · Cd ${fmt(e.cd, 5)} · ${esc(statusOf(e).text)}</div>`
+    + (e.failing.length && !e.inner_optimizer ? `<ul class="ev">${e.failing.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""));
+  return solves.length > 6 ? solves.slice(0, 6).join("") + `<div class="note">+ ${solves.length - 6} more evaluations</div>` : solves.join("");
+}
+
+function criticLine(g) {
   const cr = g.critic;
-  if (cr) {
-    const evid = cr.evidence.map((x, j) => `<li ${j >= 3 ? "hidden" : ""}>${esc(x)}</li>`).join("");
-    out.push(`<div class="agent critic"><div class="who"><span data-tip="${esc(TIP.critic)}">Critic</span> <span class="tag">${esc(cr.status)} · ${esc(cr.symptom)}${cr.confidence != null ? ` · conf ${cr.confidence}` : ""}${g.critic_source === "numeric" ? " · numeric verdict (no LLM text)" : ""}</span></div>
-      <ul class="ev">${evid}</ul>${cr.evidence.length > 3 ? `<button class="more">${cr.evidence.length - 3} more</button>` : ""}</div>`);
+  const status = cr.status === "PASS" ? "pass" : String(cr.status || "").replaceAll("_", " ").toLowerCase();
+  if (g.critic_source === "numeric") return esc(`No LLM text (the call failed); the numeric verdict is ${status}.`);
+  const sym = cr.symptom && cr.symptom !== "NONE" ? SYMPTOM[cr.symptom] || cr.symptom.replaceAll("_", " ").toLowerCase() : "no problem found";
+  return esc(`${cap1(status)}: ${sym}${cr.confidence != null ? ` (confidence ${cr.confidence})` : ""}.`);
+}
+
+function eventDetail(n) {
+  if (n.event === "screen_xfoil_disagreement" && n.stall) {
+    const s = n.stall, v = (x) => (x == null ? "—" : `${Number(x).toFixed(3)}/°`);
+    return `: stall slope NeuralFoil ${esc(v(s.screen_dcl_dalpha))} (${s.screen_ok ? "ok" : "fails"}), XFoil ${esc(v(s.xfoil_dcl_dalpha))} (${s.xfoil_ok ? "ok" : "fails"})`;
   }
-  const other = g.notes.filter((n) => !["inner_optimizer_finished", "geometry_rejected", "proposal_rejected"].includes(n.event));
-  if (other.length || g.llm_failures.length) {
-    out.push(`<div class="agent sys"><div class="who">Events</div>${other.map((n) => `<div class="note">${esc(n.event.replaceAll("_", " "))}${n.reason ? `: ${esc(n.reason)}` : ""}${n.error ? `: ${esc(n.error)}` : ""}${n.action ? `: ${esc(n.action)}` : ""}</div>`).join("")}
-      ${g.llm_failures.map((f) => `<div class="note">LLM call failed (${esc(f.role)}): ${esc(f.error)}</div>`).join("")}</div>`);
-  }
-  return `<article class="card ${current ? "current fresh" : "past"} ${collapsed ? "collapsed" : ""}">
-    <div class="card-head" data-gen="${g.gen}"><span class="g">GEN ${g.gen}</span><span class="status ${st.cls}" style="padding:1px 7px;font-size:11px">${ICON[st.cls] || ""}${esc(st.text)}</span>
-    <span class="res">${clTxt(ev.cl)} / ${fmt(ev.cd, 4)}</span></div>
-    <div class="card-body">${out.join("")}</div></article>`;
+  return `${n.reason ? `: ${esc(n.reason)}` : ""}${n.error ? `: ${esc(n.error)}` : ""}${n.action ? `: ${esc(n.action)}` : ""}`;
 }
 
 /* ------------------------------------------------------------------ polar */
@@ -839,31 +992,20 @@ function renderLegend(hasOpt) {
     (hasOpt ? `<span><svg viewBox="0 0 12 12"><path d="M6 1L11 6L6 11L1 6Z" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>Optuna</span>` : "");
 }
 
-/* ------------------------------------------------------------------ timeline */
-function buildTicks() {
-  const box = $("#ticks");
-  box.innerHTML = "";
-  const n = S.frames.length;
-  S.frames.forEach((g, i) => {
-    const e = headOf(g), t = document.createElement("i");
-    t.className = `${statusOf(e).cls} ${e.solver !== "neuralfoil" ? "xf" : ""}`;
-    t.style.left = n > 1 ? `${(i / (n - 1)) * 100}%` : "0";
-    t.dataset.fi = i;
-    t.title = `gen ${g.gen}: ${statusOf(e).text} (${SOLVER[e.solver] || e.solver})`;
-    box.appendChild(t);
-  });
-}
-
+/* ------------------------------------------------------------------ controls */
 function wireControls() {
+  $("#watch").onclick = watchReplay;
+  $("#hero-live").onclick = openLivePanel;
+  $("#reasoning-toggle").onclick = () => setReasoning(!S.reasoning);
   $("#btn-play").onclick = () => setPlaying(!S.playing);
   $("#btn-prev").onclick = () => { setPlaying(false); goTo(S.fi - 1); };
   $("#btn-next").onclick = () => { setPlaying(false); goTo(S.fi + 1); };
-  $("#btn-restart").onclick = () => { S.bannerDismissed = false; goTo(0, { instant: true }); setPlaying(true); };
   $("#btn-morph").onclick = toggleMorph;
   $("#scrubber").addEventListener("input", (e) => { setPlaying(false); goTo(Number(e.target.value), { instant: true }); });
   for (const b of document.querySelectorAll(".speed button")) b.onclick = () => setSpeed(Number(b.dataset.speed));
   document.addEventListener("keydown", (e) => {
-    if (e.target.closest("input, select, .dial svg")) return;
+    if (e.target.closest("input, select, textarea, .dial svg") || !$("#intro").hidden) return;
+    if (e.key === " " && e.target.closest("button, summary, a")) return; // space presses the focused control
     if (e.key === " ") { e.preventDefault(); setPlaying(!S.playing); }
     if (e.key === "ArrowRight") { setPlaying(false); goTo(S.fi + 1); }
     if (e.key === "ArrowLeft") { setPlaying(false); goTo(S.fi - 1); }
@@ -902,7 +1044,9 @@ const TIP = {
   polar: "Each dot is one evaluated design: drag to the right, downforce up. The green box is the target. Circles are NeuralFoil estimates, squares are XFoil checks; the ring marks the current generation.",
   dials: "The four shape parameters of the wing section (a NACA 4-digit profile): how curved it is (camber), where the curve peaks, how thick it is, and its angle to the airflow.",
   target: "What the team must reach: a downforce coefficient within the band, drag at or under the cap, a healthy stall margin, inside the racing rulebook's geometry limits, and confirmed by XFoil.",
-  feed: "What each agent decided this generation, quoted from the run's trace log. Long text is shortened, never reworded.",
+  feed: "One line per step of this generation, written by code from the run's records. “Show reasoning” adds each agent's own words, quoted from the trace log (long text shortened, never reworded).",
+  optuna: "Optuna TPE, a numerical optimizer (no LLM). The Chief can hand it a few parameters for a quick search under the same checks; the best result is shown.",
+  events: "Notable things the code recorded in this generation, such as solver disagreements, recoveries or failed LLM calls.",
 };
 const SYMPTOM = {
   TE_SEPARATION_MAIN: "flow separating near the trailing edge",
@@ -947,22 +1091,20 @@ function narrate(g) {
     const n = g.evals.filter((e) => e.inner_optimizer).length;
     out.push(`<b>Search.</b> The Chief hands ${esc((c?.focus || []).map((f) => PLAIN[f.name] || f.name).join(", ") || "a few parameters")} to Optuna, a numerical optimizer (no LLM), for ${n} quick evaluations. Shown: the best of them.`);
   } else {
-    const acc = g.cad.find((a) => a.outcome === "accepted") || g.cad[g.cad.length - 1];
+    const acc = acceptedOf(g);
     const parentP = S.cidParams[ev.parent_cid] || null;
+    const rejected = g.cad.filter((a) => a.outcome === "rejected");
+    const why = [...new Set(rejected.map(rejectWhy))].join("; ");
     if (acc) {
-      const ch = acc.changes.map((x) => {
-        const old = parentP ? parentP[x.name] : null;
-        const dir = old == null ? "set" : x.new_value > old ? "raised" : x.new_value < old ? "lowered" : "kept";
-        return `${dir} ${PLAIN[x.name] || x.name}${old != null ? ` ${pval(x.name, old)} → ${pval(x.name, x.new_value)}${unitOf(x.name)}` : ""}`;
-      });
-      const rejected = g.cad.filter((a) => a.outcome === "rejected");
-      const why = (a) => (/^duplicate/.test(a.rejection || "") ? "it repeated a design already tested"
-        : /^(bounds|trust_region|direction|not_allowed|unknown_param|no_change)/.test(a.rejection || "") ? "it broke the Chief's limits"
-        : "it broke a geometry or rulebook check");
-      const rej = rejected.length ? ` (Code rejected ${rejected.length === 1 ? "its first proposal" : `${rejected.length} earlier proposals`}: ${[...new Set(rejected.map(why))].join("; ")}.)` : "";
+      const ch = changeList(acc, parentP);
+      const rej = rejected.length ? ` (Code rejected ${rejected.length === 1 ? "its first proposal" : `${rejected.length} earlier proposals`}: ${why}.)` : "";
       const dis = acc.disagreements || [];
-      const ovr = dis.length ? ` It <b>overruled the Chief</b> on ${dis.map((d) => PLAIN[d.param] || d.param).join(", ")}; its reason is in the feed.` : "";
+      const ovr = dis.length ? ` It <b>overruled the Chief</b> on ${dis.map((d) => PLAIN[d.param] || d.param).join(", ")}; its reason is under “Show reasoning”.` : "";
       out.push(`<b>Change.</b> The CAD agent ${ch.join(", ")}.${rej}${ovr}`);
+    } else if (rejected.length) {
+      // every proposal was rejected: describe the design actually evaluated, not a rejected proposal
+      const fb = codeFallback(g) ? diffList(parentP, ev.params) : [];
+      out.push(`<b>Change.</b> Code rejected ${rejected.length === 1 ? "the CAD agent's proposal" : `all ${rejected.length} CAD proposals`} (${why})${codeFallback(g) ? ` and made the step itself${fb.length ? `: ${fb.join(", ")}` : ""}` : ""}.`);
     }
   }
   out.push(verdictSentence(ev, spec));
@@ -1000,7 +1142,7 @@ function wireTips() {
   }
 }
 
-/* "How to read this": shown on the first visit, reopened with the ? button. Filled from the run's own spec. */
+/* "How to read this": opened with the ? button (or ?intro=1). Filled from the run's own spec. */
 function openIntro() {
   const r = S.run, s = r?.spec;
   const box = $("#intro");
@@ -1013,25 +1155,27 @@ function openIntro() {
 }
 function closeIntro(play = true) {
   $("#intro").hidden = true;
-  try { localStorage.setItem("aeroswarm-intro-seen", "1"); } catch (_) { /* optional */ }
-  if (play && S.frames.length > 1) { if (S.fi >= S.frames.length - 1) goTo(0, { instant: true }); setPlaying(true); }
+  if (play) watchReplay();
 }
 function wireIntro() {
   $("#help").onclick = () => { setPlaying(false); openIntro(); };
   $("#intro-go").onclick = () => closeIntro(true);
   $("#intro-close").onclick = () => closeIntro(false);
-  $("#intro-live").onclick = () => { closeIntro(false); $("#live").scrollIntoView({ behavior: "smooth", block: "center" }); $("#live-go").focus(); };
+  $("#intro-live").onclick = () => { closeIntro(false); openLivePanel(); };
   $("#intro").addEventListener("click", (e) => { if (e.target.id === "intro") closeIntro(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#intro").hidden) closeIntro(false); });
 }
-function introSeen() {
-  try { return localStorage.getItem("aeroswarm-intro-seen") === "1"; } catch (_) { return false; }
+/* The live-run panel lives in the closed Details section: open it and bring the panel into view. */
+function openLivePanel() {
+  $("#details").open = true;
+  $("#live").scrollIntoView({ behavior: smooth(), block: "center" });
+  $("#live-go").focus({ preventScroll: true });
 }
 
 /* ------------------------------------------------------------------ live mode (local server only) */
 // The page offers live runs only when it is served by `python -m swarm.live` (api/health answers). The stream
 // carries the same per-generation records as a recorded export; when the run ends it is saved to the gallery.
-S.live = { startOk: null, available: false, health: null, runId: null, es: null, running: false, attached: false, gens: new Set() };
+S.live = { startOk: null, available: false, health: null, runId: null, es: null, running: false, attached: false, gens: new Set(), progress: "" };
 const liveRunning = () => S.live.running && S.live.attached;
 
 async function probeLive() {
@@ -1053,6 +1197,8 @@ async function probeLive() {
   try { $("#live-code").value = sessionStorage.getItem("aeroswarm-code") || ""; } catch (_) { /* optional */ }
   $("#live").hidden = false;
   $("#intro-live").hidden = false;
+  $("#hero-live").hidden = false;
+  $("#details-hint").textContent = "Start design, live run, target, run facts, Optuna comparison, CAD files";
   const sel = $("#live-model");
   sel.innerHTML = Object.entries(h.models)
     .filter(([, per]) => per != null)
@@ -1162,6 +1308,7 @@ async function startLiveRun() {
   }
   S.live.token = out.control_token;
   attachLive(out.run_id, { own: true });
+  $("#main-view").scrollIntoView({ behavior: smooth(), block: "start" });
 }
 
 function attachLive(runId, { own = false } = {}) {
@@ -1171,6 +1318,7 @@ function attachLive(runId, { own = false } = {}) {
   S.live.running = true;
   S.live.attached = true;
   S.live.gens = new Set();
+  S.live.progress = "";
   $("#live-go").disabled = true;
   if (!own) S.live.token = null; // watching someone else's run: only its starter can stop it
   const stop = $("#live-stop");
@@ -1201,7 +1349,9 @@ function attachLive(runId, { own = false } = {}) {
     const p = JSON.parse(e.data);
     showNow(p.finished ? "" : p.gen != null ? `Generation ${p.gen} in progress: ${p.phase.charAt(0).toLowerCase()}${p.phase.slice(1)}…` : `${p.phase}…`);
     const mm = Math.floor(p.elapsed_s / 60), ss = String(Math.floor(p.elapsed_s % 60)).padStart(2, "0");
-    liveStatus(`${p.evals} evaluations · $${p.cost_usd.toFixed(2)} of $${(S.live.budget ?? 0).toFixed(2)} · ${p.llm_calls} LLM calls · ${mm}:${ss}`);
+    S.live.progress = `${p.evals} evaluations · $${p.cost_usd.toFixed(2)} of $${(S.live.budget ?? 0).toFixed(2)} · ${p.llm_calls} LLM calls · ${mm}:${ss}`;
+    liveStatus(S.live.progress);
+    if (liveRunning()) renderHero();
   });
   es.addEventListener("done", async (e) => {
     es.close();
@@ -1225,7 +1375,9 @@ function attachLive(runId, { own = false } = {}) {
       es.close();
       S.live.running = false;
       endLiveChip("Live run · failed");
-      liveStatus(`The run stopped with an error: ${JSON.parse(e.data).message}`);
+      const msg = JSON.parse(e.data).message;
+      liveStatus(`The run stopped with an error: ${msg}`);
+      if (S.run) { S.run._liveError = msg; renderHero(); }
       liveEstimate();
     }
   });
@@ -1239,11 +1391,11 @@ function addLiveGeneration(g, outlines) {
   const following = !S.frames.length || S.fi === S.frames.length - 1;
   S.frames = r.generations.filter((x) => x.head >= 0);
   r.evals = r.generations.reduce((n, x) => n + x.evals.length, 0);
-  buildTicks();
   layoutStage();
   $("#scrubber").max = Math.max(0, S.frames.length - 1);
-  $("#gen-of").textContent = `/ ${g.gen}`;
+  $("#gen-of").textContent = `of ${g.gen}`;
   if (following) goTo(S.frames.length - 1, { instant: S.frames.length === 1 });
+  renderHero();
 }
 
 function detachLive() {

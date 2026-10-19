@@ -20,9 +20,9 @@ One-time setup:
    **GitHub Actions**. (Pages on a free account needs a public repository.)
 2. **Publish once.** Run the "Pages" workflow by hand from the Actions tab (or push a change under `viewer/`).
    The site appears at `https://<github-user>.github.io/Aeroptimize/`.
-3. **DNS.** At the provider that manages your domain, add one record: `CNAME`, name `aeroswarm`, value
+3. **DNS.** At the provider that manages your domain, add one record: `CNAME`, name `aeroptimize`, value
    `<github-user>.github.io`. It does not affect the rest of the domain.
-4. **Custom domain.** Settings → Pages → Custom domain: `aeroswarm.<your-domain>` → Save. When the DNS check passes
+4. **Custom domain.** Settings → Pages → Custom domain: `aeroptimize.<your-domain>` → Save. When the DNS check passes
    (minutes to a few hours), tick **Enforce HTTPS**.
 5. **Recommended:** verify your domain under your GitHub account (Settings → Pages → Verified domains), so no other
    repository can claim a subdomain of it.
