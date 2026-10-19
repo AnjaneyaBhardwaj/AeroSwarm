@@ -8,6 +8,30 @@ The server holds your Anthropic API key; the browser never sees it. Visitors can
 and start mock runs (free, rule-based, labelled "not an LLM"). Starting a real-Claude run needs an access code
 that you hand out.
 
+## Public replay site on GitHub Pages (the chosen setup)
+
+`.github/workflows/pages.yml` publishes `viewer/` to GitHub Pages whenever a push to `main` changes it. Visitors get
+the guided replay of every run in `viewer/runs/` and its CAD downloads; the Live run panel stays hidden because no
+server answers. Nothing runs on a server and no API key is online. Live runs happen on your Mac (next section).
+
+One-time setup:
+
+1. **Turn Pages on.** GitHub → the repository → Settings → Pages → Build and deployment → Source:
+   **GitHub Actions**. (Pages on a free account needs a public repository.)
+2. **Publish once.** Run the "Pages" workflow by hand from the Actions tab (or push a change under `viewer/`).
+   The site appears at `https://<github-user>.github.io/AeroSwarm/`.
+3. **DNS.** At the provider that manages your domain, add one record: `CNAME`, name `aeroswarm`, value
+   `<github-user>.github.io`. It does not affect the rest of the domain.
+4. **Custom domain.** Settings → Pages → Custom domain: `aeroswarm.<your-domain>` → Save. When the DNS check passes
+   (minutes to a few hours), tick **Enforce HTTPS**.
+5. **Recommended:** verify your domain under your GitHub account (Settings → Pages → Verified domains), so no other
+   repository can claim a subdomain of it.
+
+To add a run to the site: export it into `viewer/runs/` (`make local-export`), commit, and merge into `main`.
+
+The server sections further down are for always-on live runs, if you want them later. A DNS name points at one
+place: moving the subdomain to a server means replacing the CNAME with the server's `A` record.
+
 ## On your Mac: live runs on your own computer
 
 The simplest way to run live: the same Docker image as the server, on your Mac, reachable only from that Mac at

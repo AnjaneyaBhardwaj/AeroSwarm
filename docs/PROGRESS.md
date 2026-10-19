@@ -156,7 +156,8 @@ OpenFOAM work) until the viewer is done.
 - One instance only: the active run lives in memory.
 
 ### Next
-- A replay-only public site (static hosting of `viewer/`), live runs on the user's Mac (`make local-live`); one
+- Public site: GitHub Pages (user's choice; `.github/workflows/pages.yml` restored from ff6a8ef, one-time steps in
+  docs/DEPLOY.md). Then: live runs on the user's Mac (`make local-live`); one
   real-Claude run to prove the live path; 2-3 more recorded runs exported into the gallery; a replay GIF at the
   top of the README. The Azure VM (docs/DEPLOY.md) only if always-on live runs are wanted later.
 
