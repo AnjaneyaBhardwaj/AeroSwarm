@@ -10,9 +10,9 @@ that you hand out.
 
 ## Public replay site on GitHub Pages (the chosen setup)
 
-`.github/workflows/pages.yml` publishes `viewer/` to GitHub Pages whenever a push to `main` changes it. Visitors get
-the guided replay of every run in `viewer/runs/` and its CAD downloads; the Live run panel stays hidden because no
-server answers. Nothing runs on a server and no API key is online. Live runs happen on your Mac (next section).
+`.github/workflows/pages.yml` publishes `viewer/` to GitHub Pages whenever a push to `main` changes it. Visitors land
+on the "How it works" page, with the guided replay of every run in `viewer/runs/` and its CAD downloads one click away
+(`/replay.html`); the Live run panel stays hidden because no server answers. Nothing runs on a server and no API key is online. Live runs happen on your Mac (next section).
 
 One-time setup:
 
@@ -48,7 +48,8 @@ ARM) and Intel Macs.
    make local-live
    ```
    The first build takes a while (it compiles XFoil and downloads FreeCAD, about 4 GB); later starts are quick.
-   When the log shows the server running, open `http://localhost:8000`.
+   When the log shows the server running, open `http://localhost:8000/replay.html` (the home page links to it as
+   "Watch the replay").
 4. **Run live** from the Live run panel (dials → "Run live from the dials"). The default cap is $1 per run.
 5. **Keep a good run:** the page ends with "Saved as live_<id>". In a second Terminal window, in the same folder:
    ```bash
@@ -72,7 +73,7 @@ Pick one layout:
   an origin and nothing needs configuring. Put it behind your site's reverse proxy at a subdomain
   (`https://aeroswarm.example.com`) or a path (`https://example.com/aeroswarm/`; the page uses relative URLs, so
   a path prefix works as long as the proxy strips it).
-- **B. Page on your site, server elsewhere.** Copy `viewer/` into your site. In `viewer/index.html` set
+- **B. Page on your site, server elsewhere.** Copy `viewer/` into your site. In `viewer/replay.html` set
   `<meta name="aeroswarm-api" content="https://api.example.com/">`, and on the server set
   `AEROSWARM_LIVE_ORIGINS=https://example.com` so the browser may call it (CORS).
 
@@ -99,7 +100,7 @@ itself and forwards visitors to the app.
    ```
    The first build takes a while (it compiles XFoil and downloads FreeCAD, about 4 GB). Caddy waits until the app reports healthy (about
    20 s after it starts), then requests the certificate.
-5. **Check.** Open `https://aeroswarm.<your-domain>`: the replay plays and the Live run panel appears.
+5. **Check.** Open `https://aeroswarm.<your-domain>/replay.html`: the replay plays and the Live run panel appears.
    `https://aeroswarm.<your-domain>/api/health` should show `"xfoil": true`, `"freecad": true` and
    `"access_code_required": true`. At the end of a run the page offers its CAD files (FreeCAD model, STEP,
    coordinates).

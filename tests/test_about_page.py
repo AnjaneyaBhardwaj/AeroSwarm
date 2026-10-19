@@ -1,4 +1,4 @@
-"""The "How it works" page (viewer/about.html): every number on it is the example run's, from its export.
+"""The home page, "How it works" (viewer/index.html): every number on it is the example run's, from its export.
 
 The page is hand-written for people new to the project, so this test is what keeps it in step with the ledger:
 the result, the comic's generation 1, the rival's tries and the wing shapes drawn on it.
@@ -25,7 +25,7 @@ def ex():
 
 @pytest.fixture(scope="module")
 def html():
-    return (VIEWER / "about.html").read_text()
+    return (VIEWER / "index.html").read_text()
 
 
 @pytest.fixture(scope="module")
@@ -95,8 +95,14 @@ def test_wing_shapes_are_the_run_outlines(ex, html):
         assert d == "M" + "L".join(f"{x:.3f} {y:.3f}" for x, y in ex["outlines"][cid]) + "Z"
 
 
-def test_pages_link_each_other_and_their_files(html):
-    index = (VIEWER / "index.html").read_text()
-    assert 'href="about.html"' in index and 'href="index.html"' in html
-    for ref in re.findall(r'(?:href|src)="([^"#:]+)"', html):
-        assert (VIEWER / ref).is_file(), ref
+def test_home_page_and_replay_link_each_other(html):
+    replay = (VIEWER / "replay.html").read_text()
+    assert 'id="crew"' in html and 'id="stage"' in replay  # the explainer is the home page; the replay moved
+    assert 'href="replay.html"' in html and 'href="./"' in replay
+    # old addresses still lead somewhere: about.html to the home page, ?run= / ?gen= links on to the replay
+    assert 'content="0; url=./"' in (VIEWER / "about.html").read_text()
+    assert 'location.replace("replay.html" + location.search' in html
+    for page in ("index.html", "replay.html", "about.html"):
+        for ref in re.findall(r'(?:href|src)="([^"#:]+)"', (VIEWER / page).read_text()):
+            target = VIEWER / ref
+            assert (target / "index.html" if ref.endswith("/") else target).is_file(), (page, ref)

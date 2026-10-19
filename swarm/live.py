@@ -1,6 +1,7 @@
 """Live mode for the run viewer (local only): start a real swarm run from the dial values and stream it.
 
     uv run python -m swarm.live            # http://127.0.0.1:8000 serves viewer/ and the API below
+                                           # (the replay with the Live run panel: /replay.html)
     make live
 
 The server adds no optimization logic. A run is `swarm.run.run` on the hard preset with the dial values as the

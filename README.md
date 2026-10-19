@@ -9,7 +9,8 @@
   </a>
 </p>
 
-Live demo: [aeroptimize.anjaneyabhardwaj.com](https://aeroptimize.anjaneyabhardwaj.com) (recorded runs, replayed).
+Live demo: [aeroptimize.anjaneyabhardwaj.com](https://aeroptimize.anjaneyabhardwaj.com) (how it works, for everyone, and
+recorded runs replayed).
 The GIF above is the example run's replay, drawn from its exported ledger (`make readme-gif`).
 
 Multi-agent LLM system that optimizes a race-car wing section against Cl/Cd

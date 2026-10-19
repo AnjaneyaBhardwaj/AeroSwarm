@@ -98,6 +98,8 @@ figure { margin: 0; }
   border-bottom: 1px solid var(--line); background: var(--panel);
 }
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 700; font-size: 15px; letter-spacing: 0.02em; }
+a.brand { color: inherit; text-decoration: none; }
+a.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 .brand svg { width: 26px; height: 26px; fill: var(--accent); flex: none; }
 .top-right { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .nav-link {
