@@ -59,6 +59,58 @@ spend record and certificates live in Docker volumes and survive updates. Logs:
 
 `deploy/.env` holds your API key: it is git-ignored, keep it that way.
 
+## On an Azure VM
+
+The same setup as above on Azure, with the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
+(`az login` first). Names and the region are examples; pick a region near your visitors.
+
+**1. Create the VM** (Ubuntu 24.04, 2 vCPU / 4 GB RAM, 64 GB disk, SSH key login, static public IP):
+
+```bash
+az group create --name aeroswarm-rg --location westeurope
+az vm create --resource-group aeroswarm-rg --name aeroswarm-vm \
+  --image Ubuntu2404 --size Standard_B2s --os-disk-size-gb 64 \
+  --admin-username azureuser --generate-ssh-keys --public-ip-sku Standard
+```
+
+A Standard-SKU public IP is static, so the DNS record below never needs changing. `Standard_B2s` is the smallest
+size that fits comfortably (FreeCAD and the build need the 4 GB). Check its monthly price for your region in the
+Azure pricing calculator.
+
+**2. Open the web ports** (Caddy needs 80 for the certificate check and 443 for the site; SSH on 22 is already open):
+
+```bash
+az vm open-port --resource-group aeroswarm-rg --name aeroswarm-vm --port 80 --priority 1010
+az vm open-port --resource-group aeroswarm-rg --name aeroswarm-vm --port 443 --priority 1020
+az vm show -d --resource-group aeroswarm-rg --name aeroswarm-vm --query publicIps -o tsv   # the VM's IP
+```
+
+**3. DNS.** At the provider that manages your domain: an `A` record, name `aeroswarm`, value that IP.
+
+**4. Install Docker and start the app** (on the VM: `ssh azureuser@<IP>`):
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER && exit        # log out and back in so the group applies
+ssh azureuser@<IP>
+git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm
+cp deploy/.env.example deploy/.env && nano deploy/.env   # DOMAIN=aeroswarm.<your-domain>, API key, access code
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+The first build downloads FreeCAD (about 4 GB) and compiles XFoil; expect it to take a while on this size. Then
+check `https://aeroswarm.<your-domain>/api/health` (`"xfoil": true`, `"freecad": true`) as in step 5 above.
+If the repository is private, clone with a GitHub personal access token or an SSH deploy key. Until the viewer is
+merged into `main`, add `--branch claude/gallant-ptolemy-8auzlk` to the clone.
+
+**Costs and safety on Azure:**
+- The VM bills while it runs; `az vm deallocate --resource-group aeroswarm-rg --name aeroswarm-vm` stops the compute
+  charge (the disk and the static IP still cost a little) and `az vm start` brings it back with the same IP.
+- Set a budget alert in Azure Cost Management, and a monthly limit on the Anthropic key, as backstops to the app's
+  own daily cap.
+- Keep the server patched: `sudo apt update && sudo apt upgrade` now and then, or enable Ubuntu's
+  `unattended-upgrades` (on by default on Azure's Ubuntu images).
+
 ## Build and run the container
 
 ```bash
