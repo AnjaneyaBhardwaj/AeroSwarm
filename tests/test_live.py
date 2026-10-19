@@ -19,7 +19,7 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     viewer = tmp_path / "viewer"
     shutil.copytree("viewer", viewer, ignore=shutil.ignore_patterns("live"))
-    app = create_app(viewer, tmp_path / "runs", tmp_path / "baselines", poll_s=0.05, baseline=False)
+    app = create_app(viewer, tmp_path / "runs", tmp_path / "baselines", poll_s=0.05, baseline=False, with_cad=False)
     return TestClient(app), viewer, tmp_path / "runs"
 
 
@@ -37,6 +37,7 @@ def test_health_and_static(setup):
     client, _, _ = setup
     h = client.get("/api/health").json()
     assert h["ok"] and h["anthropic_key"] is False and h["busy"] is None and isinstance(h["xfoil"], bool)
+    assert h["freecad"] is False  # with_cad=False
     assert h["defaults"]["model"] in h["models"] and h["caps"]["max_evals"] == 40
     assert set(h["bounds"]) == set(START)
     assert client.post("/api/check", json={"start": h["default_start"]}).json()["ok"] is True
@@ -101,7 +102,9 @@ def _public_app(tmp_path, monkeypatch, **kw):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")  # requests below are refused before any LLM call
     viewer = tmp_path / "viewer"
     shutil.copytree("viewer", viewer, ignore=shutil.ignore_patterns("live"))
-    return TestClient(create_app(viewer, tmp_path / "runs", tmp_path / "baselines", poll_s=0.05, baseline=False, **kw))
+    return TestClient(
+        create_app(viewer, tmp_path / "runs", tmp_path / "baselines", poll_s=0.05, baseline=False, with_cad=False, **kw)
+    )
 
 
 def test_access_code_and_daily_cap(tmp_path, monkeypatch):

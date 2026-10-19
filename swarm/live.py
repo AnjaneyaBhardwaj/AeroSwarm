@@ -52,6 +52,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
 from swarm.cad.build import build
+from swarm.cad.freecad_export import cad_for_viewer, freecad_available
 from swarm.llm.client import PRICES, AnthropicClient, MissingAPIKey, TraceLogger, require_api_key
 from swarm.llm.mock import MockClient
 from swarm.run import HARD_SPEC, HARD_START, run
@@ -160,6 +161,7 @@ def create_app(
     baselines_root: str | Path = "runs/viewer_baselines",
     poll_s: float = 1.0,
     baseline: bool = True,
+    with_cad: bool = True,
     access_code: str | None = None,
     daily_usd: float = DEFAULT_DAILY_USD,
     cors_origins: list[str] | tuple[str, ...] = (),
@@ -198,6 +200,7 @@ def create_app(
             "anthropic_key": has_key(),
             "access_code_required": bool(access_code),
             "xfoil": xfoil_available(),  # without it designs cannot be verified, so no run can pass
+            "freecad": with_cad and freecad_available(),  # CAD files of each finished run
             "daily": {"cap_usd": spend.cap, "spent_usd": round(spend.spent(), 2)},
             "busy": cur.id if cur else None,
             "spec": {"target_cl": HARD_SPEC.target_cl, "cl_tol": HARD_SPEC.cl_tol, "cd_max": HARD_SPEC.cd_max},
@@ -275,7 +278,8 @@ def create_app(
                     inner_optimizer=req.inner_optimizer,
                 )
                 base = optuna_baseline(lr.dir, baselines_root / f"{name}_optuna") if baseline else None
-                lr.final = export_run(lr.dir, name=name, baseline=base)
+                cad = cad_for_viewer(lr.dir, viewer_dir / "runs", f"live/{name}_cad", name) if with_cad else None
+                lr.final = export_run(lr.dir, name=name, baseline=base, cad=cad)
                 live_out.mkdir(parents=True, exist_ok=True)
                 (live_out / f"{name}.json").write_text(json.dumps(lr.final, separators=(",", ":")))
             except Exception as e:  # reported to the page; the run directory keeps whatever was written
@@ -360,7 +364,7 @@ def _phase(lr: LiveRun) -> dict:
     if node == "critic":
         return {"gen": gen + 1, "phase": "The Chief is planning the next step"}
     if node == "report":
-        return {"gen": gen, "phase": "Writing the report and the Optuna comparison"}
+        return {"gen": gen, "phase": "Writing the report, the Optuna comparison and the CAD files"}
     return {"gen": gen, "phase": NEXT_STEP.get(node, "Working")}
 
 

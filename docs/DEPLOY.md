@@ -8,7 +8,11 @@ The server holds your Anthropic API key; the browser never sees it. Visitors can
 and start mock runs (free, rule-based, labelled "not an LLM"). Starting a real-Claude run needs an access code
 that you hand out.
 
-## GitHub Pages: replays only, no server (the current setup)
+## GitHub Pages: replays only, no server (free alternative)
+
+The chosen setup is an always-on server with live runs at `aeroswarm.anjaneyabhardwaj.com` ("Live runs on a
+subdomain" below). A DNS name points at one place only: when the server has the subdomain, leave Pages on its
+`github.io` address (or off). Use this section instead of the server if you want the site free and replay-only.
 
 `.github/workflows/pages.yml` publishes `viewer/` to GitHub Pages on every push to `main` that touches it.
 Visitors get the guided replay of every run in `viewer/runs/`; the Live run panel stays hidden because no server
@@ -36,7 +40,7 @@ The sections below are for putting **live runs** on a public address as well. Th
 | Piece | What it is | Needs |
 |---|---|---|
 | Viewer | `viewer/` (HTML, CSS, JS, `runs/*.json`) | any static hosting |
-| Live server | FastAPI app, `python -m swarm.live` | a machine or container that can run Python 3.11+, XFoil, and keep a process alive |
+| Live server | FastAPI app, `python -m swarm.live` | a machine or container that can run Python 3.11+, XFoil, FreeCAD (optional, for CAD files), and keep a process alive |
 
 Pick one layout:
 
@@ -54,8 +58,8 @@ This is layout A at `https://aeroswarm.<your-domain>`, using `deploy/`: the app 
 [Caddy](https://caddyserver.com), a web server that obtains and renews the HTTPS certificate for the subdomain by
 itself and forwards visitors to the app.
 
-1. **A server.** Any small Linux VPS (Ubuntu 24.04 or Debian 12) with about 2 GB RAM and 10 GB disk (the image
-   is about 2.5 GB). Install Docker with its Compose plugin (`curl -fsSL https://get.docker.com | sh`). Open ports
+1. **A server.** Any small Linux VPS or cloud VM (Ubuntu 24.04 or Debian 12; on Azure, a B-series Ubuntu VM) with
+   about 4 GB RAM and 30 GB disk: the image is about 7.5 GB, most of it FreeCAD. Install Docker with its Compose plugin (`curl -fsSL https://get.docker.com | sh`). Open ports
    80 and 443 in its firewall; Caddy needs both (80 for the certificate check, 443 for the site).
 2. **DNS.** At your domain's DNS provider, add an `A` record: name `aeroswarm`, value the server's IP address.
    Wait until `ping aeroswarm.<your-domain>` answers from that IP.
@@ -69,10 +73,12 @@ itself and forwards visitors to the app.
    ```bash
    docker compose -f deploy/docker-compose.yml up -d --build
    ```
-   The first build takes several minutes (it compiles XFoil). Caddy waits until the app reports healthy (about
+   The first build takes a while (it compiles XFoil and downloads FreeCAD, about 4 GB). Caddy waits until the app reports healthy (about
    20 s after it starts), then requests the certificate.
 5. **Check.** Open `https://aeroswarm.<your-domain>`: the replay plays and the Live run panel appears.
-   `https://aeroswarm.<your-domain>/api/health` should show `"xfoil": true` and `"access_code_required": true`.
+   `https://aeroswarm.<your-domain>/api/health` should show `"xfoil": true`, `"freecad": true` and
+   `"access_code_required": true`. At the end of a run the page offers its CAD files (FreeCAD model, STEP,
+   coordinates).
 
 Updating later: `git pull && docker compose -f deploy/docker-compose.yml up -d --build`. Finished runs, the daily
 spend record and certificates live in Docker volumes and survive updates. Logs:
@@ -96,6 +102,12 @@ docker run -d --name aeroswarm --restart unless-stopped -p 8000:8000 \
 The image builds XFoil from the Debian/Ubuntu source package (`scripts/install_xfoil.sh`), so the first build
 takes a few minutes and needs to reach `deb.debian.org` and `archive.ubuntu.com`. Check the result at
 `/api/health`: `"xfoil": true`. Without XFoil no design can be verified, so no run can pass; the page says so.
+
+The image also installs FreeCAD 1.1.3 (headless, from conda-forge; it needs to reach `conda.anaconda.org`), which
+builds the CAD files of every finished run: a FreeCAD document with the start and final sections and a
+spreadsheet of their results, a STEP file, and the final section's coordinates. Each file is checked before it is
+offered (FreeCAD's face area against the section's own, and the STEP file read back). To leave FreeCAD out and save
+about 3.6 GB: `docker build --build-arg WITH_FREECAD=0 -t aeroswarm .` (runs then finish without CAD files).
 
 The two volumes keep finished runs, the daily spend record, and the live gallery across restarts and upgrades.
 
@@ -158,12 +170,17 @@ make install && make xfoil
 AEROSWARM_LIVE_ACCESS_CODE=... ANTHROPIC_API_KEY=... uv run python -m swarm.live --host 0.0.0.0 --port 8000 --proxy-headers
 ```
 
+For CAD files, install FreeCAD 1.1.3 (the official build from freecad.org, or conda-forge:
+`micromamba create -p /opt/freecad -c conda-forge freecad=1.1.3`) and point the server at its headless command:
+`AEROSWARM_FREECADCMD=/opt/freecad/bin/freecadcmd`. `freecadcmd` on the PATH is found without it.
+
 Keep it alive with systemd or your host's process manager.
 
 ## Publishing a live run as a recorded replay
 
 Finished live runs appear in the server's gallery automatically. To ship one with the static page (for
-example on GitHub Pages, which only replays), export it into `viewer/runs/` and commit the JSON:
+example on GitHub Pages, which only replays), export it into `viewer/runs/` and commit the JSON (and, with
+FreeCAD installed, its `<name>_cad/` folder of CAD files):
 
 ```bash
 uv run python scripts/export_run.py runs/live/<run_id> --name <short-name>

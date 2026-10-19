@@ -270,7 +270,9 @@ def summarise_baseline(run_dir: str | Path) -> dict:
     }
 
 
-def export_run(run_dir: str | Path, name: str | None = None, baseline: dict | None = None) -> dict:
+def export_run(
+    run_dir: str | Path, name: str | None = None, baseline: dict | None = None, cad: dict | None = None
+) -> dict:
     """Build the viewer record for one run directory (see module docstring)."""
     run_dir = Path(run_dir)
     files = RunFiles(run_dir)
@@ -401,6 +403,7 @@ def export_run(run_dir: str | Path, name: str | None = None, baseline: dict | No
         "wall_hours": (meta.get("limits") or {}).get("wall_hours"),
         "outcome": _summarise_outcome(ledger, spec, meta),
         "baseline": baseline,
+        "cad": cad,  # FreeCAD files of the start and final designs (swarm.cad.freecad_export), when built
         "generations": generations,
         "outlines": outlines,
     }

@@ -124,6 +124,28 @@ OpenFOAM work) until the viewer is done.
   FreeCAD (free, scriptable, runs headless) is the candidate, generating the CAD files at export time so they
   ship as static downloads on Pages.
 
+### FreeCAD: CAD files for every run (same session)
+- The user asked for a real CAD program; FreeCAD chosen (free, scriptable, runs headless on a server). Architecture
+  rule kept: no agent sees or drives FreeCAD. After a run, deterministic code (`swarm/cad/freecad_export.py`) takes
+  the start and the final design (best passing, else closest candidate, labelled so) and runs
+  `swarm/cad/freecad_doc.py` inside `freecadcmd` (FreeCAD's own Python): a document with each section as a closed
+  B-spline face through the solver's points plus its chord line, at the real 300 mm chord in race-car orientation,
+  and a "Design" spreadsheet of parameters and ledger results; a STEP file of the two faces; the final section's
+  Selig `.dat`. Sections stay 2D, as optimized: no invented span (the user's point).
+- Checks before a file is offered: each face valid and its area within 0.5% of our polygon area; the STEP file read
+  back as the same two faces. The first version failed this check by 6.4%: FreeCAD's `Face.Area` integrates a
+  321-knot B-spline boundary badly, while the meshed face matches to 0.005%, so the check meshes the face. The
+  geometry was right; the check caught the measurement.
+- Wiring: `scripts/export_run.py --cad auto|none` writes `viewer/runs/<name>_cad/`; the live server does the same
+  for every finished run (`live/<name>_cad/`); the export's `cad` block lists the files; the page shows download
+  links in the final banner and the Run panel. `/api/health` reports `freecad`. Example run re-exported with them.
+- Docker: a `mambaorg/micromamba` stage installs pinned `freecad=1.1.3` from conda-forge (the newest conda build is a
+  dated development snapshot, avoided); `WITH_FREECAD=0` leaves it out. Image about 7.2 GB without XFoil here.
+- Tested: FreeCAD 1.1.3 headless here (micromamba, since Ubuntu 24.04 has no FreeCAD package); `tests/test_freecad_export.py`
+  (4 tests without FreeCAD, 1 that needs it and skips on CI); a mock live run in the browser ended with its three
+  files and the STEP downloaded; the image with the FreeCAD stage (XFoil stage skipped, blocked mirror) built and ran
+  as non-root: a mock run produced checked CAD files served over HTTP.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
 - The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.
