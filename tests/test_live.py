@@ -42,6 +42,7 @@ def test_health_and_static(setup):
     assert set(h["bounds"]) == set(START)
     assert client.post("/api/check", json={"start": h["default_start"]}).json()["ok"] is True
     assert "Aeroptimize" in client.get("/").text
+    assert 'id="live"' in client.get("/replay.html").text  # the replay, with the live-run panel
     assert client.get("/runs/index.json").json()["runs"][0]["name"] == "example_hard_llm"
 
 

@@ -40,12 +40,12 @@ viewer:
 readme-gif:
 	uv run python scripts/replay_gif.py viewer/runs/example_hard_llm.json
 
-# Viewer + live runs (local only): http://127.0.0.1:8000. Real-LLM runs need AEROSWARM_ANTHROPIC_API_KEY
+# Viewer + live runs (local only): http://127.0.0.1:8000/replay.html. Real-LLM runs need AEROSWARM_ANTHROPIC_API_KEY
 # (or ANTHROPIC_API_KEY); every run is capped (default 15 evaluations, $1). Without a key only the mock runs.
 live:
 	uv run python -m swarm.live
 
-# The same, in Docker (macOS/Windows/Linux with Docker Desktop; includes XFoil and FreeCAD): http://localhost:8000.
+# The same, in Docker (macOS/Windows/Linux with Docker Desktop; includes XFoil and FreeCAD): http://localhost:8000/replay.html.
 # Real-Claude runs use ANTHROPIC_API_KEY from your shell. docs/DEPLOY.md "On your Mac".
 local-live:
 	docker compose -f deploy/docker-compose.local.yml up --build

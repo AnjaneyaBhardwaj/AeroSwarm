@@ -89,6 +89,19 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
   tries), the drawn wings equal the run's outlines, and the pages' links and files exist.
 - Browser-checked at 1440 and 390 px, light and dark: no sideways scroll, no failed loads or page errors.
 
+### The explainer is the home page (same session, after PR #22 merged)
+- The user wants "How it works" to be the first thing every visitor sees. `viewer/about.html` → `viewer/index.html`
+  (home), the replay `viewer/index.html` → `viewer/replay.html` (title "Aeroptimize Replay"). The brand links home
+  on both pages; the replay's "How it works" links to `./`; the home page's buttons go to `replay.html`.
+- Old links keep working: the home page forwards any `?run=` / `?gen=` / `?autoplay=` / `?speed=` / `?intro=` link
+  to `replay.html` with the same query (shared replay links from before), and `about.html` is now a stub that
+  forwards to `./` (it was live for a few hours).
+- Live mode: the replay with the Live run panel is at `/replay.html` (docs/DEPLOY.md, viewer/README.md, Makefile,
+  `swarm/live.py` updated; layout B's `aeroswarm-api` meta tag is in `replay.html`). `tests/test_live.py` checks the
+  server serves it; `tests/test_about_page.py` checks the links and both forwards.
+- Browser-checked: home → replay → home, an old `/?run=…&gen=5` link opens generation 5 of the replay, `/about.html`
+  lands on the home page; no page errors.
+
 ### Next
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
   never tested: the Dockerfile's XFoil stage, the Mac setup, a real-Claude live run. When a new run joins the
