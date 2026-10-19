@@ -1,4 +1,4 @@
-/* AeroSwarm run viewer: replays exported runs (viewer/runs/*.json, written by scripts/export_run.py).
+/* Aeroptimize run viewer: replays exported runs (viewer/runs/*.json, written by scripts/export_run.py).
  * Every number on screen comes from the export (the run ledger); agent text is verbatim from the traces.
  * Geometry is never derived here: outlines come precomputed per candidate. Only in-between animation
  * frames are tweened, and numeric readouts snap to recorded values (they are never interpolated). */

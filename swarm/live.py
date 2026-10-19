@@ -171,7 +171,7 @@ def create_app(
     viewer_dir, runs_root, baselines_root = Path(viewer_dir), Path(runs_root), Path(baselines_root)
     live_out = viewer_dir / "runs" / "live"
     spend = DailySpend(runs_root / "_daily_spend.json", daily_usd)
-    app = FastAPI(title="AeroSwarm live")
+    app = FastAPI(title="Aeroptimize live")
     if cors_origins:
         app.add_middleware(
             CORSMiddleware,

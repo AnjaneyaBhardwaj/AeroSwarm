@@ -1,8 +1,11 @@
-# AeroSwarm
+# Aeroptimize
+
+Live demo: [aeroptimize.anjaneyabhardwaj.com](https://aeroptimize.anjaneyabhardwaj.com) (recorded runs, replayed).
 
 Multi-agent LLM system that optimizes a race-car wing section against Cl/Cd
 targets. LLM agents (Chief, CAD, Critic) emit typed Pydantic schemas;
 deterministic code builds geometry, runs NeuralFoil/XFoil and validates.
+Built as AeroSwarm: the code still uses that name internally (the Python package, the `AEROSWARM_*` settings).
 Design: [docs/BLUEPRINT.md](docs/BLUEPRINT.md). Status: [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ```bash

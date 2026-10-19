@@ -1,4 +1,4 @@
-# AeroSwarm on your own computer (any OS with Docker Desktop, e.g. macOS): the same image as the server, but
+# Aeroptimize on your own computer (any OS with Docker Desktop, e.g. macOS): the same image as the server, but
 # reachable only from this machine at http://localhost:8000. No domain, no HTTPS, no access code needed.
 #
 #   make local-live                      # build and start (first build takes a while: XFoil, FreeCAD)

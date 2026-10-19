@@ -1,4 +1,4 @@
-# AeroSwarm on its own subdomain: the app (page + live runs) behind Caddy, which gets and renews the HTTPS
+# Aeroptimize on its own subdomain: the app (page + live runs) behind Caddy, which gets and renews the HTTPS
 # certificate for $DOMAIN automatically. See docs/DEPLOY.md, "Subdomain on a server".
 #
 #   cp deploy/.env.example deploy/.env      # then fill it in

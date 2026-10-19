@@ -149,6 +149,8 @@ def export_cad(run_dir: str | Path, out_dir: str | Path, name: str) -> dict:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     paths = {"fcstd": out / f"{name}.FCStd", "step": out / f"{name}.step", "dat": out / f"{name}.dat"}
+    for p in paths.values():  # a re-export replaces the files (FreeCAD would keep an .FCBak of an overwritten model)
+        p.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         job = {
             "run_id": meta.get("run_id", Path(run_dir).name),
