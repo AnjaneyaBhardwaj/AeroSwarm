@@ -1,0 +1,278 @@
+/* "How it works" page (about.html). Colours come from style.css's tokens; this file adds the page's own.
+   Layout: one left-aligned story column (max 1080px); the cast and the comic strip open into wide rows. */
+:root {
+  --display: "Bricolage Grotesque", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand: "Patrick Hand", "Comic Neue", "Segoe Print", "Bradley Hand", cursive;
+  --chief-plate: #dce8fb;
+  --cad-plate: #e5e1fb;
+  --critic-plate: #fde2d4;
+  --machine-plate: #eceff2;
+  --bubble: #ffffff;
+  --bubble-ink: #0f1419;
+  --tyre: #23272f;
+  --hub: #c6cad0;
+  --sticker: #fff1c2;
+  --sticker-ink: #6b4a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --chief-plate: #1a2840;
+    --cad-plate: #221e3f;
+    --critic-plate: #36231a;
+    --machine-plate: #1d232a;
+    --bubble: #eef1f4;
+    --bubble-ink: #0f1419;
+    --tyre: #3b424d;
+    --hub: #6f7a87;
+    --sticker: #3a3014;
+    --sticker-ink: #fad46b;
+  }
+}
+:root[data-theme="dark"] {
+  --chief-plate: #1a2840;
+  --cad-plate: #221e3f;
+  --critic-plate: #36231a;
+  --machine-plate: #1d232a;
+  --bubble: #eef1f4;
+  --bubble-ink: #0f1419;
+  --tyre: #3b424d;
+  --hub: #6f7a87;
+  --sticker: #3a3014;
+  --sticker-ink: #fad46b;
+}
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+a.brand { color: inherit; text-decoration: none; }
+a.brand:focus-visible, .a-link:focus-visible, a.go:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+.about {
+  width: min(1080px, 100%); margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 40px;
+  display: flex; flex-direction: column; gap: 64px;
+}
+.about h1, .about h2, .about h3, .about h4 { font-family: var(--display); text-wrap: balance; margin: 0; }
+.about h2 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.12; letter-spacing: -0.01em; font-weight: 750; }
+.about p { margin: 0; }
+.a-sec { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 16px; }
+.sec-lede { max-width: 64ch; font-size: 16px; color: var(--ink-2); }
+.num { font-family: var(--mono); font-weight: 600; color: var(--ink); white-space: nowrap; }
+a.go { display: inline-block; text-decoration: none; padding: 11px 20px; font-size: 15px; }
+.a-link { color: var(--accent); font-weight: 600; text-underline-offset: 3px; }
+.a-actions { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+
+/* ---------- hero: the thesis and the team photo ---------- */
+.a-hero {
+  display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 24px 40px; align-items: center;
+  padding-top: 40px;
+}
+.a-hero-text { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.a-hero h1 { font-size: clamp(34px, 5.4vw, 60px); line-height: 1.02; font-weight: 800; letter-spacing: -0.025em; }
+.a-lede { font-size: 17px; line-height: 1.6; color: var(--ink-2); max-width: 56ch; }
+.team { display: flex; justify-content: center; align-items: flex-end; min-width: 0; }
+.member { margin: 0 -14px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.member .bust { width: clamp(110px, 15vw, 172px); height: auto; border-radius: 50%; overflow: hidden; }
+.member.chief .bust { background: var(--chief-plate); }
+.member.cad .bust { background: var(--cad-plate); transform: translateY(-14px); }
+.member.critic .bust { background: var(--critic-plate); }
+.member figcaption {
+  font: 700 12px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #fff;
+  padding: 3px 10px; border-radius: 999px; position: relative; z-index: 1;
+}
+.member.cad figcaption { transform: translateY(-14px); }
+.member.chief figcaption { background: var(--chief); }
+.member.cad figcaption { background: var(--cad); }
+.member.critic figcaption { background: var(--critic); }
+
+/* ---------- the job ---------- */
+.job { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px 40px; align-items: start; }
+.job-text { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.job-text p { font-size: 16px; line-height: 1.65; max-width: 62ch; color: var(--ink-2); }
+.job-text b { color: var(--ink); }
+.brief {
+  background: var(--sticker); color: var(--ink); border-radius: 14px; padding: 16px 18px 14px; transform: rotate(1.2deg);
+  box-shadow: var(--shadow); min-width: 0;
+}
+.brief h3 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--sticker-ink); margin-bottom: 8px; }
+.brief ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; font-size: 14.5px; }
+.brief li { padding-left: 24px; position: relative; }
+.brief li::before {
+  content: ""; position: absolute; left: 2px; top: 4px; width: 12px; height: 12px; border-radius: 3px;
+  border: 2px solid var(--sticker-ink);
+}
+.car-fig { grid-column: 1 / -1; margin: 0; }
+.car { width: 100%; height: auto; display: block; overflow: visible; }
+.car .air path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 12; opacity: 0.55; animation: air 1.4s linear infinite; }
+.car .ground { stroke: var(--line-2); stroke-width: 1.5; stroke-dasharray: 3 6; }
+.car .tyre { fill: var(--tyre); }
+.car .hub { fill: var(--hub); }
+.car .car-body { fill: var(--accent); }
+.car .car-stripe { fill: var(--panel); opacity: 0.35; }
+.car .car-wing { fill: var(--tyre); stroke: var(--accent); stroke-width: 2; }
+.car .note { font: 20px var(--hand); fill: var(--ink-2); }
+.car .note.small { font-size: 16px; fill: var(--ink-3); }
+.car .note-line { fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-dasharray: 4 4; }
+.car .df { stroke: var(--accent); stroke-width: 5; stroke-linecap: round; }
+.car .df-head { fill: var(--accent); }
+.car .drag { stroke: var(--ink-3); stroke-width: 4; stroke-linecap: round; }
+.car .drag-head { fill: var(--ink-3); }
+@keyframes air { to { stroke-dashoffset: -36; } }
+
+/* ---------- speech bubbles (shared by the cast and the comic) ---------- */
+.bubble {
+  position: relative; background: var(--bubble); color: var(--bubble-ink); border: 2px solid var(--ink);
+  border-radius: 18px; padding: 9px 14px; font: 400 18px/1.25 var(--hand); align-self: flex-start; max-width: 100%;
+}
+.bubble::after {
+  content: ""; position: absolute; left: 34px; bottom: -9px; width: 14px; height: 14px; background: var(--bubble);
+  border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: rotate(45deg);
+}
+
+/* ---------- the cast ---------- */
+.cast { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 8px; }
+.card-c {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px 18px 20px;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; transition: transform 0.2s ease;
+}
+.card-c:nth-child(1) { transform: rotate(-0.8deg); }
+.card-c:nth-child(3) { transform: rotate(0.7deg); }
+.card-c:hover { transform: rotate(0) translateY(-3px); }
+.card-c .portrait { width: 150px; height: 150px; border-radius: 50%; margin: 6px 0 4px 6px; }
+.card-c.chief .portrait { background: var(--chief-plate); }
+.card-c.cad .portrait { background: var(--cad-plate); }
+.card-c.critic .portrait { background: var(--critic-plate); }
+.card-c h3 { font-size: 24px; font-weight: 750; }
+.card-c .role { font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.card-c.chief .role { color: var(--chief); }
+.card-c.cad .role { color: var(--cad); }
+.card-c.critic .role { color: var(--critic); }
+.card-c p:not(.bubble):not(.role) { font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
+.card-c .quirk { padding-top: 8px; border-top: 1px dashed var(--line-2); }
+.card-c .quirk b { color: var(--ink); }
+
+.machines { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+.machines h3 { font-size: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sticker {
+  font: 700 11px var(--sans); text-transform: uppercase; letter-spacing: 0.08em; background: var(--sticker);
+  color: var(--sticker-ink); padding: 4px 9px; border-radius: 6px; transform: rotate(-3deg); display: inline-block;
+}
+.machines-lede { font-size: 14.5px; color: var(--ink-2); margin-top: -6px; }
+.machine-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.machine {
+  display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; align-items: start;
+  background: var(--machine-plate); border-radius: 14px; padding: 12px 14px;
+}
+.machine svg { width: 84px; height: 70px; }
+.machine h4 { font-size: 16px; font-weight: 700; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.machine h4 span { font: 600 11.5px var(--mono); color: var(--ink-3); }
+.machine p { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); margin-top: 3px; }
+
+/* ---------- the comic strip ---------- */
+.strip { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; counter-reset: panel; }
+.panel-c {
+  counter-increment: panel; position: relative; background: var(--panel); border: 2.5px solid var(--ink); border-radius: 8px;
+  padding: 14px 12px 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.panel-c:nth-child(odd) { transform: rotate(-0.6deg); }
+.panel-c:nth-child(even) { transform: rotate(0.5deg); }
+.panel-c::before {
+  content: counter(panel); position: absolute; top: -12px; right: 10px; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ink); color: var(--panel); font: 700 12px/24px var(--sans); text-align: center;
+}
+.panel-c .bubble { font-size: 17px; }
+.panel-c .mini { width: 96px; height: 96px; align-self: flex-start; margin-left: 10px; }
+.panel-c svg[viewBox="0 0 200 200"].mini { border-radius: 50%; }
+.panel-c:nth-child(1) .mini { background: var(--chief-plate); }
+.panel-c:nth-child(2) .mini { background: var(--cad-plate); }
+.panel-c:nth-child(4) .mini { background: var(--critic-plate); }
+.panel-c:nth-child(3) .mini { width: 112px; height: 94px; }
+.mini-pair { display: flex; align-items: flex-end; gap: 4px; }
+.mini-ref { width: 62px; height: 52px; transform: rotate(-8deg); }
+.panel-c .cap { margin-top: auto; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.panel-c .cap b { color: var(--ink); }
+.after-strip { font: 400 19px var(--hand); color: var(--ink-2); }
+
+/* ---------- how it ended ---------- */
+.result { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px 40px; align-items: start; }
+.result-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.big-win { font: 800 clamp(30px, 4.6vw, 48px)/1.05 var(--display); color: var(--good-ink); letter-spacing: -0.02em; }
+.score { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.score div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.score dt { font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.score dd { margin: 2px 0 0; font-size: 15px; color: var(--ink); }
+.score .vs { display: block; font-size: 12.5px; color: var(--ink-3); }
+.before-after { margin: 4px 0 0; }
+.before-after svg { width: 100%; max-width: 460px; height: auto; display: block; }
+.ba-start { fill: none; stroke: var(--ghost); stroke-width: 1.8; stroke-dasharray: 6 5; }
+.ba-final { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2.4; }
+.before-after figcaption { font-size: 12.5px; color: var(--ink-3); }
+.rival {
+  background: var(--panel-2); border: 2px dashed var(--line-2); border-radius: 16px; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; margin-top: 52px;
+}
+.rival h3 { font-size: 20px; }
+.rival p { font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
+.rival .fine { font-size: 12.5px; color: var(--ink-3); }
+
+/* ---------- house rules ---------- */
+.rules { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 28px; }
+.rules li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; }
+.rules p { font-size: 15px; line-height: 1.55; color: var(--ink-2); padding-top: 6px; }
+.rules b { color: var(--ink); }
+.r-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line); }
+.r-ic svg { width: 22px; height: 22px; fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.r-ic .card-red { fill: var(--critical); stroke: none; }
+
+/* ---------- pocket dictionary ---------- */
+.dict { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 24px; }
+.dict div { border-top: 2px solid var(--ink); padding-top: 8px; min-width: 0; }
+.dict dt { font: 700 17px var(--display); }
+.dict dd { margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+
+/* ---------- call to action and footer ---------- */
+.cta { align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 26px 24px; }
+.cta p { max-width: 60ch; color: var(--ink-2); font-size: 15.5px; }
+.a-foot {
+  display: flex; gap: 6px 14px; flex-wrap: wrap; justify-content: center; align-items: baseline;
+  padding: 18px max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px));
+  border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3);
+}
+.brand-sm { font-weight: 700; color: var(--accent); }
+
+/* ---------- motion: idle bob, blink, the magnifier's sway, air over the car ---------- */
+.bob { animation: bob 3.4s ease-in-out infinite; }
+.bob.d2 { animation-delay: -1.1s; }
+.bob.d3 { animation-delay: -2.3s; }
+.member.cad .bust.bob { animation-name: bob-up; }
+@keyframes bob { 50% { transform: translateY(-5px); } }
+@keyframes bob-up { 0%, 100% { transform: translateY(-14px); } 50% { transform: translateY(-19px); } }
+.hop { animation: hop 1.6s ease-in-out infinite; }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-8px); } }
+.blink { transform-box: fill-box; transform-origin: center; animation: blink 5s infinite; }
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+.sway { transform-box: view-box; transform-origin: 157px 148px; animation: sway 3.8s ease-in-out infinite; }
+@keyframes sway { 50% { transform: rotate(-5deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .bob, .hop, .blink, .sway, .car .air path { animation: none !important; }
+  .member.cad .bust.bob { transform: translateY(-14px); }
+  .card-c { transition: none; }
+}
+
+/* ---------- narrow screens ---------- */
+@media (max-width: 900px) {
+  .a-hero, .job, .result { grid-template-columns: minmax(0, 1fr); }
+  .a-hero { padding-top: 24px; }
+  .cast, .machine-row { grid-template-columns: minmax(0, 1fr); }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dict { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rival { margin-top: 0; }
+  .brief { transform: none; }
+}
+@media (max-width: 560px) {
+  .about { gap: 48px; }
+  .strip, .rules, .dict, .score { grid-template-columns: minmax(0, 1fr); }
+  .card-c, .panel-c { transform: none !important; }
+  .member { margin: 0 -10px; }
+  .a-lede { font-size: 16px; }
+}

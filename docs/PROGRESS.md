@@ -68,6 +68,27 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
   and the README alt text matches the export. Full suite: 383 passed, 1 skipped.
 - The older `evolution_morph.gif` (per run directory, engineering view) is unchanged.
 
+### "How it works" page (same session, after PR #21 merged)
+- The user asked for a separate, fun page that explains the project to everyone, with the agents personified: the
+  Chief looking like a chief, the CAD agent wearing glasses, the Critic with a magnifying glass. A preview was
+  approved first (one change: the machines' label).
+- `viewer/about.html` + `viewer/about.css`, linked as "How it works" from the replay page's header (the page links
+  back with "Watch the replay"). Sections: headline and team photo; the job (why a race car has an upside-down wing,
+  the brief, a cartoon car carrying the run's real final wing section); meet the crew (the Chief: team-boss cap with
+  an airfoil badge, headset, moustache, clipboard; the CAD Engineer: round glasses, pencil, tablet showing the real
+  start wing; the Critic: beret, raised eyebrow, magnifying glass); the machines, labelled "not agents" (the Hare =
+  NeuralFoil, "a small neural network trained on the Tortoise's answers"; the Tortoise = XFoil, the only one that
+  makes a design official; the Referee = the rule checks, showing red cards); a four-panel comic of generation 1
+  (real numbers, dialogue marked as dramatised, pointing to "Show reasoning" for the agents' own words); how it
+  ended, with the Optuna rival and its fine print; house rules; a pocket dictionary.
+- Characters and machines are inline SVG symbols in the site's tokens (light and dark), with idle motion (bob,
+  blink, the magnifier's sway, air over the car) that stops under prefers-reduced-motion. Fonts: Bricolage Grotesque
+  (headings) and Patrick Hand (speech bubbles) from Google Fonts, Inter and JetBrains Mono as on the replay page.
+- `tests/test_about_page.py` (5): every number on the page against the export (result, cost and time, the brief,
+  the comic's generation-1 plan, sketch, red-card millimetres, estimate, shortfall and diagnosis, the rival's 40
+  tries), the drawn wings equal the run's outlines, and the pages' links and files exist.
+- Browser-checked at 1440 and 390 px, light and dark: no sideways scroll, no failed loads or page errors.
+
 ### Next
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
   never tested: the Dockerfile's XFoil stage, the Mac setup, a real-Claude live run. When a new run joins the
