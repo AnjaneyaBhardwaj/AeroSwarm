@@ -1,6 +1,16 @@
 # Aeroptimize
 
+<p align="center">
+  <a href="https://aeroptimize.anjaneyabhardwaj.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/media/replay-dark.gif">
+      <img src="docs/media/replay-light.gif" width="900" alt="Replay of the example run: the wing section changes generation by generation while each evaluated design lands on a Cl–Cd plot, until generation 22 reaches the target box (Cl −1.8526, Cd 0.0222, confirmed by XFoil).">
+    </picture>
+  </a>
+</p>
+
 Live demo: [aeroptimize.anjaneyabhardwaj.com](https://aeroptimize.anjaneyabhardwaj.com) (recorded runs, replayed).
+The GIF above is the example run's replay, drawn from its exported ledger (`make readme-gif`).
 
 Multi-agent LLM system that optimizes a race-car wing section against Cl/Cd
 targets. LLM agents (Chief, CAD, Critic) emit typed Pydantic schemas;

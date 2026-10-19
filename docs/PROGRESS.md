@@ -46,10 +46,32 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
   generation reads correctly. Its files were deleted afterwards (git-ignored anyway).
 - `pytest -m "not xfoil"`: 373 passed, 1 skipped. ruff clean.
 
+### README replay GIF (same session, after PR #20 merged)
+- `swarm/viz/replay_gif.py` + `scripts/replay_gif.py` (`make readme-gif`): a viewer export becomes
+  `docs/media/replay-{light,dark}.gif` (960×410, about 14 s per loop, 0.4 MB each), shown at the top of the README
+  through `<picture>` (GitHub picks the variant for the reader's theme) and linked to the live site. Each frame: the
+  wing (dashed start outline, downforce arrow against the target tick) beside the Cl–Cd polar filling in, a
+  "Generation N of 22" header with the status pill and Cl / Cd / solver readouts (green inside the target, as on
+  the page), and a footer with the goal, then the result from the export's `outcome` on the final hold. Colours
+  are the viewer's tokens; Inter where installed, else DejaVu.
+- Honesty rules from BLUEPRINT §5: the morph between generations interpolates `WingParams` and rebuilds the outline
+  with the exporter's own `outline()` (every in-between shape is a valid section); in-between frames are labelled
+  "interpolated shape → generation N" and carry no numbers of their own (header, polar and arrow stay on the last
+  recorded generation). No morph between two frames of the same design (an XFoil check); its time goes to the hold.
+- GIF writing: one shared palette (median cut over sampled frames) plus the theme's colours reserved exactly, and
+  an exact numpy nearest-colour mapping (Pillow's own palette conversion shifted colours by a level or two, and a
+  status colour missing from the sample came out brown). Pillow is now a declared dependency (it was already
+  installed through matplotlib; same locked version).
+- `tests/test_replay_gif.py` (10): plan (each generation held once, loop length fixed, skipped morphs), every
+  number equals the headline record, the final footer from `outcome` (also no-pass and mock), status labels,
+  morph through parameters equals `outline(blend)`, exact reserved colours, both themes written and readable,
+  and the README alt text matches the export. Full suite: 383 passed, 1 skipped.
+- The older `evolution_morph.gif` (per run directory, engineering view) is unchanged.
+
 ### Next
-- Unchanged from session 17: 2-3 more recorded runs in the gallery, a replay GIF at the top of the README, one
-  real-Claude live run on the Mac (asks before spending credit). Still never tested: the Dockerfile's XFoil stage,
-  the Mac setup, a real-Claude live run.
+- 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
+  never tested: the Dockerfile's XFoil stage, the Mac setup, a real-Claude live run. When a new run joins the
+  gallery, `scripts/replay_gif.py viewer/runs/<name>.json` makes its GIF.
 
 ## Session 17 (2026-10-15): run viewer for the portfolio, part 1 (exporter + gallery replay)
 
