@@ -19,7 +19,7 @@ One-time setup:
 1. **Turn Pages on.** GitHub → the repository → Settings → Pages → Build and deployment → Source:
    **GitHub Actions**. (Pages on a free account needs a public repository.)
 2. **Publish once.** Run the "Pages" workflow by hand from the Actions tab (or push a change under `viewer/`).
-   The site appears at `https://<github-user>.github.io/AeroSwarm/`.
+   The site appears at `https://<github-user>.github.io/Aeroptimize/`.
 3. **DNS.** At the provider that manages your domain, add one record: `CNAME`, name `aeroswarm`, value
    `<github-user>.github.io`. It does not affect the rest of the domain.
 4. **Custom domain.** Settings → Pages → Custom domain: `aeroswarm.<your-domain>` → Save. When the DNS check passes
@@ -41,7 +41,7 @@ ARM) and Intel Macs.
 1. **Install** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free for personal use) and start
    it. In its Settings → Resources, give it at least 4 GB of memory; the image needs about 15 GB of disk.
    `make` comes with Apple's command-line tools (`xcode-select --install` if `make` is missing).
-2. **Get the code:** `git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm`
+2. **Get the code:** `git clone https://github.com/AnjaneyaBhardwaj/Aeroptimize.git && cd Aeroptimize`
 3. **Start it:**
    ```bash
    export ANTHROPIC_API_KEY=sk-ant-...   # optional: without it only the free mock runs
@@ -89,7 +89,7 @@ itself and forwards visitors to the app.
    Wait until `ping aeroswarm.<your-domain>` answers from that IP.
 3. **Code and settings.**
    ```bash
-   git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm
+   git clone https://github.com/AnjaneyaBhardwaj/Aeroptimize.git && cd Aeroptimize
    cp deploy/.env.example deploy/.env
    nano deploy/.env   # DOMAIN, ANTHROPIC_API_KEY, AEROSWARM_LIVE_ACCESS_CODE, AEROSWARM_LIVE_DAILY_USD
    ```
@@ -144,7 +144,7 @@ az vm show -d --resource-group aeroswarm-rg --name aeroswarm-vm --query publicIp
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER && exit        # log out and back in so the group applies
 ssh azureuser@<IP>
-git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm
+git clone https://github.com/AnjaneyaBhardwaj/Aeroptimize.git && cd Aeroptimize
 cp deploy/.env.example deploy/.env && nano deploy/.env   # DOMAIN=aeroswarm.<your-domain>, API key, access code
 docker compose -f deploy/docker-compose.yml up -d --build
 ```

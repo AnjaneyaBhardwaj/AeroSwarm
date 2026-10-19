@@ -150,6 +150,14 @@ OpenFOAM work) until the viewer is done.
   CAD files, `local-export` writing the gallery entry and three files into the checkout; and the probe's failure
   report as uid 1000. Not tested on an actual Mac.
 
+### Name: Aeroptimize (same session)
+- The public name follows the user's subdomain `aeroptimize.anjaneyabhardwaj.com`: page title, header and intro,
+  README (with the live link), viewer README, FreeCAD document and spreadsheet label, the server's title, comment
+  headers, and the clone URLs in docs/DEPLOY.md (`AnjaneyaBhardwaj/Aeroptimize`, for the repository rename the
+  user does after merging). Kept on purpose: the `AEROSWARM_*` settings, the `aero-swarm` package and `swarm`
+  module, internal markers (`aeroswarm-<cid>` in coordinate files, browser storage keys). Renaming those would
+  break existing setups for no visible change.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
 - The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.

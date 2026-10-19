@@ -1,4 +1,4 @@
-# AeroSwarm run viewer
+# Aeroptimize run viewer
 
 Static page (no build step) that replays exported runs. Data: `runs/*.json`, written by
 `scripts/export_run.py`; `runs/index.json` lists them.

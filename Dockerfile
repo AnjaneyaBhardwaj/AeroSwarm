@@ -1,4 +1,4 @@
-# AeroSwarm live server: the run viewer (viewer/) plus live swarm runs (swarm/live.py). See docs/DEPLOY.md.
+# Aeroptimize live server: the run viewer (viewer/) plus live swarm runs (swarm/live.py). See docs/DEPLOY.md.
 #
 #   docker build -t aeroswarm .
 #   docker run -p 8000:8000 -e ANTHROPIC_API_KEY=... -e AEROSWARM_LIVE_ACCESS_CODE=... \

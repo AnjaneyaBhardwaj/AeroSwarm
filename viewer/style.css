@@ -1,4 +1,4 @@
-/* AeroSwarm run viewer. Tokens first; light is the base, dark via OS setting or the toggle. */
+/* Aeroptimize run viewer. Tokens first; light is the base, dark via OS setting or the toggle. */
 :root {
   color-scheme: light;
   --bg: #eef0f2;

@@ -17,7 +17,7 @@ import Import
 import Part
 
 job = json.loads(open(os.environ["AEROSWARM_CAD_JOB"]).read())
-doc = FreeCAD.newDocument("AeroSwarm")
+doc = FreeCAD.newDocument("Aeroptimize")
 report = {"freecad_version": ".".join(FreeCAD.Version()[:3]), "sections": {}}
 faces = []
 
@@ -35,7 +35,7 @@ def section_face(points):
 
 
 sheet = doc.addObject("Spreadsheet::Sheet", "Design")
-sheet.set("A1", "AeroSwarm run")
+sheet.set("A1", "Aeroptimize run")
 sheet.set("B1", str(job["run_id"]))
 sheet.set("A2", "units")
 sheet.set("B2", "mm, race-car orientation (inverted, angle of attack applied), leading edge at origin")
