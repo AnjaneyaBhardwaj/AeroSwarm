@@ -104,6 +104,18 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
 - The car drawing's dashed pointer ("the bit the crew designs") now ends in an arrowhead on the wing, its tip just
   above the wing's top edge (taken from the run's outline), at the request of the user.
 
+### Framing: it's the wing's cross-section (same session, after PR #24 merged)
+- The user asked whether to say explicitly that only the airfoil is optimized. Yes, once and plainly (aero reviewers
+  check 2D vs 3D at once; a clear scope reads as confidence). Previewed and approved first.
+- Home page: the hero says the crew redesigns "the cross-section of a race-car wing"; a "What exactly do they
+  design?" box explains the airfoil as a slice of a loaf (flat, 2D, no span, no end plates, not the car; the 3D wing
+  is a later step), with a drawing of the wing as a loaf of the run's real final section and one slice pulled out;
+  the brief says its numbers are for the slice at 15 m/s (54 km/h) on a 300 mm chord; the car label reads "the slice
+  the crew designs"; the dictionary adds Airfoil and Chord (8 terms, 4 columns). Replay page: "designs a race-car
+  wing section" (headline and the "How to read" dialog).
+- `tests/test_about_page.py`: the stated speed and chord are the run's and give its Reynolds number by the project's
+  own formula (`AIR_KINEMATIC_VISCOSITY`).
+
 ### Next
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
   never tested: the Dockerfile's XFoil stage, the Mac setup, a real-Claude live run. When a new run joins the

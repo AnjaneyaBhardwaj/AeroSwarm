@@ -184,8 +184,8 @@
     <div class="a-hero-text">
       <p class="eyebrow">How Aeroptimize works</p>
       <h1 id="a-h1">Three AI agents, one wing, zero screwdrivers.</h1>
-      <p class="a-lede">Aeroptimize is a small team of AI characters that redesigns a race-car wing until it pushes the
-        car into the track by exactly the right amount. They plan, sketch and nitpick. Physics calculators and a strict
+      <p class="a-lede">Aeroptimize is a small team of AI characters that redesigns the cross-section of a race-car wing
+        until it pushes down by exactly the right amount. They plan, sketch and nitpick. Physics calculators and a strict
         rulebook do the hands-on work, so every number you see is measured, never made up.</p>
       <div class="a-actions">
         <a class="go" href="replay.html">Watch them work</a>
@@ -217,6 +217,8 @@
         <li>Legal under the Formula Student rules</li>
         <li>Confirmed by the slow, strict calculator</li>
       </ul>
+      <p class="brief-note">These numbers are for the slice, tested in air at 15 m/s (54 km/h) on a slice 300 mm long,
+        front to back.</p>
     </aside>
     <figure class="car-fig">
       <svg class="car" viewBox="0 0 600 240" role="img" aria-label="A race car seen from the side. Air flows over it from left to right. The rear wing is drawn as its cross-section, with an arrow pushing down (downforce) and an arrow pulling back (drag).">
@@ -238,7 +240,7 @@
         <use class="car-wing" href="#wing-final" transform="translate(420 98) scale(88 -88)"/>
         <path class="note-line" d="M414 38 C438 40 452 58 456.2 82"/>
         <path class="note-head" d="M451.8 82.8 L457.9 91.9 L460.6 81.2 Z"/>
-        <text class="note" x="196" y="44">the bit the crew designs</text>
+        <text class="note" x="190" y="44">the slice the crew designs</text>
         <path class="df" d="M486 112 V178"/><path class="df-head" d="M478 176 L486 192 L494 176 Z"/>
         <text class="note" x="498" y="150">downforce</text>
         <text class="note small" x="498" y="168">the push</text>
@@ -246,6 +248,35 @@
         <text class="note" x="514" y="74">drag</text>
       </svg>
     </figure>
+    <div class="slice" aria-labelledby="h-slice">
+      <figure class="slice-fig">
+        <svg viewBox="0 0 380 210" role="img" aria-label="A wing drawn as a loaf of identical slices. One slice is pulled out in front: that slice, the airfoil, is what the crew designs.">
+          <use class="loaf" href="#wing-final" transform="translate(100 45) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(93 50) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(86 55) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(79 60) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(72 65) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(65 70) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(58 75) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(51 80) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(44 85) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(37 90) scale(190 -190)"/>
+          <use class="loaf" href="#wing-final" transform="translate(30 95) scale(190 -190)"/>
+          <path class="slice-line" d="M168 120 C178 130 186 136 196 143"/>
+          <path class="slice-head" d="M190.6 145.4 L201.2 147.5 L197.2 137.5 Z"/>
+          <use class="slice-cut" href="#wing-final" transform="translate(150 175) scale(190 -190)"/>
+          <text class="note" x="18" y="172">one slice</text>
+          <text class="note" x="18" y="194">= the airfoil</text>
+        </svg>
+      </figure>
+      <div class="slice-text">
+        <h3 id="h-slice">What exactly do they design?</h3>
+        <p>Just the wing's cross-section, called an <b>airfoil</b>: the shape you'd see if you sliced the wing like a loaf
+          of bread. It's flat and 2D: no wingspan, no end plates, and not the rest of the car.</p>
+        <p>That slice decides most of how a wing behaves, and it's what fast physics calculators can test in seconds. The
+          full 3D wing is a later step.</p>
+      </div>
+    </div>
   </section>
 
   <section id="crew" class="a-sec" aria-labelledby="h-crew">
@@ -385,12 +416,14 @@
   <section id="words" class="a-sec" aria-labelledby="h-words">
     <h2 id="h-words">Pocket dictionary</h2>
     <dl class="dict">
+      <div><dt>Airfoil</dt><dd>The shape of a wing's cross-section: the slice the crew designs.</dd></div>
       <div><dt>Downforce</dt><dd>The push that presses a car into the track. More push, more grip in corners.</dd></div>
       <div><dt>Drag</dt><dd>Air resistance: the parachute effect that costs speed on the straights.</dd></div>
       <div><dt>Stall</dt><dd>When the air stops following the wing and peels off. The grip goes suddenly.</dd></div>
       <div><dt>Camber</dt><dd>How curved the wing is. More curve gives more push and more drag.</dd></div>
       <div><dt>Angle of attack</dt><dd>How steeply the wing meets the air. Steeper pushes harder, until it stalls.</dd></div>
-      <div><dt>Cl and Cd</dt><dd>The push and drag numbers, scaled so wings of any size compare fairly. Cl is negative here because the push points down.</dd></div>
+      <div><dt>Chord</dt><dd>The slice's length from its front edge to its back edge. Here 300 mm.</dd></div>
+      <div><dt>Cl and Cd</dt><dd>The slice's push and drag numbers, scaled so wings of any size compare fairly. Cl is negative here because the push points down.</dd></div>
     </dl>
   </section>
 
