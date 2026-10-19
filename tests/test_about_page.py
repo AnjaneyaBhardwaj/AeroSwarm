@@ -106,3 +106,14 @@ def test_home_page_and_replay_link_each_other(html):
         for ref in re.findall(r'(?:href|src)="([^"#:]+)"', (VIEWER / page).read_text()):
             target = VIEWER / ref
             assert (target / "index.html" if ref.endswith("/") else target).is_file(), (page, ref)
+
+
+def test_conditions_are_the_runs(ex, text):
+    """The page says what is optimized (one 2D slice) and under which conditions: the run's own."""
+    from swarm.state import AIR_KINEMATIC_VISCOSITY
+
+    speed, chord = ex["spec"]["speed_mps"], ex["cad"]["chord_mm"]
+    assert speed * chord / 1000 / AIR_KINEMATIC_VISCOSITY == pytest.approx(ex["spec"]["reynolds"])
+    assert f"tested in air at {speed:g} m/s ({speed * 3.6:g} km/h) on a slice {chord:g} mm long" in text
+    assert f"Here {chord:g} mm." in text
+    assert "Just the wing's cross-section, called an airfoil" in text
