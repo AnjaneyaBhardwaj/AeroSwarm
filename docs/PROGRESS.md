@@ -101,6 +101,8 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
   server serves it; `tests/test_about_page.py` checks the links and both forwards.
 - Browser-checked: home → replay → home, an old `/?run=…&gen=5` link opens generation 5 of the replay, `/about.html`
   lands on the home page; no page errors.
+- The car drawing's dashed pointer ("the bit the crew designs") now ends in an arrowhead on the wing, its tip just
+  above the wing's top edge (taken from the run's outline), at the request of the user.
 
 ### Next
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still

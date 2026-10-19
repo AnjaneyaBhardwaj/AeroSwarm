@@ -112,6 +112,7 @@ a.go { display: inline-block; text-decoration: none; padding: 11px 20px; font-si
 .car .note { font: 20px var(--hand); fill: var(--ink-2); }
 .car .note.small { font-size: 16px; fill: var(--ink-3); }
 .car .note-line { fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-dasharray: 4 4; }
+.car .note-head { fill: var(--ink-3); }
 .car .df { stroke: var(--accent); stroke-width: 5; stroke-linecap: round; }
 .car .df-head { fill: var(--accent); }
 .car .drag { stroke: var(--ink-3); stroke-width: 4; stroke-linecap: round; }
