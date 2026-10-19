@@ -114,16 +114,6 @@ OpenFOAM work) until the viewer is done.
   HTTPS, HTTP redirects to HTTPS, a mock run streamed through Caddy (6 generations), the finished run still in the
   gallery after an app restart. Not testable here: a real certificate (needs a public domain) and the XFoil stage.
 
-### Public site: GitHub Pages, no server (same session)
-- The user owns `anjaneyabhardwaj.com` and has no need for a cloud server: the public demo is replay-only on
-  GitHub Pages at `aeroswarm.anjaneyabhardwaj.com` (repository is public, so Pages is free); live runs stay local
-  (`make live`). `.github/workflows/pages.yml` publishes `viewer/` on pushes to `main` that touch it, after
-  checking that every file `runs/index.json` lists exists. One-time steps (Pages source, DNS CNAME, custom
-  domain, HTTPS) in docs/DEPLOY.md "GitHub Pages". The server deployment (`deploy/`) stays for later.
-- Next: real CAD output. The user wants a real CAD program connected (no CAD, wing or team of their own);
-  FreeCAD (free, scriptable, runs headless) is the candidate, generating the CAD files at export time so they
-  ship as static downloads on Pages.
-
 ### FreeCAD: CAD files for every run (same session)
 - The user asked for a real CAD program; FreeCAD chosen (free, scriptable, runs headless on a server). Architecture
   rule kept: no agent sees or drives FreeCAD. After a run, deterministic code (`swarm/cad/freecad_export.py`) takes
@@ -152,7 +142,8 @@ OpenFOAM work) until the viewer is done.
 - One instance only: the active run lives in memory.
 
 ### Next
-- Part 4: GitHub Pages workflow and a replay GIF at the top of the README; export the bench3 runs.
+- Deploy on the user's always-on cloud VM (deploy/, docs/DEPLOY.md "Live runs on a subdomain"); a replay GIF at
+  the top of the README; more recorded runs in the gallery (the bench3 runs, if available).
 
 ## Session 16 (2026-10-15): milestone 5 parts 2 and 3: recovery ladder, CFD agent, mesh study, graph wiring
 
