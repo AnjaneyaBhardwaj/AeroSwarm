@@ -1,0 +1,41 @@
+name: Pages
+
+# Publishes the static run viewer (viewer/) to GitHub Pages: recorded replays only. The live panel stays
+# hidden there because no live server answers api/health. Custom domain: docs/DEPLOY.md, "GitHub Pages".
+on:
+  push:
+    branches: [main]
+    paths: ["viewer/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the gallery index lists only files that exist
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path("viewer/runs")
+          missing = [r["file"] for r in json.loads((root / "index.json").read_text())["runs"] if not (root / r["file"]).is_file()]
+          sys.exit(f"index.json lists missing files: {missing}" if missing else 0)
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: viewer
+      - id: deployment
+        uses: actions/deploy-pages@v4

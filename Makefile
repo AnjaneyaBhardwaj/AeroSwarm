@@ -1,4 +1,4 @@
-.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export live clean-runs
+.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export live local-live local-export clean-runs
 
 install:
 	uv sync
@@ -40,6 +40,16 @@ viewer:
 # (or ANTHROPIC_API_KEY); every run is capped (default 15 evaluations, $1). Without a key only the mock runs.
 live:
 	uv run python -m swarm.live
+
+# The same, in Docker (macOS/Windows/Linux with Docker Desktop; includes XFoil and FreeCAD): http://localhost:8000.
+# Real-Claude runs use ANTHROPIC_API_KEY from your shell. docs/DEPLOY.md "On your Mac".
+local-live:
+	docker compose -f deploy/docker-compose.local.yml up --build
+
+# A finished live run -> viewer/runs/<NAME>.json (+ CAD files), e.g. make local-export RUN=20261019-1200-ab12cd NAME=demo1
+local-export:
+	docker compose -f deploy/docker-compose.local.yml exec aeroswarm \
+	  /app/.venv/bin/python scripts/export_run.py runs/live/$(patsubst live_%,%,$(RUN)) --name $(NAME)
 
 clean-runs:
 	rm -rf runs/

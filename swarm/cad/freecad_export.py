@@ -16,6 +16,7 @@ FreeCAD is optional: `freecad_available()` is False without it and callers skip 
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import shutil
@@ -46,6 +47,33 @@ def freecad_cmd() -> str | None:
 def freecad_available() -> bool:
     b = freecad_cmd()
     return bool(b) and os.access(b, os.X_OK)
+
+
+PROBE_MARKER = "aeroswarm-freecad-ok"
+
+
+@functools.lru_cache(maxsize=4)
+def _probe(cmd: str) -> str | None:
+    try:
+        proc = subprocess.run(
+            [cmd, "-c", f"print({PROBE_MARKER!r})"], capture_output=True, text=True, timeout=TIMEOUT_S
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"FreeCAD does not start: {e!r}"[:400]
+    if PROBE_MARKER in proc.stdout:
+        return None
+    tail = (proc.stdout + proc.stderr).strip()[-300:]
+    return f"FreeCAD is installed but does not start (exit {proc.returncode}): {tail}"
+
+
+def freecad_probe() -> str | None:
+    """None when `freecadcmd` actually starts here, else why not (checked once per command). Installed is not
+    enough: FreeCAD 1.1.3 crashes at start-up when the process's user ID has no account entry (e.g. a container
+    run with an arbitrary --user)."""
+    cmd = freecad_cmd()
+    if not cmd or not os.access(cmd, os.X_OK):
+        return "FreeCAD (freecadcmd) is not installed"
+    return _probe(cmd)
 
 
 def polygon_area(xy: np.ndarray) -> float:
@@ -88,6 +116,9 @@ def cad_for_viewer(run_dir: str | Path, viewer_runs: str | Path, rel_dir: str, n
     None when FreeCAD is not installed; {"error": ...} when the export failed (the run itself is unaffected)."""
     if not freecad_available():
         return None
+    problem = freecad_probe()
+    if problem:
+        return {"error": problem}
     try:
         out = export_cad(run_dir, Path(viewer_runs) / rel_dir, name)
     except CadExportError as e:

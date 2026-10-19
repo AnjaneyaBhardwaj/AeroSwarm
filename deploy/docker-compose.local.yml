@@ -1,0 +1,28 @@
+# AeroSwarm on your own computer (any OS with Docker Desktop, e.g. macOS): the same image as the server, but
+# reachable only from this machine at http://localhost:8000. No domain, no HTTPS, no access code needed.
+#
+#   make local-live                      # build and start (first build takes a while: XFoil, FreeCAD)
+#   make local-export RUN=<run_id> NAME=<short-name>   # a finished run -> viewer/runs/ with its CAD files
+#
+# Runs and exports are written into this repository's folders (runs/live/, viewer/runs/), not hidden volumes.
+# The container keeps the image's own user (FreeCAD needs an account entry for its user ID); Docker Desktop on
+# macOS maps files it writes into these folders to your Mac user.
+
+services:
+  aeroswarm:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"             # this machine only
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}            # from your shell; empty = mock runs only
+      AEROSWARM_LIVE_DAILY_USD: ${AEROSWARM_LIVE_DAILY_USD:-5}
+      HOME: /tmp                          # FreeCAD writes its settings under $HOME
+    # Listens on all interfaces inside the container, but the port above is published on localhost only, so
+    # no access code is needed (--allow-open). Never publish it on 0.0.0.0 like this.
+    command: ["/app/.venv/bin/python", "-m", "swarm.live", "--host", "0.0.0.0", "--port", "8000", "--allow-open"]
+    volumes:
+      - ../runs:/app/runs                 # run directories (runs/live/<id>/), as with `make live`
+      - ../viewer/runs:/app/viewer/runs   # the gallery: exports land in your checkout, ready to commit
+      - ../scripts:/app/scripts:ro        # for `make local-export`

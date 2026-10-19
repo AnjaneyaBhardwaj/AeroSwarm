@@ -8,6 +8,57 @@ The server holds your Anthropic API key; the browser never sees it. Visitors can
 and start mock runs (free, rule-based, labelled "not an LLM"). Starting a real-Claude run needs an access code
 that you hand out.
 
+## Public replay site on GitHub Pages (the chosen setup)
+
+`.github/workflows/pages.yml` publishes `viewer/` to GitHub Pages whenever a push to `main` changes it. Visitors get
+the guided replay of every run in `viewer/runs/` and its CAD downloads; the Live run panel stays hidden because no
+server answers. Nothing runs on a server and no API key is online. Live runs happen on your Mac (next section).
+
+One-time setup:
+
+1. **Turn Pages on.** GitHub → the repository → Settings → Pages → Build and deployment → Source:
+   **GitHub Actions**. (Pages on a free account needs a public repository.)
+2. **Publish once.** Run the "Pages" workflow by hand from the Actions tab (or push a change under `viewer/`).
+   The site appears at `https://<github-user>.github.io/AeroSwarm/`.
+3. **DNS.** At the provider that manages your domain, add one record: `CNAME`, name `aeroswarm`, value
+   `<github-user>.github.io`. It does not affect the rest of the domain.
+4. **Custom domain.** Settings → Pages → Custom domain: `aeroswarm.<your-domain>` → Save. When the DNS check passes
+   (minutes to a few hours), tick **Enforce HTTPS**.
+5. **Recommended:** verify your domain under your GitHub account (Settings → Pages → Verified domains), so no other
+   repository can claim a subdomain of it.
+
+To add a run to the site: export it into `viewer/runs/` (`make local-export`), commit, and merge into `main`.
+
+The server sections further down are for always-on live runs, if you want them later. A DNS name points at one
+place: moving the subdomain to a server means replacing the CNAME with the server's `A` record.
+
+## On your Mac: live runs on your own computer
+
+The simplest way to run live: the same Docker image as the server, on your Mac, reachable only from that Mac at
+`http://localhost:8000`. No domain, HTTPS, access code or cloud bill. Works on Apple Silicon (built natively for
+ARM) and Intel Macs.
+
+1. **Install** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free for personal use) and start
+   it. In its Settings → Resources, give it at least 4 GB of memory; the image needs about 15 GB of disk.
+   `make` comes with Apple's command-line tools (`xcode-select --install` if `make` is missing).
+2. **Get the code:** `git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm`
+3. **Start it:**
+   ```bash
+   export ANTHROPIC_API_KEY=sk-ant-...   # optional: without it only the free mock runs
+   make local-live
+   ```
+   The first build takes a while (it compiles XFoil and downloads FreeCAD, about 4 GB); later starts are quick.
+   When the log shows the server running, open `http://localhost:8000`.
+4. **Run live** from the Live run panel (dials → "Run live from the dials"). The default cap is $1 per run.
+5. **Keep a good run:** the page ends with "Saved as live_<id>". In a second Terminal window, in the same folder:
+   ```bash
+   make local-export RUN=live_<id> NAME=<short-name>
+   ```
+   This writes `viewer/runs/<short-name>.json` and its CAD files into your checkout. Commit them to add the run to
+   the public replay site.
+
+Stop it with Ctrl-C in the first window. Runs are kept in `runs/live/` in your checkout.
+
 ## What runs where
 
 | Piece | What it is | Needs |
@@ -100,8 +151,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 
 The first build downloads FreeCAD (about 4 GB) and compiles XFoil; expect it to take a while on this size. Then
 check `https://aeroswarm.<your-domain>/api/health` (`"xfoil": true`, `"freecad": true`) as in step 5 above.
-If the repository is private, clone with a GitHub personal access token or an SSH deploy key. Until the viewer is
-merged into `main`, add `--branch claude/gallant-ptolemy-8auzlk` to the clone.
+If the repository is private, clone with a GitHub personal access token or an SSH deploy key.
 
 **Costs and safety on Azure:**
 - The VM bills while it runs; `az vm deallocate --resource-group aeroswarm-rg --name aeroswarm-vm` stops the compute

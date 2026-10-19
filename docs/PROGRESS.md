@@ -136,14 +136,30 @@ OpenFOAM work) until the viewer is done.
   files and the STEP downloaded; the image with the FreeCAD stage (XFoil stage skipped, blocked mirror) built and ran
   as non-root: a mock run produced checked CAD files served over HTTP.
 
+### Mac: local live runs in Docker (same session)
+- The user will start with a replay-only public site and live runs on their Mac. conda-forge has no XFoil (FreeCAD
+  1.1.3 exists for osx-arm64/osx-64/linux-aarch64), and `scripts/install_xfoil.sh` is Debian/Ubuntu-only, so the Mac
+  route is the existing Docker image under Docker Desktop: `deploy/docker-compose.local.yml` (localhost-only port,
+  `--allow-open`, runs and gallery bind-mounted into the checkout), `make local-live`, `make local-export RUN= NAME=`.
+  Every locked Python package has a linux-aarch64 cp312 wheel, so Apple Silicon builds natively.
+- Found while testing it: FreeCAD 1.1.3 crashes at start-up (in `getPythonPath`) when its user ID has no account
+  entry, e.g. a container run with an arbitrary `--user`. The local compose therefore keeps the image's user, and
+  `freecad_export.freecad_probe()` now starts `freecadcmd` once before trusting it: `/api/health` reports `freecad`
+  only when it really starts, and an export that cannot run says why instead of failing later.
+- Tested here with the image minus its XFoil stage: local stack up, health `freecad: true`, a mock live run with its
+  CAD files, `local-export` writing the gallery entry and three files into the checkout; and the probe's failure
+  report as uid 1000. Not tested on an actual Mac.
+
 ### Known issues (live)
 - No real-LLM live run has been made from the page yet (it would spend the user's API credit); only the mock.
 - The Dockerfile's XFoil stage has not been built (blocked mirror here); first build is on the user's machine.
 - One instance only: the active run lives in memory.
 
 ### Next
-- Deploy on the user's always-on cloud VM (deploy/, docs/DEPLOY.md "Live runs on a subdomain"); a replay GIF at
-  the top of the README; more recorded runs in the gallery (the bench3 runs, if available).
+- Public site: GitHub Pages (user's choice; `.github/workflows/pages.yml` restored from ff6a8ef, one-time steps in
+  docs/DEPLOY.md). Then: live runs on the user's Mac (`make local-live`); one
+  real-Claude run to prove the live path; 2-3 more recorded runs exported into the gallery; a replay GIF at the
+  top of the README. The Azure VM (docs/DEPLOY.md) only if always-on live runs are wanted later.
 
 ## Session 16 (2026-10-15): milestone 5 parts 2 and 3: recovery ladder, CFD agent, mesh study, graph wiring
 
