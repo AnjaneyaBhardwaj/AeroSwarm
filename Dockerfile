@@ -12,6 +12,17 @@ RUN apt-get update -qq \
 COPY scripts/install_xfoil.sh /tmp/install_xfoil.sh
 RUN bash /tmp/install_xfoil.sh /usr/local
 
+# ---- FreeCAD (headless), for the CAD files of each finished run (swarm/cad/freecad_export.py).
+# Pinned stable release from conda-forge; adds about 3.6 GB. Build with --build-arg WITH_FREECAD=0 to leave it out
+# (runs then finish without CAD files, and the page says so).
+FROM mambaorg/micromamba:2.3.2 AS freecad
+ARG WITH_FREECAD=1
+USER root
+RUN if [ "$WITH_FREECAD" = "1" ]; then \
+      micromamba create -y -q -p /opt/freecad -c conda-forge --override-channels "freecad=1.1.3" \
+      && micromamba clean -a -y -q; \
+    else mkdir -p /opt/freecad; fi
+
 # ---- runtime
 FROM python:3.12-slim-bookworm
 RUN apt-get update -qq \
@@ -20,9 +31,11 @@ RUN apt-get update -qq \
  && pip install --no-cache-dir uv==0.11.32
 COPY --from=xfoil /usr/local/bin/xfoil /usr/local/bin/xfoil
 COPY --from=xfoil /usr/local/share/aeroswarm /usr/local/share/aeroswarm
+COPY --from=freecad /opt/freecad /opt/freecad
 
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy MPLBACKEND=Agg PYTHONUNBUFFERED=1
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy MPLBACKEND=Agg PYTHONUNBUFFERED=1 \
+    AEROSWARM_FREECADCMD=/opt/freecad/bin/freecadcmd
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY swarm ./swarm

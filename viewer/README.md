@@ -20,7 +20,7 @@ make live     # http://127.0.0.1:8000: the same page, plus a "Live run" panel
 
 `swarm/live.py` serves this directory and starts a real swarm run (hard preset, `swarm.run.run`) from the dial
 values, streaming each generation over Server-Sent Events as the same record a recorded export holds. The page
-shows the panel only when `api/health` answers, so the static site (GitHub Pages) stays replay-only and can never
+shows the panel only when `api/health` answers, so a static copy of the page stays replay-only and can never
 spend an API key. Before a run, the dials are checked against the run's own geometry and rulebook checks.
 
 - Agents: Claude (needs `AEROSWARM_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY` on the server) or the mock

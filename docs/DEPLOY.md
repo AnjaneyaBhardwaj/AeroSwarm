@@ -1,4 +1,4 @@
-# Deploying the run viewer with live runs
+# Deploying the run viewer
 
 The viewer (`viewer/`) is a static page. On its own it replays recorded runs. When it can reach the live
 server (`swarm/live.py`), it also offers live runs: the real swarm code, started from the dials, streamed
@@ -13,7 +13,7 @@ that you hand out.
 | Piece | What it is | Needs |
 |---|---|---|
 | Viewer | `viewer/` (HTML, CSS, JS, `runs/*.json`) | any static hosting |
-| Live server | FastAPI app, `python -m swarm.live` | a machine or container that can run Python 3.11+, XFoil, and keep a process alive |
+| Live server | FastAPI app, `python -m swarm.live` | a machine or container that can run Python 3.11+, XFoil, FreeCAD (optional, for CAD files), and keep a process alive |
 
 Pick one layout:
 
@@ -25,14 +25,14 @@ Pick one layout:
   `<meta name="aeroswarm-api" content="https://api.example.com/">`, and on the server set
   `AEROSWARM_LIVE_ORIGINS=https://example.com` so the browser may call it (CORS).
 
-## Subdomain on a server (recommended)
+## Live runs on a subdomain (needs a server)
 
 This is layout A at `https://aeroswarm.<your-domain>`, using `deploy/`: the app container behind
 [Caddy](https://caddyserver.com), a web server that obtains and renews the HTTPS certificate for the subdomain by
 itself and forwards visitors to the app.
 
-1. **A server.** Any small Linux VPS (Ubuntu 24.04 or Debian 12) with about 2 GB RAM and 10 GB disk (the image
-   is about 2.5 GB). Install Docker with its Compose plugin (`curl -fsSL https://get.docker.com | sh`). Open ports
+1. **A server.** Any small Linux VPS or cloud VM (Ubuntu 24.04 or Debian 12; on Azure, a B-series Ubuntu VM) with
+   about 4 GB RAM and 30 GB disk: the image is about 7.5 GB, most of it FreeCAD. Install Docker with its Compose plugin (`curl -fsSL https://get.docker.com | sh`). Open ports
    80 and 443 in its firewall; Caddy needs both (80 for the certificate check, 443 for the site).
 2. **DNS.** At your domain's DNS provider, add an `A` record: name `aeroswarm`, value the server's IP address.
    Wait until `ping aeroswarm.<your-domain>` answers from that IP.
@@ -46,16 +46,70 @@ itself and forwards visitors to the app.
    ```bash
    docker compose -f deploy/docker-compose.yml up -d --build
    ```
-   The first build takes several minutes (it compiles XFoil). Caddy waits until the app reports healthy (about
+   The first build takes a while (it compiles XFoil and downloads FreeCAD, about 4 GB). Caddy waits until the app reports healthy (about
    20 s after it starts), then requests the certificate.
 5. **Check.** Open `https://aeroswarm.<your-domain>`: the replay plays and the Live run panel appears.
-   `https://aeroswarm.<your-domain>/api/health` should show `"xfoil": true` and `"access_code_required": true`.
+   `https://aeroswarm.<your-domain>/api/health` should show `"xfoil": true`, `"freecad": true` and
+   `"access_code_required": true`. At the end of a run the page offers its CAD files (FreeCAD model, STEP,
+   coordinates).
 
 Updating later: `git pull && docker compose -f deploy/docker-compose.yml up -d --build`. Finished runs, the daily
 spend record and certificates live in Docker volumes and survive updates. Logs:
 `docker compose -f deploy/docker-compose.yml logs -f aeroswarm`.
 
 `deploy/.env` holds your API key: it is git-ignored, keep it that way.
+
+## On an Azure VM
+
+The same setup as above on Azure, with the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
+(`az login` first). Names and the region are examples; pick a region near your visitors.
+
+**1. Create the VM** (Ubuntu 24.04, 2 vCPU / 4 GB RAM, 64 GB disk, SSH key login, static public IP):
+
+```bash
+az group create --name aeroswarm-rg --location westeurope
+az vm create --resource-group aeroswarm-rg --name aeroswarm-vm \
+  --image Ubuntu2404 --size Standard_B2s --os-disk-size-gb 64 \
+  --admin-username azureuser --generate-ssh-keys --public-ip-sku Standard
+```
+
+A Standard-SKU public IP is static, so the DNS record below never needs changing. `Standard_B2s` is the smallest
+size that fits comfortably (FreeCAD and the build need the 4 GB). Check its monthly price for your region in the
+Azure pricing calculator.
+
+**2. Open the web ports** (Caddy needs 80 for the certificate check and 443 for the site; SSH on 22 is already open):
+
+```bash
+az vm open-port --resource-group aeroswarm-rg --name aeroswarm-vm --port 80 --priority 1010
+az vm open-port --resource-group aeroswarm-rg --name aeroswarm-vm --port 443 --priority 1020
+az vm show -d --resource-group aeroswarm-rg --name aeroswarm-vm --query publicIps -o tsv   # the VM's IP
+```
+
+**3. DNS.** At the provider that manages your domain: an `A` record, name `aeroswarm`, value that IP.
+
+**4. Install Docker and start the app** (on the VM: `ssh azureuser@<IP>`):
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER && exit        # log out and back in so the group applies
+ssh azureuser@<IP>
+git clone https://github.com/AnjaneyaBhardwaj/AeroSwarm.git && cd AeroSwarm
+cp deploy/.env.example deploy/.env && nano deploy/.env   # DOMAIN=aeroswarm.<your-domain>, API key, access code
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+The first build downloads FreeCAD (about 4 GB) and compiles XFoil; expect it to take a while on this size. Then
+check `https://aeroswarm.<your-domain>/api/health` (`"xfoil": true`, `"freecad": true`) as in step 5 above.
+If the repository is private, clone with a GitHub personal access token or an SSH deploy key. Until the viewer is
+merged into `main`, add `--branch claude/gallant-ptolemy-8auzlk` to the clone.
+
+**Costs and safety on Azure:**
+- The VM bills while it runs; `az vm deallocate --resource-group aeroswarm-rg --name aeroswarm-vm` stops the compute
+  charge (the disk and the static IP still cost a little) and `az vm start` brings it back with the same IP.
+- Set a budget alert in Azure Cost Management, and a monthly limit on the Anthropic key, as backstops to the app's
+  own daily cap.
+- Keep the server patched: `sudo apt update && sudo apt upgrade` now and then, or enable Ubuntu's
+  `unattended-upgrades` (on by default on Azure's Ubuntu images).
 
 ## Build and run the container
 
@@ -73,6 +127,12 @@ docker run -d --name aeroswarm --restart unless-stopped -p 8000:8000 \
 The image builds XFoil from the Debian/Ubuntu source package (`scripts/install_xfoil.sh`), so the first build
 takes a few minutes and needs to reach `deb.debian.org` and `archive.ubuntu.com`. Check the result at
 `/api/health`: `"xfoil": true`. Without XFoil no design can be verified, so no run can pass; the page says so.
+
+The image also installs FreeCAD 1.1.3 (headless, from conda-forge; it needs to reach `conda.anaconda.org`), which
+builds the CAD files of every finished run: a FreeCAD document with the start and final sections and a
+spreadsheet of their results, a STEP file, and the final section's coordinates. Each file is checked before it is
+offered (FreeCAD's face area against the section's own, and the STEP file read back). To leave FreeCAD out and save
+about 3.6 GB: `docker build --build-arg WITH_FREECAD=0 -t aeroswarm .` (runs then finish without CAD files).
 
 The two volumes keep finished runs, the daily spend record, and the live gallery across restarts and upgrades.
 
@@ -135,12 +195,17 @@ make install && make xfoil
 AEROSWARM_LIVE_ACCESS_CODE=... ANTHROPIC_API_KEY=... uv run python -m swarm.live --host 0.0.0.0 --port 8000 --proxy-headers
 ```
 
+For CAD files, install FreeCAD 1.1.3 (the official build from freecad.org, or conda-forge:
+`micromamba create -p /opt/freecad -c conda-forge freecad=1.1.3`) and point the server at its headless command:
+`AEROSWARM_FREECADCMD=/opt/freecad/bin/freecadcmd`. `freecadcmd` on the PATH is found without it.
+
 Keep it alive with systemd or your host's process manager.
 
 ## Publishing a live run as a recorded replay
 
-Finished live runs appear in the server's gallery automatically. To ship one with the static page (for
-example on GitHub Pages, which only replays), export it into `viewer/runs/` and commit the JSON:
+Finished live runs appear in the server's gallery automatically. To make one part of the committed gallery (it
+then ships with the repository and every rebuild), export it into `viewer/runs/` and commit the JSON (and, with
+FreeCAD installed, its `<name>_cad/` folder of CAD files):
 
 ```bash
 uv run python scripts/export_run.py runs/live/<run_id> --name <short-name>

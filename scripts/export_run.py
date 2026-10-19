@@ -8,7 +8,9 @@
 The comparison line is an Optuna TPE baseline (swarm.baselines, no LLM) from the same start, spec and
 evaluation budget; Optuna's sampler seed is the run's start_seed when it has one, else 0. With
 `--optuna auto` (default) it is run once into runs/viewer_baselines/<name>_optuna/ and reused after that.
-Numbers come from the ledgers; agent text verbatim from traces.jsonl (swarm/viz/export.py).
+Numbers come from the ledgers; agent text verbatim from traces.jsonl (swarm/viz/export.py). With FreeCAD installed
+(`freecadcmd` on PATH or AEROSWARM_FREECADCMD), the start and final designs are also built as FreeCAD/STEP/.dat
+files in viewer/runs/<name>_cad/ and linked from the page (`--cad none` skips them).
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import argparse
 import json
 from pathlib import Path
 
+from swarm.cad.freecad_export import cad_for_viewer
 from swarm.viz.export import export_run, optuna_baseline, summarise_baseline, write_index
 
 OUT = Path("viewer/runs")
@@ -40,13 +43,24 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--name", help="output name (one run only); default: the run directory's name")
     ap.add_argument("--optuna", default="auto", help="auto | none | path to an Optuna baseline run directory")
+    ap.add_argument(
+        "--cad",
+        choices=["auto", "none"],
+        default="auto",
+        help="auto: build FreeCAD/STEP/.dat files of the start and final designs when FreeCAD is installed",
+    )
     a = ap.parse_args(argv)
     if a.name and len(a.run_dirs) > 1:
         ap.error("--name needs exactly one run directory")
     a.out.mkdir(parents=True, exist_ok=True)
     for d in a.run_dirs:
         name = a.name or d.name
-        data = export_run(d, name=name, baseline=optuna_for(d, name, a.optuna))
+        cad = cad_for_viewer(d, a.out, f"{name}_cad", name) if a.cad == "auto" else None
+        if a.cad == "auto" and cad is None:
+            print(f"{name}: FreeCAD not found (set AEROSWARM_FREECADCMD), no CAD files")
+        elif cad and "error" in cad:
+            print(f"{name}: CAD export failed: {cad['error']}")
+        data = export_run(d, name=name, baseline=optuna_for(d, name, a.optuna), cad=cad)
         path = a.out / f"{name}.json"
         path.write_text(json.dumps(data, separators=(",", ":")))
         o = data["outcome"]

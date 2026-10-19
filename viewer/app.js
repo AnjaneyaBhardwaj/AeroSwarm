@@ -215,6 +215,8 @@ function renderFacts() {
   ];
   if (r.start_seed != null) rows.splice(5, 0, ["Start seed", r.start_seed]);
   $("#run-facts").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  $("#cad-box").innerHTML = cadLinks(r, true);
+  $("#cad-box").hidden = !r.cad;
 
   const b = r.baseline, box = $("#baseline");
   if (!b) { box.hidden = true; return; }
@@ -575,19 +577,31 @@ function showBanner() {
     b.innerHTML = `<button class="close" aria-label="Dismiss">×</button>
       <div class="h">${ICON.pass}Target met · generation ${o.generation}</div>
       <div class="b">${SOLVER[o.solver] || o.solver} PASS <code>${esc(o.cid)}</code>: Cl <code>${clTxt(o.cl)}</code> (target ${clTxt(r.spec.target_cl)} ± ${r.spec.cl_tol}), Cd <code>${fmt(o.cd, 5)}</code> ≤ ${r.spec.cd_max}, stall margin ${fr?.e.stall?.dcl_dalpha != null ? `<code>${fr.e.stall.dcl_dalpha.toFixed(3)}/°</code>` : "ok"}.</div>
-      <div class="b">${o.evals_to_target} evaluations${r.cost_usd != null ? ` · est. LLM cost $${r.cost_usd.toFixed(2)}` : ""} · termination <code>${esc(r.termination)}</code></div>${mockNote}${invalid}`;
+      <div class="b">${o.evals_to_target} evaluations${r.cost_usd != null ? ` · est. LLM cost $${r.cost_usd.toFixed(2)}` : ""} · termination <code>${esc(r.termination)}</code></div>${cadLinks(r)}${mockNote}${invalid}`;
   } else {
     b.className = "banner nopass";
     b.innerHTML = `<button class="close" aria-label="Dismiss">×</button>
       <div class="h">${ICON.miss}No passing design · ${esc(r.termination || "run ended")} after ${r.evals} evaluations</div>
       <div class="b">Closest candidate <code>${esc(o.cid || "—")}</code> (gen ${o.generation ?? "—"}, ${SOLVER[o.solver] || o.solver || "—"}): Cl <code>${clTxt(o.cl)}</code>, Cd <code>${fmt(o.cd, 5)}</code>. It fails:</div>
-      <ul>${(o.failing || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>${mockNote}${invalid}`;
+      <ul>${(o.failing || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>${cadLinks(r)}${mockNote}${invalid}`;
   }
   const was = b.hidden;
   b.hidden = false;
   b.querySelector(".close").onclick = () => { S.bannerDismissed = true; hideBanner(); };
   if (was) layoutStage();
 }
+/* Download links for the run's CAD files (FreeCAD document, STEP, coordinates), built by the exporter. */
+function cadLinks(r, panel = false) {
+  const c = r.cad;
+  if (!c) return "";
+  if (c.error) return `<div class="b cad-files"><b>CAD files:</b> not built (${esc(c.error)})</div>`;
+  const href = (f) => `${S.dataBase}runs/${c.dir}/${encodeURIComponent(f)}`;
+  const kinds = [["fcstd", "FreeCAD model"], ["step", "STEP"], ["dat", "Coordinates (.dat)"]];
+  const links = kinds.filter(([k]) => c.files[k]).map(([k, t]) => `<a href="${href(c.files[k])}" download>${t}</a>`).join("");
+  const what = c.final_label && c.final_label.startsWith("closest") ? "closest candidate" : "optimized design";
+  return `<div class="${panel ? "" : "b "}cad-files"><b>CAD files</b> (start and ${what}, ${c.chord_mm} mm chord, built in FreeCAD ${esc(c.check?.freecad_version || "")}):<span class="dl">${links}</span></div>`;
+}
+
 function hideBanner() {
   const b = $("#banner");
   if (b.hidden) return;

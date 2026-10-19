@@ -43,4 +43,7 @@ ignore = ["E741"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["xfoil: needs the real xfoil binary (skipped if missing)"]
+markers = [
+    "xfoil: needs the real xfoil binary (skipped if missing)",
+    "freecad: needs FreeCAD's freecadcmd (skipped if missing; AEROSWARM_FREECADCMD points at it)",
+]
