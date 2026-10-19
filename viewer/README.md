@@ -18,6 +18,12 @@ The page reads top to bottom:
 3. **Details** (closed): start-design dials and the nearest recorded start, the live-run panel (local server
    only), target and run facts, the Optuna comparison and the CAD downloads.
 
+`about.html` ("How it works", linked from the header) explains the project to anyone: the Chief, the CAD Engineer
+and the Critic drawn as characters, the machines that are not agents (the Hare = NeuralFoil, the Tortoise = XFoil,
+the Referee = the rule checks), a comic of the example run's generation 1, and how the run ended. Its numbers are
+written into the page and checked against the export by `tests/test_about_page.py`; its wing drawings are the run's
+own outlines.
+
 The page opens on the last generation, paused. URL options: `?run=<name>&gen=<n>&autoplay=1&speed=4&intro=1`
 (`autoplay=1` plays from the start, `intro=1` opens the "How to read this" dialog, otherwise behind the ?
 button). Keys: space play/pause, ←/→ step.

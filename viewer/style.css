@@ -100,6 +100,12 @@ figure { margin: 0; }
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 700; font-size: 15px; letter-spacing: 0.02em; }
 .brand svg { width: 26px; height: 26px; fill: var(--accent); flex: none; }
 .top-right { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.nav-link {
+  color: var(--ink-2); text-decoration: none; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+  padding: 7px 10px; border-radius: 8px;
+}
+.nav-link:hover { color: var(--accent); background: var(--panel-2); }
+.nav-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 select {
   background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px;
   padding: 6px 10px; max-width: 300px; min-width: 0;
