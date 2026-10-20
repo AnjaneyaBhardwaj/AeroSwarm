@@ -120,8 +120,6 @@ select {
 .chip:empty { display: none; }
 .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); flex: none; }
 .chip-source.live::before { background: var(--critical); animation: pulse 1.2s infinite; }
-.chip.mock { border-color: var(--warning); color: var(--warning-ink); }
-.chip.mock::before { background: var(--warning); }
 @keyframes pulse { 50% { opacity: 0.3; } }
 .icon-btn {
   width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; flex: none;

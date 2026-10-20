@@ -165,6 +165,12 @@ only; no exporter, server or data change.
   gets a new address. `tests/test_viewer_stamps.py` fails while a stamp is stale; the link test ignores the
   stamp. The flipbook fetches the export with `cache: "no-cache"`, as the replay does.
 
+### Replay headline: no run-label chip (session 19)
+- Removed the "LLM swarm (anthropic:claude-sonnet-5)" chip under the replay's lede, at the user's request (with its
+  code and `.chip.mock` styles). A mock run stays labelled: the headline note says "Mock run: ..." for recorded
+  runs and now also while a live run is going. The run selector (shown only with more than one run) still names
+  each run.
+
 ### Next
 - Home page, still flagged by the inspector: the 3-line headline, the eyebrow, monospace numbers, small uppercase
   labels, a resting shadow, hairlines, 1px-outlined boxes, text under 13px, no single focal point on the first
