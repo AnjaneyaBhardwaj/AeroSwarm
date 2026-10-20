@@ -116,6 +116,13 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
 - `tests/test_about_page.py`: the stated speed and chord are the run's and give its Reynolds number by the project's
   own formula (`AIR_KINEMATIC_VISCOSITY`).
 
+### Emil Kowalski's design skills (session 19, 2026-10-20)
+- The user ran `npx skills add emilkowalski/skill`: 15 project-level agent skills (animation, interface design, UI
+  stress tests, library picks; a few for Expo/Swift that this project does not use) in `.agents/skills/`, linked
+  for Claude Code from `.claude/skills/`, pinned by hash in `skills-lock.json` (`npx skills experimental_install`
+  restores them). Reviewed before committing: markdown only, no scripts; the only commands are `npx expo install`
+  lines for Expo projects; links go to documentation sites. Nothing in the swarm, the site or CI depends on them.
+
 ### Next
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
   never tested: the Dockerfile's XFoil stage, the Mac setup, a real-Claude live run. When a new run joins the
