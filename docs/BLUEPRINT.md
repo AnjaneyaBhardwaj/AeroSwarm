@@ -491,17 +491,27 @@ final wing's tightest nose curve is 4.94 mm (next subsection).
   (slope 2m/p): the final wing (m 0.09, p 0.36, t 0.13) measures 4.94 mm against 5.59 mm by formula; the worst
   corner of the bounds (m 0.09, p 0.20, t 0.123) 3.7 mm. Over a 1,260-point grid of formula-legal sections, 201
   measure under 5 mm; thickness ≥ 0.144 keeps every camber legal, and the final wing would need t ≥ 0.131. Both
-  preset starts (m 0.06, p 0.40, t 0.13) measure 5.29 mm and are legal either way. Fix: check the measured
-  minimum nose radius in `check_regulations` (and in `min_thickness_for_le_radius`), on the main element and,
-  for two-element wings, on any reachable flap leading edge.
-- **T.7.1.5 is checked by trailing-edge thickness only.** The rule says "not sharp"; the code requires a TE at
+  preset starts (m 0.06, p 0.40, t 0.13) measure 5.29 mm and are legal either way. New with this audit: session
+  12 verified the formula's coefficients, not the built outline, and its "all 7 XFoil winners are FSAE-legal (LE
+  radius 5.6–6.2 mm)" is by formula. Fix: check the measured minimum nose radius in `check_regulations` (and in
+  `min_thickness_for_le_radius`), on the main element and, for two-element wings, on any reachable flap leading
+  edge. What a fix touches: the hard target (−1.83 ± 0.03, Cd ≤ 0.025) was derived in session 12 from the gated
+  sweep's FSAE-legal levels (t 0.125–0.15). Measured, every t 0.125 sweep shape is under 5 mm, as are 13 of 49 at
+  t 0.13 (mostly p 0.25) and 2 of 49 at t 0.135; t ≥ 0.14 is unaffected, and the session-12 witness (m 0.085,
+  p 0.35, t 0.135) measures 5.35 mm. So the target box would need re-counting (the sweep data is not committed;
+  re-running it is XFoil only, no API cost), and `random_start`, the inner loop's thickness floor and benchmark
+  4's seeded starts would change.
+- **T.7.1.5 is checked by trailing-edge thickness only** (a deliberate project threshold since session 1, carried
+  over from Formula Student's 1 mm radius in session 12). The rule says "not sharp"; the code requires a TE at
   least 2 mm thick (room for a 1 mm radius), but the section and the FreeCAD export end in a flat cut with two
   square corners. Round or chamfer them when the part is made, or model a rounded TE.
-- **Not checked in 2D:** width and the Rear Aerodynamic Zone's sides (T.7.3.3, T.7.6), end-plate vertical edges
+- **Not checked in 2D** (known since session 12; the user deferred them in session 14 until there is a span
+  parameter, end-plate geometry and wheel positions): width and the Rear Aerodynamic Zone's sides (T.7.3.3, T.7.6), end-plate vertical edges
   (T.7.1.4, 3 mm), the wheel keep-out zone and side view (V.1.1, via T.7.4), ground contact *during dynamic
   events* (V.1.4.1; only a static lowest point above 0 mm is checked, which matters for the planned diffuser, not
   a wing at ~900 mm), and mount rigidity (T.7.1.3, outside the aero loop).
-- **The car is a placeholder.** Heights and overhang are checked on `PLACEHOLDER_CAR` (mount at 1760 / 950 mm).
+- **The car is a placeholder** (known since session 1; replacing it with the team's numbers was deferred with the
+  2D gaps in session 14). Heights and overhang are checked on `PLACEHOLDER_CAR` (mount at 1760 / 950 mm).
   The final wing sits at 917–995 mm high and 207 mm behind the tyres there, inside 1200 mm and 250 mm, but those
   margins mean nothing until a real car's numbers replace the placeholder.
 - **The Optuna baseline does not rule-check its first design.** `baselines.search` builds the start and
