@@ -29,6 +29,7 @@ const PARAM_META = {
 };
 const SHORT = { main_camber: "camber", main_camber_pos: "camber pos", main_thickness: "thickness", alpha_deg: "alpha" };
 const SOLVER = { neuralfoil: "NeuralFoil", xfoil: "XFoil", of2d: "OpenFOAM 2D", of3d: "OpenFOAM 3D" };
+const RULEBOOK = { "FSAE2027_v1.0": "Formula SAE 2027 v1.0", "FS2026_v1.1": "Formula Student 2026 v1.1", none: "none (checks off)" }; // swarm/cad/regulations.py
 const ICON = {
   pass: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity=".18"/><path d="M4.5 8.2l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
   miss: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg>',
@@ -245,7 +246,7 @@ function renderFacts() {
     ["Cd max", s.cd_max],
     ["Reynolds", s.reynolds.toExponential(1).replace("e+", "e")],
     ["Section", s.component === "wing_1el" ? "single element" : s.component],
-    ["Rulebook", s.rulebook],
+    ["Rulebook", RULEBOOK[s.rulebook] || s.rulebook],
     ["Budget", `${s.max_evals} evaluations`],
   ].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   const rows = [
