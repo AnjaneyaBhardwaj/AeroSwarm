@@ -171,6 +171,16 @@ only; no exporter, server or data change.
   runs and now also while a live run is going. The run selector (shown only with more than one run) still names
   each run.
 
+### Home page: wavy air in the margins, name in the footer (session 19)
+- Small wavy lines (three little waves each, the accent colour) drift left to right across wide screens: in from
+  the left margin, faded out by a CSS mask before the 1080px text column, back out on the right. 24 lines in three
+  depths (small, faint and slow to bigger, stronger and quicker; 14–31 s per crossing). One `#squiggle` symbol in
+  the sprite; each line is its own `<svg>` moved by a transform-only animation, so no repainting. Shown from
+  1360px wide (narrower screens have no margins); hidden for reduced motion. The user first saw moving dashed
+  streamlines and asked for small wavy lines instead.
+- Earlier the same day the header's "Watch the replay" link and the footer tagline went; the footer now reads
+  "Aeroptimize · by Anjaneya Bhardwaj".
+
 ### Next
 - Home page, still flagged by the inspector: the 3-line headline, the eyebrow, monospace numbers, small uppercase
   labels, a resting shadow, hairlines, 1px-outlined boxes, text under 13px, no single focal point on the first
