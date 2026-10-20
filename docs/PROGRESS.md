@@ -122,6 +122,12 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
   for Claude Code from `.claude/skills/`, pinned by hash in `skills-lock.json` (`npx skills experimental_install`
   restores them). Reviewed before committing: markdown only, no scripts; the only commands are `npx expo install`
   lines for Expo projects; links go to documentation sites. Nothing in the swarm, the site or CI depends on them.
+- Then `npx skills add Leonxlnx/taste-skill`: one skill, `design-taste-frontend` (art direction for public web pages
+  and app screens), same layout. It ships code: Node scripts and data (2.5 MB). Reviewed: `inspect.mjs`/`scenes.mjs`
+  serve the page on 127.0.0.1 and drive a throwaway headless Chrome profile (Node 22+); `assets.mjs` searches and
+  downloads openly licensed images (Openverse, Wikimedia Commons, Art Institute of Chicago, the Met, Internet
+  Archive, NASA) with GET only, no keys, only when run; `draw.mjs` keeps a local history in
+  `~/.taste-skill/history.json`. No uploads, no credential access, nothing runs on install.
 
 ### Next
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
