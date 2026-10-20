@@ -95,6 +95,37 @@ def test_wing_shapes_are_the_run_outlines(ex, html):
         assert d == "M" + "L".join(f"{x:.3f} {y:.3f}" for x, y in ex["outlines"][cid]) + "Z"
 
 
+def test_the_tortoise_catch_is_the_runs_own(ex, text):
+    """Rounds 7 and 8: the Hare's screen passed a wing, the Tortoise re-tested the same wing and sent it back.
+    The charts are the run folder's own files; the numbers are read from the export."""
+    gens = ex["generations"]
+    screened, caught, final = (gens[i]["evals"][0] for i in (7, 8, 22))
+    assert (screened["solver"], screened["verdict"], caught["solver"]) == ("neuralfoil", "PASS", "xfoil")
+    assert screened["cid"] == caught["cid"] and caught["stall"]["ok"] is False and caught["symptom"] == "EARLY_STALL"
+    assert final["cid"] == ex["outcome"]["cid"] and final["stall"]["ok"] is True
+    note = next(n for n in gens[8]["notes"] if n["event"] == "screen_xfoil_disagreement")
+    assert note["stall"]["screen_ok"] is True
+    bar = caught["stall"]["threshold"]
+    assert final["stall"]["threshold"] == bar and f"at least {bar:g} more Cl for each extra degree" in text
+    screen_slope = note["stall"]["screen_dcl_dalpha"]
+    assert f"In round 7 the Hare's quick estimate passed this wing at {screen_slope:.3f} per degree" in text
+    assert "Round 8: sent back." in text and f"measured {caught['stall']['dcl_dalpha']:.3f}." in text
+    assert f"Round 22: official. The final wing gains {final['stall']['dcl_dalpha']:.3f} per degree" in text
+    run_dir = next(Path("runs/examples").glob(f"*{ex['run_id']}"))
+    for e in (caught, final):
+        shown = VIEWER / "media" / f"stall_{e['cid']}.png"
+        assert shown.read_bytes() == (run_dir / shown.name).read_bytes()
+
+
+def test_flipbook_reads_the_export(ex, html, text):
+    """Every try, from the export; without it the static start and final shapes stay."""
+    assert f"Flip through all {ex['evals']} tries" in text
+    assert f'max="{ex["evals"]}" step="1" value="{ex["evals"]}"' in html
+    assert ex["evals"] == sum(len(g["evals"]) for g in ex["generations"])
+    js = (VIEWER / "about.js").read_text()
+    assert 'fetch("runs/example_hard_llm.json")' in js and '<script src="about.js" defer></script>' in html
+
+
 def test_home_page_and_replay_link_each_other(html):
     replay = (VIEWER / "replay.html").read_text()
     assert 'id="crew"' in html and 'id="stage"' in replay  # the explainer is the home page; the replay moved

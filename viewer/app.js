@@ -59,6 +59,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const fmt = (x, dp) => (x == null || !isFinite(x) ? "—" : Number(x).toFixed(dp));
 const signed = (x, dp) => (x == null ? "—" : (x < 0 ? "−" : "+") + Math.abs(x).toFixed(dp));
 const clTxt = (x) => (x == null ? "—" : (x < 0 ? "−" : "") + Math.abs(x).toFixed(4));
+const cdTxt = (x) => fmt(x, 4); // drag to four places (one drag count) everywhere
 const pval = (name, v) => {
   const m = PARAM_META[name] || { scale: 1, dp: 3, unit: "" };
   return (v * m.scale).toFixed(m.dp);
@@ -73,12 +74,13 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 function statusOf(ev) {
-  if (!ev) return { cls: "", text: "—" };
-  if (ev.passing) return { cls: "pass", text: "PASS" };
+  // cls picks the icon; kind picks the colour: only a pass, a screen-only pass and a failed check get one
+  if (!ev) return { cls: "", kind: "", text: "—" };
+  if (ev.passing) return { cls: "pass", kind: "pass", text: "Pass" };
   const v = ev.verdict || ev.solver_status;
-  if (v === "PASS") return { cls: "miss", text: `PASS at ${SOLVER[ev.solver] || ev.solver} only` };
-  if (v === "TARGET_MISS") return { cls: "miss", text: "TARGET MISS" };
-  return { cls: "fail", text: String(v || "FAILED").replaceAll("_", " ") };
+  if (v === "PASS") return { cls: "miss", kind: "screen", text: `Pass at ${SOLVER[ev.solver] || ev.solver} only` };
+  if (v === "TARGET_MISS") return { cls: "miss", kind: "miss", text: "Target miss" };
+  return { cls: "fail", kind: "fail", text: cap1(String(v || "FAILED").replaceAll("_", " ").toLowerCase()) };
 }
 const headOf = (g) => (g && g.head >= 0 ? g.evals[g.head] : null);
 const dur = (ms) => ms / S.speed;
@@ -180,7 +182,7 @@ function renderWaiting() {
   $("#gen-of").hidden = true;
   const st = $("#stage-status");
   st.className = "status";
-  st.textContent = "STARTING";
+  st.textContent = "Starting";
   for (const id of ["#ro-cl", "#ro-cd", "#ro-solver", "#ro-stall"]) $(id).textContent = "—";
   for (const id of ["#ro-cl", "#ro-cd"]) $(id).classList.remove("ok");
   $("#story").textContent = "The run is starting: the Chief is planning and the start design is being solved.";
@@ -220,7 +222,7 @@ function renderHero() {
     verdict.className = `verdict ${r._liveError ? "fail" : ""}`;
     verdict.innerHTML = r._liveError ? `${ICON.fail}The live run stopped with an error` : `<span class="spin" aria-hidden="true"></span>Live run in progress`;
     $("#hero-tiles").innerHTML = tile("Downforce (Cl), latest", last ? clTxt(last.cl) : "—", clT, last ? inCl(last.cl) : null)
-      + tile("Drag (Cd), latest", last ? fmt(last.cd, 4) : "—", cdT, last ? inCd(last.cd) : null);
+      + tile("Drag (Cd), latest", last ? cdTxt(last.cd) : "—", cdT, last ? inCd(last.cd) : null);
     note.innerHTML = esc(r._liveError || S.live.progress || "Starting…");
     return;
   }
@@ -229,14 +231,14 @@ function renderHero() {
     const sm = finalRecord()?.e.stall?.dcl_dalpha;
     verdict.className = "verdict pass";
     verdict.innerHTML = `${ICON.pass}Target met in ${o.evals_to_target} evaluations`;
-    $("#hero-tiles").innerHTML = tile("Downforce (Cl)", clTxt(o.cl), clT, inCl(o.cl)) + tile("Drag (Cd)", fmt(o.cd, 4), cdT, inCd(o.cd));
+    $("#hero-tiles").innerHTML = tile("Downforce (Cl)", clTxt(o.cl), clT, inCl(o.cl)) + tile("Drag (Cd)", cdTxt(o.cd), cdT, inCd(o.cd));
     line = `Confirmed by ${esc(SOLVER[o.solver] || o.solver)} at generation ${o.generation}, with a healthy stall margin${sm != null ? ` (${sm.toFixed(3)}/°)` : ""}.`
       + (r.cost_usd != null ? ` Estimated LLM cost $${r.cost_usd.toFixed(2)}.` : "");
   } else {
     verdict.className = "verdict nopass";
     verdict.innerHTML = `${ICON.miss}No passing design in ${r.evals} evaluations`;
     $("#hero-tiles").innerHTML = tile("Closest Cl", clTxt(o.cl), clT, o.cl != null ? inCl(o.cl) : null)
-      + tile("Closest Cd", fmt(o.cd, 4), cdT, o.cd != null ? inCd(o.cd) : null);
+      + tile("Closest Cd", cdTxt(o.cd), cdT, o.cd != null ? inCd(o.cd) : null);
     const f = o.failing || [];
     line = o.cid
       ? `The closest design (generation ${o.generation}, ${esc(SOLVER[o.solver] || o.solver)}) fails: ${esc(f[0] || "—")}${f.length > 1 ? ` (+${f.length - 1} more)` : ""}.`
@@ -273,8 +275,8 @@ function renderFacts() {
   box.hidden = false;
   const swarm = r.outcome.result === "no_pass" ? "no pass" : `target met in ${r.outcome.evals_to_target} evals`;
   const opt = b.result === "no_pass"
-    ? `no pass in ${b.evals} evals; closest Cl ${clTxt(b.cl)}, Cd ${fmt(b.cd, 4)} (${SOLVER[b.solver] || b.solver})`
-    : `target met in ${b.evals_to_target} evals (Cl ${clTxt(b.cl)}, Cd ${fmt(b.cd, 4)})`;
+    ? `no pass in ${b.evals} evals; closest Cl ${clTxt(b.cl)}, Cd ${cdTxt(b.cd)} (${SOLVER[b.solver] || b.solver})`
+    : `target met in ${b.evals_to_target} evals (Cl ${clTxt(b.cl)}, Cd ${cdTxt(b.cd)})`;
   box.innerHTML = `<div class="dhead"><h3>Compared with Optuna</h3><span class="hint">same start</span></div>
     <p><b>Swarm:</b> ${esc(swarm)}</p>
     <p><b>Optuna TPE:</b> ${esc(opt)}</p>
@@ -559,11 +561,11 @@ function renderFrame() {
   $("#scrubber").value = S.fi;
   const st = statusOf(ev);
   const status = $("#stage-status");
-  status.className = `status ${st.cls}`;
+  status.className = `status ${st.kind}`;
   status.innerHTML = `${ICON[st.cls] || ""}${esc(st.text)}`;
   status.title = (ev.failing || []).join("\n");
   $("#ro-cl").textContent = clTxt(ev.cl);
-  $("#ro-cd").textContent = fmt(ev.cd, 5);
+  $("#ro-cd").textContent = cdTxt(ev.cd);
   // green when inside the target band / under the drag cap
   $("#ro-cl").classList.toggle("ok", ev.cl != null && Math.abs(ev.cl - spec.target_cl) <= spec.cl_tol);
   $("#ro-cd").classList.toggle("ok", ev.cd != null && ev.cd <= spec.cd_max);
@@ -655,10 +657,10 @@ function toggleMorph() {
   $("#gen-of").hidden = true;
   for (const id of ["#ro-cl", "#ro-cd"]) $(id).classList.remove("ok");
   const st = statusOf(fr?.e);
-  $("#stage-status").className = `status ${st.cls}`;
-  $("#stage-status").innerHTML = `${ICON[st.cls] || ""}START → ${o.result === "no_pass" ? "CLOSEST" : "FINAL"}`;
+  $("#stage-status").className = `status ${st.kind}`;
+  $("#stage-status").innerHTML = `${ICON[st.cls] || ""}Start → ${o.result === "no_pass" ? "closest" : "final"}`;
   $("#ro-cl").textContent = `${clTxt(startEv.cl)} → ${clTxt(o.cl)}`;
-  $("#ro-cd").textContent = `${fmt(startEv.cd, 4)} → ${fmt(o.cd, 4)}`;
+  $("#ro-cd").textContent = `${cdTxt(startEv.cd)} → ${cdTxt(o.cd)}`;
   $("#ro-solver").textContent = `${SOLVER[startEv.solver]} → ${SOLVER[o.solver] || o.solver}`;
   const sm = (e) => (e?.stall?.dcl_dalpha != null ? `${e.stall.dcl_dalpha.toFixed(3)}` : "—");
   $("#ro-stall").textContent = `${sm(startEv)} → ${sm(fr?.e)}/°`;
@@ -735,7 +737,7 @@ function stepRows(g, i) {
     rows.push({
       cls: "chief", who: "Chief", tip: TIP.chief, line: chiefLine(c),
       why: `<p class="quote">${esc(c.hypothesis)}</p>
-        ${c.focus.length ? `<div class="focus">${c.focus.map((f) => `<span>${esc(SHORT[f.name] || f.name)} ${dirArrow(f.direction)}${f.locked ? " 🔒" : ""}</span>`).join("")}</div>` : ""}
+        ${c.focus.length ? `<div class="focus">${c.focus.map((f) => `<span>${esc(SHORT[f.name] || f.name)} ${dirArrow(f.direction)}${f.locked ? " (locked)" : ""}</span>`).join("")}</div>` : ""}
         <div class="note">${esc(tags.join(" · "))}</div>
         ${c.screen_override ? `<div class="override"><b>Screen override:</b> ${esc(c.screen_override)}</div>` : ""}
         ${g.parent && i > 0 ? `<div class="note"><span data-tip="${esc(TIP.parent)}">Starts from</span> <code>${esc(g.parent.cid)}</code>: ${esc(g.parent.why)}</div>` : ""}`,
@@ -858,12 +860,12 @@ function shortWhy(ev, spec) {
 
 function solverLine(g) {
   const ev = headOf(g), n = g.evals.length;
-  const res = `${SOLVER[ev.solver] || ev.solver}${ev.solver_level ? ` (recovery level ${ev.solver_level})` : ""}: Cl ${clTxt(ev.cl)}, Cd ${fmt(ev.cd, 5)}.`;
+  const res = `${SOLVER[ev.solver] || ev.solver}${ev.solver_level ? ` (recovery level ${ev.solver_level})` : ""}: Cl ${clTxt(ev.cl)}, Cd ${cdTxt(ev.cd)}.`;
   return esc(`${n > 1 ? `Best of ${n} evaluations, ` : ""}${res} ${shortWhy(ev, S.run.spec)}`);
 }
 
 function solverWhy(g) {
-  const solves = g.evals.map((e) => `<div class="solve">${esc(e.cid)} · ${esc(SOLVER[e.solver] || e.solver)}${e.inner_optimizer ? " (inner)" : ""} · Cl ${clTxt(e.cl)} · Cd ${fmt(e.cd, 5)} · ${esc(statusOf(e).text)}</div>`
+  const solves = g.evals.map((e) => `<div class="solve">${esc(e.cid)} · ${esc(SOLVER[e.solver] || e.solver)}${e.inner_optimizer ? " (inner)" : ""} · Cl ${clTxt(e.cl)} · Cd ${cdTxt(e.cd)} · ${esc(statusOf(e).text)}</div>`
     + (e.failing.length && !e.inner_optimizer ? `<ul class="ev">${e.failing.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""));
   return solves.length > 6 ? solves.slice(0, 6).join("") + `<div class="note">+ ${solves.length - 6} more evaluations</div>` : solves.join("");
 }
@@ -935,7 +937,7 @@ function drawPolar() {
   // target box: |Cl - target| <= tol and Cd <= cd_max
   const bx0 = X(Math.max(xmin, 0)), bx1 = X(s.cd_max), by0 = Y(s.target_cl - s.cl_tol), by1 = Y(s.target_cl + s.cl_tol);
   el("rect", { class: "box", x: Math.min(bx0, bx1), y: by0, width: Math.abs(bx1 - bx0), height: by1 - by0, rx: 3 }, g);
-  const bl = el("text", { class: "box-label", x: bx1 - 6, y: by0 - 5, "text-anchor": "end" }, g);
+  const bl = el("text", { class: "box-label", x: Math.min(bx0, bx1) + 6, y: by0 + 14 }, g); // inside, at the empty low-drag end
   bl.textContent = "target box";
 
   // trail through the headline record of each generation so far
@@ -947,16 +949,14 @@ function drawPolar() {
   if (b) {
     const ox = X(b.cd), oy = Y(b.cl), d = 7;
     el("path", { class: "opt", d: `M${ox} ${oy - d}L${ox + d} ${oy}L${ox} ${oy + d}L${ox - d} ${oy}Z` }, g);
-    const t = el("text", { class: "tick", x: ox + 10, y: oy + 4 }, g);
-    t.textContent = "Optuna";
   }
 
   const pts = [];
   shown.forEach((f, k) => f.evals.forEach((e) => { if (e.cl != null && e.cd != null) pts.push({ e, g: f, cur: k === S.fi && e === headOf(f) }); }));
-  const color = { pass: "var(--good)", miss: "var(--warning)", fail: "var(--critical)", "": "var(--ink-3)" };
+  const color = KIND_COLOR;
   for (const p of pts) {
     const x = X(p.e.cd), y = Y(p.e.cl), st = statusOf(p.e);
-    const attrs = { class: `pt ${p.e.inner_optimizer ? "inner" : ""}`, fill: color[st.cls] };
+    const attrs = { class: `pt ${p.e.inner_optimizer ? "inner" : ""}`, fill: color[st.kind] };
     if (p.e.solver === "neuralfoil") el("circle", { ...attrs, cx: x, cy: y, r: p.e.inner_optimizer ? 3.5 : 5 }, g);
     else el("rect", { ...attrs, x: x - 5.5, y: y - 5.5, width: 11, height: 11, rx: 1.5 }, g);
     if (p.cur) el("circle", { class: "cur", cx: x, cy: y, r: 10 }, g);
@@ -969,7 +969,7 @@ function drawPolar() {
       const st = statusOf(p.e);
       tip.innerHTML = `<div class="r"><span>gen ${p.g.gen}</span><span>${esc(p.e.cid)}</span></div>
         <div class="r"><span>solver</span><span>${esc(SOLVER[p.e.solver] || p.e.solver)}${p.e.inner_optimizer ? " (inner)" : ""}</span></div>
-        <div class="r"><span>Cl</span><span>${clTxt(p.e.cl)}</span></div><div class="r"><span>Cd</span><span>${fmt(p.e.cd, 5)}</span></div>
+        <div class="r"><span>Cl</span><span>${clTxt(p.e.cl)}</span></div><div class="r"><span>Cd</span><span>${cdTxt(p.e.cd)}</span></div>
         <div class="r"><span>status</span><span>${esc(st.text)}</span></div>
         ${p.e.failing[0] ? `<div style="margin-top:4px;color:var(--ink-3);max-width:260px">${esc(p.e.failing[0])}</div>` : ""}`;
       tip.hidden = false;
@@ -980,16 +980,26 @@ function drawPolar() {
     h.addEventListener("pointerleave", () => (tip.hidden = true));
     h.addEventListener("click", () => { setPlaying(false); goTo(S.frames.indexOf(p.g)); });
   }
-  renderLegend(!!b);
+  renderLegend(all, !!b);
 }
 
-function renderLegend(hasOpt) {
+// Point colours. A miss stays grey so the few designs that passed something stand out.
+const KIND_COLOR = { pass: "var(--good)", screen: "var(--warning)", miss: "var(--ghost)", fail: "var(--critical)", "": "var(--ghost)" };
+const KIND_LABEL = { pass: "passed", screen: "passed NeuralFoil only", miss: "missed the target", fail: "failed a check" };
+
+/* Only what this run has: kinds of result, solvers, and Optuna's closest design when there is one. */
+function renderLegend(evals, hasOpt) {
+  const kinds = new Set(evals.map((e) => statusOf(e).kind)), solvers = new Set(evals.map((e) => e.solver));
   const dot = (c) => `<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="${c}"/></svg>`;
-  $("#polar-legend").innerHTML =
-    `<span>${dot("var(--good)")}full pass</span><span>${dot("var(--warning)")}target miss</span><span>${dot("var(--critical)")}failure</span>
-     <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>NeuralFoil</span>
-     <span><svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>XFoil</span>` +
-    (hasOpt ? `<span><svg viewBox="0 0 12 12"><path d="M6 1L11 6L6 11L1 6Z" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>Optuna</span>` : "");
+  const ring = '<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>';
+  const square = '<svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>';
+  const diamond = '<svg viewBox="0 0 12 12"><path d="M6 1L11 6L6 11L1 6Z" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/></svg>';
+  $("#polar-legend").innerHTML = [
+    ...["pass", "screen", "miss", "fail"].filter((k) => kinds.has(k)).map((k) => `<span>${dot(KIND_COLOR[k])}${KIND_LABEL[k]}</span>`),
+    solvers.has("neuralfoil") ? `<span>${ring}NeuralFoil</span>` : "",
+    solvers.has("xfoil") ? `<span>${square}XFoil</span>` : "",
+    hasOpt ? `<span>${diamond}Optuna's closest</span>` : "",
+  ].join("");
 }
 
 /* ------------------------------------------------------------------ controls */
@@ -1066,7 +1076,7 @@ function verdictSentence(ev, spec) {
   const inCl = Math.abs(off) <= spec.cl_tol, inCd = ev.cd <= spec.cd_max;
   const fc = new Set(ev.failed_checks || []);
   const solver = ev.solver === "neuralfoil" ? "NeuralFoil estimates" : `${SOLVER[ev.solver] || ev.solver} measures`;
-  let s = `${solver} Cl <b>${clTxt(ev.cl)}</b> and Cd <b>${fmt(ev.cd, 4)}</b>: `;
+  let s = `${solver} Cl <b>${clTxt(ev.cl)}</b> and Cd <b>${cdTxt(ev.cd)}</b>: `;
   const why = [];
   if (!inCl) why.push(off > 0 ? `${Math.abs(off).toFixed(3)} short of the downforce target` : `${Math.abs(off).toFixed(3)} more downforce than the target band allows`);
   if (!inCd) why.push("too much drag");

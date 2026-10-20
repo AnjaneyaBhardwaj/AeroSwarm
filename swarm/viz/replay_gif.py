@@ -47,7 +47,7 @@ THEMES = {
         "line2": "#c6cad0",
         "ink": "#0f1419",
         "ink2": "#4a5360",
-        "ink3": "#7b8491",
+        "ink3": "#626a76",
         "accent": "#0f8f84",
         "ghost": "#9aa3ad",
         "good": "#0ca30c",
@@ -64,7 +64,7 @@ THEMES = {
         "line2": "#343c46",
         "ink": "#e9edf1",
         "ink2": "#a9b2bd",
-        "ink3": "#6f7a87",
+        "ink3": "#848f9c",
         "accent": "#36c2b4",
         "ghost": "#56606c",
         "good": "#0ca30c",
@@ -76,8 +76,15 @@ THEMES = {
         "target_alpha": 0.13,
     },
 }
-KIND_COLOUR = {"pass": "good", "miss": "warning", "fail": "critical"}
-KIND_INK = {"pass": "good_ink", "miss": "warning_ink", "fail": "critical_ink"}
+# As in the viewer: a miss stays grey so the few designs that passed something stand out.
+KIND_COLOUR = {"pass": "good", "screen": "warning", "miss": "ghost", "fail": "critical"}
+KIND_INK = {"pass": "good_ink", "screen": "warning_ink", "miss": "ink2", "fail": "critical_ink"}
+KIND_LABEL = {
+    "pass": "passed",
+    "screen": "passed NeuralFoil only",
+    "miss": "missed the target",
+    "fail": "failed a check",
+}
 
 
 # ------------------------------------------------------------------ data (no drawing)
@@ -95,15 +102,15 @@ def head(g: dict) -> dict:
 
 
 def status_of(ev: dict) -> tuple[str, str]:
-    """(label, kind) as the viewer shows it; kind is pass / miss / fail. PASS only for a full pass."""
+    """(label, kind) as the viewer shows it; kind is pass / screen / miss / fail. "Pass" only for a full pass."""
     if ev.get("passing"):
-        return "PASS", "pass"
+        return "Pass", "pass"
     v = ev.get("verdict") or ev.get("solver_status")
     if v == "PASS":  # a lower-fidelity PASS is not a pass
-        return f"PASS at {SOLVER.get(ev['solver'], ev['solver'])} only", "miss"
+        return f"Pass at {SOLVER.get(ev['solver'], ev['solver'])} only", "screen"
     if v == "TARGET_MISS":
-        return "TARGET MISS", "miss"
-    return str(v or "FAILED").replace("_", " "), "fail"
+        return "Target miss", "miss"
+    return str(v or "FAILED").replace("_", " ").lower().capitalize(), "fail"
 
 
 def cl_txt(x: float | None) -> str:
@@ -183,7 +190,7 @@ def facts(export: dict, fr: Frame) -> dict:
         "status": label,
         "kind": kind,
         "cl": cl_txt(ev["cl"]),
-        "cd": "—" if ev["cd"] is None else f"{ev['cd']:.5f}",
+        "cd": "—" if ev["cd"] is None else f"{ev['cd']:.4f}",
         "solver": SOLVER.get(ev["solver"], ev["solver"]),
         "cl_ok": ev["cl"] is not None and abs(ev["cl"] - s["target_cl"]) <= s["cl_tol"],
         "cd_ok": ev["cd"] is not None and ev["cd"] <= s["cd_max"],
@@ -337,14 +344,14 @@ def _draw_polar(ax, export: dict, fr: Frame, t: dict, b: tuple, mono: str) -> No
         )
     )
     ax.text(
-        s["cd_max"],
-        s["target_cl"] - s["cl_tol"],
-        "target box ",
+        bx0 + (x1 - x0) * 0.02,
+        s["target_cl"] - s["cl_tol"] + (y1 - y0) * 0.015,
+        "target box",
         color=t["good_ink"],
         fontsize=8,
         weight="semibold",
-        ha="right",
-        va="bottom",
+        ha="left",
+        va="top",
     )
     shown = recorded(export)[: fr.i + 1]
     trail = [head(g) for g in shown if head(g)["cl"] is not None and head(g)["cd"] is not None]
@@ -370,18 +377,31 @@ def _draw_polar(ax, export: dict, fr: Frame, t: dict, b: tuple, mono: str) -> No
     cur = head(shown[-1])
     if cur["cl"] is not None and cur["cd"] is not None:
         ax.scatter(cur["cd"], cur["cl"], s=230, facecolors="none", edgecolors=t["ink"], linewidths=1.7, zorder=4)
-    handles = [
-        Line2D([], [], ls="", marker="o", color=t["good"], ms=5.5, label="pass"),
-        Line2D([], [], ls="", marker="o", color=t["warning"], ms=5.5, label="target miss"),
-        Line2D([], [], ls="", marker="o", color=t["critical"], ms=5.5, label="failure"),
-        Line2D([], [], ls="", marker="o", mfc="none", color=t["ink2"], ms=5.5, label="NeuralFoil"),
-        Line2D([], [], ls="", marker="s", mfc="none", color=t["ink2"], ms=5.5, label="XFoil"),
-    ]
+    # only what this run has, so the legend never names a colour that is not on the chart
+    evals = [e for g in recorded(export) for e in g["evals"] if e["cl"] is not None and e["cd"] is not None]
+    kinds = {status_of(e)[1] for e in evals}
+    solvers = {e["solver"] for e in evals}
+    rows = (
+        [
+            Line2D([], [], ls="", marker="o", color=t[KIND_COLOUR[k]], ms=5.5, label=KIND_LABEL[k])
+            for k in ("pass", "screen", "miss", "fail")
+            if k in kinds
+        ],
+        [
+            Line2D([], [], ls="", marker=m, mfc="none", color=t["ink2"], ms=5.5, label=SOLVER[sv])
+            for sv, m in (("neuralfoil", "o"), ("xfoil", "s"))
+            if sv in solvers
+        ],
+    )
+    # results on the first row, solvers on the second (matplotlib fills a legend column by column)
+    ncol = max(len(r) for r in rows)
+    blank = Line2D([], [], ls="", marker="", label=" ")
+    handles = [r[c] if c < len(r) else blank for c in range(ncol) for r in rows]
     leg = ax.legend(
         handles=handles,
         loc="lower right",
         bbox_to_anchor=(1.0, 1.0),
-        ncol=5,
+        ncol=ncol,
         frameon=False,
         fontsize=7.5,
         handletextpad=0.2,
@@ -401,7 +421,7 @@ def _chain(fig, prev, text: str, pad: float, dy: float = 0, **kw) -> Annotation:
 
 def _draw_header_footer(fig, fx: dict, t: dict, mono: str) -> None:
     y = 0.865
-    lab = fig.text(0.03, y + 0.008, "GENERATION", color=t["ink3"], fontsize=8.5, weight="semibold", va="bottom")
+    lab = fig.text(0.03, y + 0.008, "Generation", color=t["ink2"], fontsize=9.5, weight="semibold", va="bottom")
     num = _chain(fig, lab, str(fx["gen"]), 6, dy=-3, color=t["ink"], fontsize=20, weight="semibold", family=mono)
     of = _chain(fig, num, f"of {fx['of']}", 5, dy=3, color=t["ink3"], fontsize=10)
     tint, edge = t[KIND_COLOUR[fx["kind"]]], t[KIND_COLOUR[fx["kind"]]]
@@ -415,16 +435,15 @@ def _draw_header_footer(fig, fx: dict, t: dict, mono: str) -> None:
         color=t[KIND_INK[fx["kind"]]],
         fontsize=9,
         weight="bold",
-        family=mono,
         bbox=pill,
     )
     # readouts, right-aligned columns: label above, value below (green inside the target, as in the viewer)
     for x, k, v, ok in (
-        (0.70, "CL", fx["cl"], fx["cl_ok"]),
-        (0.835, "CD", fx["cd"], fx["cd_ok"]),
-        (0.97, "SOLVER", fx["solver"], False),
+        (0.70, "Cl", fx["cl"], fx["cl_ok"]),
+        (0.835, "Cd", fx["cd"], fx["cd_ok"]),
+        (0.97, "Solver", fx["solver"], False),
     ):
-        fig.text(x, y + 0.062, k, color=t["ink3"], fontsize=7.5, ha="right", va="bottom", weight="semibold")
+        fig.text(x, y + 0.062, k, color=t["ink3"], fontsize=8.5, ha="right", va="bottom")
         colour = t["good_ink"] if ok else t["ink"]
         fig.text(x, y, v, color=colour, fontsize=13, ha="right", va="bottom", family=mono, weight="semibold")
     fig.add_artist(Line2D([0.03, 0.97], [0.098, 0.098], transform=fig.transFigure, color=t["line"], lw=1))
