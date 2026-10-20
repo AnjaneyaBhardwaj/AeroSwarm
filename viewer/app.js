@@ -162,7 +162,6 @@ function setRun(data, { keepPick = false } = {}) {
   $("#btn-morph").classList.remove("on");
   if (!keepPick) S.pick = { ...data.start };
   S.shown = null;
-  renderChips();
   renderHero();
   renderFacts();
   renderDials();
@@ -194,14 +193,6 @@ function renderWaiting() {
 }
 
 /* ------------------------------------------------------------------ headline + facts */
-function renderChips() {
-  const r = S.run;
-  const lab = $("#label-chip");
-  lab.textContent = r.label;
-  lab.classList.toggle("mock", !!r.is_mock);
-  lab.title = r.mock_notice || r.llm_client || "";
-}
-
 /* The headline's result: the run's outcome from the ledger against the spec (or a live run's progress). */
 function renderHero() {
   const r = S.run, s = r.spec, o = r.outcome;
@@ -223,7 +214,7 @@ function renderHero() {
     verdict.innerHTML = r._liveError ? `${ICON.fail}The live run stopped with an error` : `<span class="spin" aria-hidden="true"></span>Live run in progress`;
     $("#hero-tiles").innerHTML = tile("Downforce (Cl), latest", last ? clTxt(last.cl) : "—", clT, last ? inCl(last.cl) : null)
       + tile("Drag (Cd), latest", last ? cdTxt(last.cd) : "—", cdT, last ? inCd(last.cd) : null);
-    note.innerHTML = esc(r._liveError || S.live.progress || "Starting…");
+    note.innerHTML = [esc(r._liveError || S.live.progress || "Starting…"), ...flags].join(" ");
     return;
   }
   let line;

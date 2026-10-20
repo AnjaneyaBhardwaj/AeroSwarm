@@ -123,7 +123,8 @@ def test_flipbook_reads_the_export(ex, html, text):
     assert f'max="{ex["evals"]}" step="1" value="{ex["evals"]}"' in html
     assert ex["evals"] == sum(len(g["evals"]) for g in ex["generations"])
     js = (VIEWER / "about.js").read_text()
-    assert 'fetch("runs/example_hard_llm.json")' in js and '<script src="about.js" defer></script>' in html
+    assert 'fetch("runs/example_hard_llm.json"' in js
+    assert re.search(r'<script src="about\.js\?v=\w+" defer></script>', html)
 
 
 def test_home_page_and_replay_link_each_other(html):
@@ -134,7 +135,7 @@ def test_home_page_and_replay_link_each_other(html):
     assert 'content="0; url=./"' in (VIEWER / "about.html").read_text()
     assert 'location.replace("replay.html" + location.search' in html
     for page in ("index.html", "replay.html", "about.html"):
-        for ref in re.findall(r'(?:href|src)="([^"#:]+)"', (VIEWER / page).read_text()):
+        for ref in re.findall(r'(?:href|src)="([^"#:?]+)(?:\?v=\w+)?"', (VIEWER / page).read_text()):
             target = VIEWER / ref
             assert (target / "index.html" if ref.endswith("/") else target).is_file(), (page, ref)
 
