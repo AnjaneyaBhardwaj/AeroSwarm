@@ -3,8 +3,8 @@
 <p align="center">
   <a href="https://aeroptimize.anjaneyabhardwaj.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/media/replay-dark.gif">
-      <img src="docs/media/replay-light.gif" width="900" alt="Replay of the example run: the wing section changes generation by generation while each evaluated design lands on a Cl–Cd plot, until generation 22 reaches the target box (Cl −1.8526, Cd 0.0222, confirmed by XFoil).">
+      <source media="(prefers-color-scheme: dark)" srcset="viewer/media/replay-dark.gif">
+      <img src="viewer/media/replay-light.gif" width="900" alt="Replay of the example run: the wing section changes generation by generation while each evaluated design lands on a Cl–Cd plot, until generation 22 reaches the target box (Cl −1.8526, Cd 0.0222, confirmed by XFoil).">
     </picture>
   </a>
 </p>

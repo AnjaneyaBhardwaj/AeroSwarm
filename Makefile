@@ -36,7 +36,7 @@ viewer-export:
 viewer:
 	python3 -m http.server 8000 -d viewer
 
-# README hero GIF (light + dark) from the example run's export -> docs/media/replay-{light,dark}.gif
+# README hero GIF (light + dark) from the example run's export -> viewer/media/replay-{light,dark}.gif
 readme-gif:
 	uv run python scripts/replay_gif.py viewer/runs/example_hard_llm.json
 

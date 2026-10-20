@@ -373,6 +373,27 @@
     <p class="after-strip">Then the Chief reads all of that and plans the next round. This run needed 23 tries.</p>
   </section>
 
+  <section id="catch" class="a-sec catch" aria-labelledby="h-catch">
+    <h2 id="h-catch">The Tortoise catches one</h2>
+    <p class="sec-lede">A real moment from this run, in the run's own charts. Before a wing counts, it is tilted one
+      and two degrees further. If the extra tilt barely adds push, the wing is close to stalling. The bar: at least
+      0.05 more Cl for each extra degree.</p>
+    <div class="catch-pair">
+      <figure class="plot">
+        <img src="media/stall_81b3351c10.png" width="704" height="462" loading="lazy"
+          alt="Chart from round 8: push against tilt for design 81b3351c10. Between 9 and 10 degrees the Tortoise's line rises by only 0.034 per degree, below the 0.05 bar, while the Hare's dotted estimate stays just above it.">
+        <figcaption><b>Round 8: sent back.</b> In round 7 the Hare's quick estimate passed this wing at 0.052 per
+          degree, just over the bar. The Tortoise tested the same wing and measured 0.034. Too close to stalling.</figcaption>
+      </figure>
+      <figure class="plot">
+        <img src="media/stall_abb9803ead.png" width="704" height="462" loading="lazy"
+          alt="Chart from round 22: push against tilt for the final design abb9803ead. The Tortoise's line keeps rising by 0.068 per degree, well over the 0.05 bar.">
+        <figcaption><b>Round 22: official.</b> The final wing gains 0.068 per degree, well clear of the bar. That's
+          why only the Tortoise gets the final word.</figcaption>
+      </figure>
+    </div>
+  </section>
+
   <section id="result" class="a-sec result" aria-labelledby="h-result">
     <div class="result-main">
       <h2 id="h-result">How it ended</h2>
@@ -383,13 +404,6 @@
         <div><dt>Official check</dt><dd>the Tortoise (XFoil)</dd></div>
         <div><dt>Cost</dt><dd>about $1.47 of AI time, 17 minutes</dd></div>
       </dl>
-      <figure class="before-after">
-        <svg viewBox="0 0 300 110" role="img" aria-label="The start shape (dashed) and the final shape (filled) of the wing section">
-          <use class="ba-final" href="#wing-final" transform="translate(20 58) scale(260 -260)"/>
-          <use class="ba-start" href="#wing-start" transform="translate(20 58) scale(260 -260)"/>
-        </svg>
-        <figcaption>Start (dashed) and final wing section, upside down as on the car.</figcaption>
-      </figure>
     </div>
     <aside class="rival" aria-labelledby="h-rival">
       <h3 id="h-rival">The rival</h3>
@@ -397,6 +411,27 @@
         find a passing design.</p>
       <p class="fine">One run each. The optimizer also ran on newer pipeline code; the details are on the replay page.</p>
     </aside>
+    <div id="flip" class="flip">
+      <h3 class="flip-h">Flip through all 23 tries</h3>
+      <figure class="before-after">
+        <svg id="flip-svg" viewBox="0 0 300 110" role="img" aria-label="The start shape (dashed) and the final shape (filled) of the wing section">
+          <use class="ba-final" href="#wing-final" transform="translate(20 58) scale(260 -260)"/>
+          <use class="ba-start" href="#wing-start" transform="translate(20 58) scale(260 -260)"/>
+        </svg>
+        <figcaption>Start (dashed) and <span id="flip-which">final</span> wing section, upside down as on the car.</figcaption>
+      </figure>
+      <div id="flip-panel" class="flip-panel" hidden>
+        <p class="flip-now"><b id="flip-try"></b> <span id="flip-who"></span></p>
+        <div id="flip-meters" class="meters"></div>
+        <p id="flip-verdict" class="flip-verdict" aria-live="polite"></p>
+        <div class="flip-ctl">
+          <button id="flip-play" class="flip-play" type="button" aria-label="Play through every try">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path id="flip-play-icon" d="M7 5v14l12-7z"/></svg>
+          </button>
+          <input id="flip-range" type="range" min="1" max="23" step="1" value="23" aria-label="Try">
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="rules" class="a-sec" aria-labelledby="h-rules">
@@ -428,13 +463,19 @@
   </section>
 
   <section class="a-sec cta" aria-labelledby="h-cta">
-    <h2 id="h-cta">Now watch them do it</h2>
-    <p>The replay shows every round of the example run: the wing changing shape, each result on the chart, and what each
-      agent decided.</p>
-    <div class="a-actions">
-      <a class="go" href="replay.html">Watch the replay</a>
-      <a class="a-link" href="https://github.com/AnjaneyaBhardwaj/Aeroptimize">Code and design notes on GitHub</a>
+    <div class="cta-text">
+      <h2 id="h-cta">Now watch them do it</h2>
+      <p>The replay shows every round of the example run: the wing changing shape, each result on the chart, and what
+        each agent decided.</p>
+      <div class="a-actions">
+        <a class="go" href="replay.html">Watch the replay</a>
+        <a class="a-link" href="https://github.com/AnjaneyaBhardwaj/Aeroptimize">Code and design notes on GitHub</a>
+      </div>
     </div>
+    <a class="cta-shot" href="replay.html" tabindex="-1" aria-hidden="true">
+      <img class="only-light" src="media/replay-light.gif" width="960" height="410" loading="lazy" alt="">
+      <img class="only-dark" src="media/replay-dark.gif" width="960" height="410" loading="lazy" alt="">
+    </a>
   </section>
 </main>
 
@@ -443,6 +484,7 @@
   <span>AI agents design a race-car wing. The physics does the measuring.</span>
 </footer>
 
+<script src="about.js" defer></script>
 <script>
   // Same theme switch and remembered choice as the replay page.
   (function () {

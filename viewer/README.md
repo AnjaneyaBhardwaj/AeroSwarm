@@ -26,9 +26,11 @@ The replay page reads top to bottom:
 
 The home page (`index.html`; the replay's header links to it as "How it works") explains the project to anyone: the Chief, the CAD Engineer
 and the Critic drawn as characters, the machines that are not agents (the Hare = NeuralFoil, the Tortoise = XFoil,
-the Referee = the rule checks), a comic of the example run's generation 1, and how the run ended. Its numbers are
-written into the page and checked against the export by `tests/test_about_page.py`; its wing drawings are the run's
-own outlines.
+the Referee = the rule checks), a comic of the example run's generation 1, the run's own stall charts of the moment
+XFoil overruled NeuralFoil (`media/stall_<cid>.png`), how the run ended with a flipbook of every try, and the replay
+GIF (`media/replay-{light,dark}.gif`, made by `make readme-gif`). Its numbers are written into the page and checked
+against the export by `tests/test_about_page.py`; its wing drawings are the run's own outlines. The flipbook
+(`about.js`) reads `runs/example_hard_llm.json`; without it the page shows the start and final shapes.
 
 The replay opens on the last generation, paused. URL options: `replay.html?run=<name>&gen=<n>&autoplay=1&speed=4&intro=1`
 (`autoplay=1` plays from the start, `intro=1` opens the "How to read this" dialog, otherwise behind the ?

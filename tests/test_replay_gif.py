@@ -64,7 +64,7 @@ def test_every_number_is_the_recorded_headline_record(ex):
     rec = recorded(ex)
     for f in plan(ex):
         fx, ev = facts(ex, f), head(rec[f.i])
-        assert (fx["gen"], fx["cl"], fx["cd"]) == (rec[f.i]["gen"], cl_txt(ev["cl"]), f"{ev['cd']:.5f}")
+        assert (fx["gen"], fx["cl"], fx["cd"]) == (rec[f.i]["gen"], cl_txt(ev["cl"]), f"{ev['cd']:.4f}")
         assert fx["status"] == status_of(ev)[0]
         # a morph frame says where it is going and carries no numbers of its own
         assert fx["interpolated"] == (0 < f.f < 1)
@@ -87,14 +87,14 @@ def test_last_frame_states_the_outcome(ex):
 
 
 def test_status_labels():
-    assert status_of({"passing": True, "verdict": "PASS", "solver": "xfoil"}) == ("PASS", "pass")
+    assert status_of({"passing": True, "verdict": "PASS", "solver": "xfoil"}) == ("Pass", "pass")
     assert status_of({"passing": False, "verdict": "PASS", "solver": "neuralfoil"}) == (
-        "PASS at NeuralFoil only",
-        "miss",
+        "Pass at NeuralFoil only",
+        "screen",
     )
-    assert status_of({"passing": False, "verdict": "TARGET_MISS", "solver": "xfoil"}) == ("TARGET MISS", "miss")
-    assert status_of({"passing": False, "verdict": None, "solver_status": "diverged", "solver": "xfoil"}) == (
-        "diverged",
+    assert status_of({"passing": False, "verdict": "TARGET_MISS", "solver": "xfoil"}) == ("Target miss", "miss")
+    assert status_of({"passing": False, "verdict": None, "solver_status": "NO_CONVERGENCE", "solver": "xfoil"}) == (
+        "No convergence",
         "fail",
     )
 
@@ -139,4 +139,4 @@ def test_readme_alt_text_matches_the_export(ex):
     readme = Path("README.md").read_text()
     o = ex["outcome"]
     assert f"generation {o['generation']} reaches the target box (Cl {cl_txt(o['cl'])}, Cd {o['cd']:.4f}" in readme
-    assert all((Path("docs/media") / f"replay-{t}.gif").is_file() for t in THEMES)
+    assert all((Path("viewer/media") / f"replay-{t}.gif").is_file() for t in THEMES)

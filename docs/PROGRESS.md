@@ -116,7 +116,50 @@ story sat far down. Front end only (`viewer/index.html`, `style.css`, `app.js`);
 - `tests/test_about_page.py`: the stated speed and chord are the run's and give its Reynolds number by the project's
   own formula (`AIR_KINEMATIC_VISCOSITY`).
 
+### Emil Kowalski's design skills (session 19, 2026-10-20)
+- The user ran `npx skills add emilkowalski/skill`: 15 project-level agent skills (animation, interface design, UI
+  stress tests, library picks; a few for Expo/Swift that this project does not use) in `.agents/skills/`, linked
+  for Claude Code from `.claude/skills/`, pinned by hash in `skills-lock.json` (`npx skills experimental_install`
+  restores them). Reviewed before committing: markdown only, no scripts; the only commands are `npx expo install`
+  lines for Expo projects; links go to documentation sites. Nothing in the swarm, the site or CI depends on them.
+- Then `npx skills add Leonxlnx/taste-skill`: one skill, `design-taste-frontend` (art direction for public web pages
+  and app screens), same layout. It ships code: Node scripts and data (2.5 MB). Reviewed: `inspect.mjs`/`scenes.mjs`
+  serve the page on 127.0.0.1 and drive a throwaway headless Chrome profile (Node 22+); `assets.mjs` searches and
+  downloads openly licensed images (Openverse, Wikimedia Commons, Art Institute of Chicago, the Met, Internet
+  Archive, NASA) with GET only, no keys, only when run; `draw.mjs` keeps a local history in
+  `~/.taste-skill/history.json`. No uploads, no credential access, nothing runs on install.
+
+### Design review fixes: the real thing on the home page, a calmer replay (session 19)
+After running `design-taste-frontend` on both pages (home: 12 FAIL; replay: 2 FAIL). Front end and the GIF script
+only; no exporter, server or data change.
+- **Home page, real pictures from the run:** new section "The Tortoise catches one" with the run folder's own
+  stall charts (`viewer/media/stall_<cid>.png`, byte-identical copies): in round 7 the NeuralFoil screen passed
+  `81b3351c10` at 0.052/deg (bar 0.05), in round 8 XFoil re-tested the same design at 0.034 and sent it back; the
+  final `abb9803ead` has 0.068. The replay GIF plays in the closing "Now watch them do it" section (light or dark
+  copy by theme).
+- **Home page flipbook** ("How it ended", `viewer/about.js`): a slider and play button over all 23 tries, reading
+  the export (`runs/example_hard_llm.json`): the try's outline against the dashed start, push and drag bars
+  against the target band and drag limit, which machine measured it, and a plain verdict built from the record
+  ("Not yet: 0.198 short on push and close to stalling."). Plays through once when first in view (not with reduced
+  motion). Without the export the static start-and-final picture stays.
+- **Replay:** Cd to 4 places everywhere (was 4 in the headline and story, 5 in readouts, steps and tooltips).
+  Polar: target misses grey, NeuralFoil-only passes amber, full pass green, failures red; the overlapping "Optuna"
+  text is gone (the legend names the diamond); the legend lists only the result kinds and solvers the run has; the
+  "target box" label sits inside the box at the empty low-drag end. Sentence-case labels and status chips instead
+  of tracked capitals ("Target miss", "Pass at NeuralFoil only"); `--ink-3` darkened to 4.5:1 or better on every
+  surface in both themes; dial units 11px; no eyebrow; title 24–29px; the result numbers (34px) are the largest
+  type. The lock emoji on locked focus parameters became "(locked)". Inspector: 0 FAIL, 1 WARN.
+- **README GIF** regenerated in the same style (grey misses, Cd to 4 places, sentence case, legend of what is
+  present, results on one row and solvers on the next) and moved from `docs/media/` to `viewer/media/`, so the
+  site serves the same files; README, `make readme-gif` and the script's default follow.
+- Tests: `test_about_page.py` checks the stall-chart text against the export and the charts against the run
+  folder, and the flipbook's try count. `pytest` (XFoil installed): 398 passed, 1 skipped; ruff clean.
+
 ### Next
+- Home page, still flagged by the inspector: the 3-line headline, the eyebrow, monospace numbers, small uppercase
+  labels, a resting shadow, hairlines, 1px-outlined boxes, text under 13px, no single focal point on the first
+  screen. It counts 3 real pictures and wants at least 4: photo archives (Wikimedia, Openverse, NASA, ...) are
+  blocked by this cloud environment's network policy until the user allows those hosts.
 - 2-3 more recorded runs in the gallery; one real-Claude live run on the Mac (asks before spending credit). Still
   never tested: the Dockerfile's XFoil stage, the Mac setup, a real-Claude live run. When a new run joins the
   gallery, `scripts/replay_gif.py viewer/runs/<name>.json` makes its GIF.
