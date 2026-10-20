@@ -18,7 +18,7 @@
 
   let run, tries, scales, cur, timer = null;
 
-  fetch("runs/example_hard_llm.json")
+  fetch("runs/example_hard_llm.json", { cache: "no-cache" })
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
     .then(build)
     .catch(() => {}); // keep the static picture

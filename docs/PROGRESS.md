@@ -155,6 +155,16 @@ only; no exporter, server or data change.
 - Tests: `test_about_page.py` checks the stall-chart text against the export and the charts against the run
   folder, and the flipbook's try count. `pytest` (XFoil installed): 398 passed, 1 skipped; ruff clean.
 
+### Stale stylesheet after the deploy (session 19, after PR #26 merged)
+- Right after the merge the user saw the new home page with the old `about.css`: both replay GIFs stacked at full
+  width, the stall chart full width, the flipbook unstyled. Cause: GitHub Pages serves files with a 10-minute
+  browser cache, so the old stylesheet was reused with the new page (reproduced locally by serving the new
+  `index.html` with the pre-merge `about.css`). A hard refresh fixes it for one visitor.
+- Fix for every visitor: the pages link their own CSS, JS and pictures as `file?v=<first 10 hex of its sha256>`
+  (`swarm/viz/stamp.py`, `scripts/stamp_assets.py`, `make stamp`; `make readme-gif` re-stamps). A changed file
+  gets a new address. `tests/test_viewer_stamps.py` fails while a stamp is stale; the link test ignores the
+  stamp. The flipbook fetches the export with `cache: "no-cache"`, as the replay does.
+
 ### Next
 - Home page, still flagged by the inspector: the 3-line headline, the eyebrow, monospace numbers, small uppercase
   labels, a resting shadow, hairlines, 1px-outlined boxes, text under 13px, no single focal point on the first

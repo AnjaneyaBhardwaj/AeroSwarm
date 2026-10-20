@@ -1,4 +1,4 @@
-.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export readme-gif live local-live local-export clean-runs
+.PHONY: install xfoil test lint format demo demo-hard viewer viewer-export readme-gif stamp live local-live local-export clean-runs
 
 install:
 	uv sync
@@ -39,6 +39,12 @@ viewer:
 # README hero GIF (light + dark) from the example run's export -> viewer/media/replay-{light,dark}.gif
 readme-gif:
 	uv run python scripts/replay_gif.py viewer/runs/example_hard_llm.json
+	uv run python scripts/stamp_assets.py
+
+# After editing a viewer CSS / JS file or picture: re-stamp its links (?v=<hash>) so browsers fetch the new copy.
+# The tests fail while a stamp is stale.
+stamp:
+	uv run python scripts/stamp_assets.py
 
 # Viewer + live runs (local only): http://127.0.0.1:8000/replay.html. Real-LLM runs need AEROSWARM_ANTHROPIC_API_KEY
 # (or ANTHROPIC_API_KEY); every run is capped (default 15 evaluations, $1). Without a key only the mock runs.

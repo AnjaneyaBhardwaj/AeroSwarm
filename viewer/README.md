@@ -12,7 +12,13 @@ forwards old replay links that carry replay options (`/?run=…`, `/?gen=…`) t
 ```bash
 uv run python scripts/export_run.py runs/<run_dir> [--name NAME] [--optuna auto|none|<optuna_run_dir>]
 make viewer   # http://localhost:8000 (home page); the replay is /replay.html
+make stamp    # after editing a CSS / JS file or a picture here
 ```
+
+The pages link their own stylesheets, scripts and pictures as `style.css?v=<hash of the file>`. GitHub Pages lets
+browsers keep a file for 10 minutes, so without the stamp a visitor could get a freshly deployed page with the old
+stylesheet (it happened once: both GIFs stacked, the flipbook unstyled). `make stamp`
+(`scripts/stamp_assets.py`) rewrites the stamps; `tests/test_viewer_stamps.py` fails while any is stale.
 
 The replay page reads top to bottom:
 
