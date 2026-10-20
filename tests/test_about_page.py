@@ -157,6 +157,26 @@ def test_rulebook_note_is_the_codes_own_check(ex, text):
         assert not violations(start.model_dump(), "FSAE2027_v1.0")
 
 
+def test_faq_facts_are_the_runs(ex, text):
+    """The FAQ's numbers and claims, read from the export and the code."""
+    from swarm.state import SINGLE_ELEMENT_PARAMS, TERMINAL_FIDELITIES
+
+    assert not ex["is_mock"] and ex["llm_client"] == "anthropic:claude-sonnet-5"
+    assert "all three agents are Claude (Sonnet 5)" in text
+    assert f"they made {ex['llm_calls']} calls between them" in text
+    assert len(ex["free_params"]) == len(SINGLE_ELEMENT_PARAMS) == 4 and "There are four knobs" in text
+    assert "neuralfoil" not in TERMINAL_FIDELITIES and "xfoil" in TERMINAL_FIDELITIES
+    xfoil = [e for g in ex["generations"] for e in g["evals"] if e["solver"] == "xfoil"]
+    sent_back = sum(not e["passing"] for e in xfoil)
+    assert f"{len(xfoil)} of the {ex['evals']} tries went to the Tortoise, and it sent {sent_back} of them back" in text
+    o, b = ex["outcome"], ex["baseline"]
+    assert b["method"] == "optuna" and b["result"] == "no_pass"  # run from the same start (scripts/export_run.py)
+    assert f"the agents met the target in {o['evals_to_target']} tries" in text
+    assert f"didn't in {b['evals']} from the same start" in text
+    assert f"in open air at {ex['spec']['speed_mps']:g} m/s" in text
+    assert "designed under, Formula Student 2026" in text and ex["spec"]["rulebook"] == "FS2026_v1.1"
+
+
 def test_home_page_and_replay_link_each_other(html):
     replay = (VIEWER / "replay.html").read_text()
     assert 'id="crew"' in html and 'id="stage"' in replay  # the explainer is the home page; the replay moved

@@ -205,6 +205,21 @@ only; no exporter, server or data change.
   t 0.135 fall under 5 mm (t ≥ 0.14 unaffected; the witness measures 5.35 mm). The sweep data is not committed;
   re-running it is XFoil only.
 
+### Home page: "Questions people ask" (session 19, after PR #29 merged)
+- The user asked whether an AI chatbot on the site would help. Advice given: not now (the public site is static and
+  replay-only by the session-17 decision, a chatbot needs a server holding the API key, costs and invites abuse,
+  and could state invented numbers on a page whose point is that numbers are measured); a grounded "ask the
+  project" assistant (answers only from the docs with links, numbers looked up from the export, daily cap) is
+  the version worth building later, if ever. The user chose an FAQ first.
+- New section before the closing call to action: eight questions in native `<details>` (no script): real AI or a
+  script; why the AI doesn't draw the wing; could it make up a result; why two calculators; better than a normal
+  optimizer (not proven: one run each, the larger comparison unfinished); only the slice; legal for racing (FS 2026
+  checks passed; width/end plates need 3D; placeholder car; new runs FSAE 2027); can I run it myself. Heading on
+  the left (sticky), questions on the right; stacked on phones.
+- `test_about_page.py::test_faq_facts_are_the_runs` checks every number and claim in the answers against the
+  export and the code (model and 69 LLM calls, four knobs, 4 of 23 tries at XFoil with 3 sent back, 23 vs Optuna's
+  40, 15 m/s, the run's rulebook, which fidelities can end a run).
+
 ### Next
 - Decide whether to fix the T.7.1.4 check (measure the nose radius on the outline). It changes which designs are
   legal under FSAE 2027 and means re-checking the hard target's box (re-run the gated sweep, XFoil only), so it is
