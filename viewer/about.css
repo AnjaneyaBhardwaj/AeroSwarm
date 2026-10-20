@@ -314,6 +314,27 @@ a.go { display: inline-block; text-decoration: none; padding: 11px 20px; font-si
 }
 .brand-sm { font-weight: 700; color: var(--accent); }
 
+/* ---------- air drifting past the page (wide screens: seen in the margins only) ---------- */
+.airflow { display: none; }
+@media (min-width: 1360px) {
+  .airflow {
+    display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    color: var(--accent);
+    /* full strength in the margins, gone before the text column (1080px), back after it */
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(50% - 660px), transparent calc(50% - 560px),
+      transparent calc(50% + 560px), #000 calc(50% + 660px));
+    mask-image: linear-gradient(90deg, #000 calc(50% - 660px), transparent calc(50% - 560px),
+      transparent calc(50% + 560px), #000 calc(50% + 660px));
+  }
+  .top, .about, .a-foot { position: relative; z-index: 1; }
+}
+/* each line crosses the whole screen; moving it is transform-only, so the browser does it without repainting */
+.airflow svg {
+  position: absolute; left: 0; top: var(--y); width: var(--w); aspect-ratio: 100 / 14; opacity: var(--o);
+  animation: drift var(--d) linear var(--t) infinite; will-change: transform;
+}
+@keyframes drift { from { transform: translateX(-140px); } to { transform: translateX(calc(100vw + 20px)); } }
+
 /* ---------- motion: idle bob, blink, the magnifier's sway, air over the car ---------- */
 .bob { animation: bob 3.4s ease-in-out infinite; }
 .bob.d2 { animation-delay: -1.1s; }
@@ -329,6 +350,7 @@ a.go { display: inline-block; text-decoration: none; padding: 11px 20px; font-si
 @keyframes sway { 50% { transform: rotate(-5deg); } }
 @media (prefers-reduced-motion: reduce) {
   .bob, .hop, .blink, .sway, .car .air path { animation: none !important; }
+  .airflow { display: none !important; }
   .member.cad .bust.bob { transform: translateY(-14px); }
   .card-c { transition: none; }
   .flip-cur, .m-mark { transition: none; }
