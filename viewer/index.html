@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Patrick+Hand&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=d6ff3aeab9">
-<link rel="stylesheet" href="about.css?v=54cc8a2331">
+<link rel="stylesheet" href="about.css?v=b0fcaffbfa">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3 18 C9 10 22 9 29 13 C22 16 10 19 3 18Z' fill='%2336c2b4'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -491,6 +491,68 @@
       <div><dt>Chord</dt><dd>The slice's length from its front edge to its back edge. Here 300 mm.</dd></div>
       <div><dt>Cl and Cd</dt><dd>The slice's push and drag numbers, scaled so wings of any size compare fairly. Cl is negative here because the push points down.</dd></div>
     </dl>
+  </section>
+
+  <section id="faq" class="a-sec faq" aria-labelledby="h-faq">
+    <div class="faq-side">
+      <h2 id="h-faq">Questions people ask</h2>
+      <p class="sec-lede">Short answers. The numbers in them are checked against the run's record, like the rest of
+        this page.</p>
+    </div>
+    <div class="faq-list">
+      <details class="qa">
+        <summary>Is it real AI, or a script?</summary>
+        <div class="qa-a"><p>Real. In the example run all three agents are Claude (Sonnet 5), Anthropic's AI model, and
+          they made 69 calls between them. For tests, the project also has a free stand-in that follows fixed rules. It
+          is always labelled “not an AI”, and it isn't what you see here.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Why doesn't the AI just draw the wing?</summary>
+        <div class="qa-a"><p>Letting an AI write its own design code looks good in a demo and breaks a few steps later.
+          Here the agents fill in short forms instead: which knob to turn, which way, by how much, and why. There are
+          four knobs: how curved the wing is, where the curve peaks, how thick it is and its angle. Plain code turns
+          the form into the exact shape, and the Referee checks it before anything is tested.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Could the AI make up a result?</summary>
+        <div class="qa-a"><p>Not one that counts. Agents never type numbers into the run's record: every number comes
+          from a calculator or a rule check. The Critic can mark a result down but never up, and only a result from a
+          strict physics calculator, with every check passed, can end a run.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Why two calculators?</summary>
+        <div class="qa-a"><p>Speed against trust. The Hare (NeuralFoil) is a small neural network that answers almost
+          at once, so the crew can try lots of ideas. The Tortoise (XFoil) is a classic physics program that is slower
+          and stricter. In this run, 4 of the 23 tries went to the Tortoise, and it sent 3 of them back.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Is the AI better than a normal optimizer?</summary>
+        <div class="qa-a"><p>Not proven yet. In this example the agents met the target in 23 tries, and Optuna, a standard
+          optimizer with no agents, didn't in 40 from the same start. That's one run each. A larger comparison over
+          many starting wings has been started but isn't finished.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Is it only the slice? What about the whole wing and the car?</summary>
+        <div class="qa-a"><p>Only the slice, for now. It's tested on its own, in open air at 15 m/s, with no car around
+          it and no ground under it. Real teams test this way first because it's quick. Then they test the full wing,
+          which loses some push at its tips, and finally the wing on the car, where the air reaching it has already
+          been stirred up by the body and the driver. Those stages come next.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Is the wing legal for racing?</summary>
+        <div class="qa-a"><p>It passed the checks of the rules it was designed under, Formula Student 2026: its height,
+          how far it reaches behind the tyres, how round its edges are and its distance from the ground. Its width and
+          end plates can only be checked once there's a full 3D wing, and the car it sits on is a stand-in with made-up
+          measurements, not a real car. New runs use the Formula SAE 2027 rules.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Can I run it myself?</summary>
+        <div class="qa-a"><p>Yes. The code is on <a class="a-link" href="https://github.com/AnjaneyaBhardwaj/Aeroptimize">GitHub</a>
+          and runs on your own computer. Runs with the real AI need your own Anthropic API key, and you can cap what
+          each run spends. Without a key it runs the labelled stand-in. This website only replays recorded runs: it
+          never runs the AI or spends anyone's money.</p></div>
+      </details>
+    </div>
   </section>
 
   <section class="a-sec cta" aria-labelledby="h-cta">
