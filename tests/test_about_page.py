@@ -127,6 +127,36 @@ def test_flipbook_reads_the_export(ex, html, text):
     assert re.search(r'<script src="about\.js\?v=\w+" defer></script>', html)
 
 
+def test_rulebook_note_is_the_codes_own_check(ex, text):
+    """The run's rulebook comes from its spec; the FSAE 2027 claims are swarm.cad.regulations' own check of the run's
+    designs on the car the run used."""
+    from swarm.cad.build import placed_mm
+    from swarm.cad.regulations import RULEBOOKS, check_regulations
+    from swarm.state import PLACEHOLDER_CAR, DesignSpec, WingParams
+
+    assert ex["spec"]["rulebook"] == "FS2026_v1.1" and DesignSpec.model_fields["car"].default == PLACEHOLDER_CAR
+    assert DesignSpec.model_fields["rulebook"].default == "FSAE2027_v1.0"
+    assert "Legal under the Formula Student 2026 rules" in text
+    assert "This run was checked against the Formula Student 2026 rules." in text
+    assert "The project now follows the Formula SAE 2027 rulebook" in text
+    fs, fsae = RULEBOOKS["FS2026_v1.1"], RULEBOOKS["FSAE2027_v1.0"]
+    assert f"a {fsae.le_radius_min.value:g} mm radius instead of {fs.le_radius_min.value:g} mm" in text
+
+    def violations(params, rulebook):
+        p = WingParams(**params)
+        return check_regulations(placed_mm(p, PLACEHOLDER_CAR), p, PLACEHOLDER_CAR, rulebook)
+
+    tries = [e for g in ex["generations"] for e in g["evals"]]
+    assert all(not violations(e["params"], "FS2026_v1.1") for e in tries)  # legal under the run's own rulebook
+    # "new runs start from a thicker wing": both presets start thicker, and legal under FSAE 2027
+    from swarm.run import PRESETS
+
+    assert "This run's wings were shaped for the older rule, so new runs start from a thicker wing." in text
+    for spec, start in PRESETS.values():
+        assert spec.rulebook == "FSAE2027_v1.0" and start.main_thickness > ex["start"]["main_thickness"]
+        assert not violations(start.model_dump(), "FSAE2027_v1.0")
+
+
 def test_home_page_and_replay_link_each_other(html):
     replay = (VIEWER / "replay.html").read_text()
     assert 'id="crew"' in html and 'id="stage"' in replay  # the explainer is the home page; the replay moved

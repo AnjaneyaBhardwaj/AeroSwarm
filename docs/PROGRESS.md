@@ -181,7 +181,34 @@ only; no exporter, server or data change.
 - Earlier the same day the header's "Watch the replay" link and the footer tagline went; the footer now reads
   "Aeroptimize · by Anjaneya Bhardwaj".
 
+### Rulebook: FSAE 2027 in the docs and on the site, and an audit of the check (session 19)
+- `docs/BLUEPRINT.md` "Regulation compliance" now describes the Formula SAE Rules 2027 v1.0 (read from
+  `docs/FSAE_Rules_2027_V1.pdf`: T.7.1.4/.5, T.7.3–T.7.7, V.1.1, V.1.4.1) as the default, with what the 2D check
+  covers; Formula Student 2026 stays as the alternative the committed example run used. `DesignSpec` block, table
+  of contents, appendix and sources follow. README notes the example run's rulebook.
+- Home page: the brief says "Legal under the Formula Student 2026 rules" (the run's own rulebook); a note under
+  "How it ended" says the project now follows FSAE 2027 (5 mm front-edge radius instead of 3 mm) and new runs start
+  thicker. Replay Details show the rulebook's name instead of its code. `test_about_page.py` checks both against
+  the spec, `RULEBOOKS` and `check_regulations`.
+- **Audit (read-only; the FSAE code is frozen):** limits and rule numbers match the PDF, and every design the swarm,
+  the inner loop and the live pre-check evaluate is rule-checked before it is solved. Gaps, written up under
+  "Known gaps" in the blueprint: (1) T.7.1.4 uses the NACA formula r ≈ 1.1019 t²c; measured on the generated
+  outline, cambered noses are tighter (the example's final wing 4.94 mm vs 5.59 mm by formula; 201 of 1,260
+  formula-legal grid sections under 5 mm; both preset starts measure 5.29 mm, fine); (2) T.7.1.5 is a thickness
+  check, the TE is a flat cut with square corners; (3) not checked in 2D: width, end plates, V.1.1, dynamic ground
+  contact; (4) placeholder car; (5) the Optuna baseline does not rule-check its first design.
+- Against this file's history: (3) and (4) were known since session 12 and deferred by the user in session 14;
+  (2) is session 1's deliberate threshold. (1) and (5) are new. Session 12 checked the NACA formula's
+  coefficients (and the generator against AeroSandbox), not the built outline's nose, so its "all 7 XFoil winners
+  are FSAE-legal (LE radius 5.6–6.2 mm)" is by formula; the example winner measures 4.94 mm. A fix to (1) reaches
+  session 12's hard-target derivation: measured, all t 0.125 sweep shapes, 13 of 49 at t 0.13 and 2 of 49 at
+  t 0.135 fall under 5 mm (t ≥ 0.14 unaffected; the witness measures 5.35 mm). The sweep data is not committed;
+  re-running it is XFoil only.
+
 ### Next
+- Decide whether to fix the T.7.1.4 check (measure the nose radius on the outline). It changes which designs are
+  legal under FSAE 2027 and means re-checking the hard target's box (re-run the gated sweep, XFoil only), so it is
+  the user's call (research features are frozen).
 - Home page, still flagged by the inspector: the 3-line headline, the eyebrow, monospace numbers, small uppercase
   labels, a resting shadow, hairlines, 1px-outlined boxes, text under 13px, no single focal point on the first
   screen. It counts 3 real pictures and wants at least 4: photo archives (Wikimedia, Openverse, NASA, ...) are

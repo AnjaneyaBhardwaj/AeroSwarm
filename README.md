@@ -33,7 +33,10 @@ car (`PLACEHOLDER_CAR`, not a real car): T.7.7.1 height (≤ 1200 mm in the Rear
 ≤ 500 mm outside it), T.7.5b (≤ 250 mm behind the rear tires), T.7.1.4 (5 mm radius on forward
 facing horizontal edges, so NACA thickness ≥ 0.123 on the 300 mm chord), T.7.1.5 (edges not sharp:
 the trailing edge is kept ≥ 2 mm thick) and V.1.4.1 (no ground contact). Width (T.7.6) and end
-plates need the 3D stage. `DesignSpec.rulebook = "FS2026_v1.1"` selects Formula Student 2026.
+plates need the 3D stage. `DesignSpec.rulebook = "FS2026_v1.1"` selects Formula Student 2026, the project's first
+rulebook: the committed example run (1 Oct 2026) was checked against it, so its wings were shaped for a 3 mm
+leading-edge radius, not FSAE's 5 mm. Known gap: the 5 mm check uses the NACA formula (r ≈ 1.1019 t²c), and on
+strongly cambered sections the generated nose is tighter than that; see "Known gaps" in docs/BLUEPRINT.md.
 
 Live runs: cap them. `python -m swarm.run --llm anthropic --max-evals 10 --budget-usd 2`
 stops cleanly (termination `cost_cap`) once the estimated LLM spend reaches the cap;

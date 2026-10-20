@@ -12,7 +12,7 @@ An agentic AI system where autonomous LLM agents (orchestrated with LangGraph) c
 - **Part I: Technical Blueprint**
   - [1. Agent Topology & State Management](#1-agent-topology--state-management)
   - [2. Tool Registration & Tool-Calling Design](#2-tool-registration--tool-calling-design)
-    - [Regulation compliance (Formula Student 2026)](#regulation-compliance-formula-student-2026)
+    - [Regulation compliance (Formula SAE 2027)](#regulation-compliance-formula-sae-2027)
   - [3. The Self-Correction & Reasoning Loop](#3-the-self-correction--reasoning-loop)
   - [4. Lightweight POC Architecture](#4-lightweight-poc-architecture)
   - [5. Portfolio & Repo Showcasing](#5-portfolio--repo-showcasing)
@@ -188,7 +188,7 @@ class DesignSpec(BaseModel, frozen=True):           # immutable, re-injected eve
     mach: float = 0.15
     max_evals: int = 80
     max_wall_hours: float = 4.0
-    rulebook: Literal["FS2026_v1.1", "none"] = "FS2026_v1.1"   # see "Regulation compliance"
+    rulebook: Literal["FSAE2027_v1.0", "FS2026_v1.1", "none"] = "FSAE2027_v1.0"   # see "Regulation compliance"
     car: "ReferenceCar | None" = None               # needed to place the wing inside the rule box
 
 class ReferenceCar(BaseModel, frozen=True):         # car frame: x rearward, z up from ground, mm
@@ -196,7 +196,7 @@ class ReferenceCar(BaseModel, frozen=True):         # car frame: x rearward, z u
     head_restraint_x: float                         # rearmost face of head-restraint support
     rear_tire_rear_x: float                         # rearmost point of the rear tires
     wing_mount_z: float                             # height of the main-plane leading edge
-    inner_rear_track_mm: float                      # caps span for the 3D stage (T8.2.2)
+    inner_rear_track_mm: float                      # caps span for the 3D stage (FSAE T.7.6.3 / FS T8.2.2)
 
 class WingParams(BaseModel, frozen=True):
     main_camber: float = Field(ge=0.00, le=0.09)    # m (fraction of chord)
@@ -425,58 +425,100 @@ Keep the elements as separate bodies; never `union` them. Separate bodies give y
 - Trailing-edge thickness above the mesh floor.
 - Regulation compliance, when `spec.rulebook` is set (next subsection).
 
-### Regulation compliance (Formula Student 2026)
+### Regulation compliance (Formula SAE 2027)
 
-> **Project decision (session 12): the rulebook is now the Formula SAE Rules 2027 v1.0** (`docs/FSAE_Rules_2027_V1.pdf`; `swarm/cad/regulations.py`). Key differences from the table below: rear wing height ≤ 1200 mm in the Rear Aerodynamic Zone (T.7.7.1a), 5 mm radius on forward facing horizontal edges (T.7.1.4, so NACA thickness ≥ 0.123 on a 300 mm chord), no fixed static ground clearance (V.1.4.1). Formula Student 2026 remains selectable via `DesignSpec.rulebook`.
+Parameter bounds are tied to a real rulebook so every limit is traceable to a rule number. Since session 12 the
+rulebook is the **Formula SAE Rules 2027, v1.0** (SAE International, 1 Sept 2026), committed as
+[`docs/FSAE_Rules_2027_V1.pdf`](FSAE_Rules_2027_V1.pdf): section T.7 "Bodywork and Aerodynamic Devices" and V.1.4
+"Ground Clearance". It is the default `DesignSpec.rulebook` (`"FSAE2027_v1.0"`) and lives in
+`swarm/cad/regulations.py`.
 
-Parameter bounds are tied to a real rulebook so every limit is traceable to a rule number. The source is the **Formula Student Rules 2026, v1.1** (Formula Student Germany; FS UK aligns closely). Formula SAE in North America has a separate rulebook with different numbers.
-
-| Rule | Limit | Constrains |
-|---|---|---|
-| T8.2.1 | Devices rearward of the head-restraint plane lower than 1.1 m; forward of it lower than 500 mm | Rear wing height, position |
-| T8.2.1 | Ahead of the front axle and outboard of the front tire's inboard point: lower than 250 mm | Front wing tips |
-| T8.2.2 | Above 500 mm: not outboard of the rear tires' inboard points | Rear wing span (3D stage) |
-| T8.2.3 | Max 250 mm behind the rear tires; max 700 mm ahead of the front tires | Overhangs |
-| T8.2.4 | Limits hold with wheels straight, any suspension setup, with or without driver | Every configuration |
-| T2.2.1 / T2.2.2 | Static ground clearance ≥ 30 mm; no devices touching the track | Diffuser ride height, no skirts |
-| T2.4.1 | Edge radius ≥ 3 mm forward-facing, ≥ 1 mm elsewhere | Leading- and trailing-edge shape |
-| T8.3.1 / T8.3.2 | 200 N over ≥ 225 cm² with ≤ 10 mm deflection; 50 N anywhere with ≤ 25 mm | Structure (outside the aero loop) |
+| Rule | What it says | Constrains | Checked in 2D |
+|---|---|---|---|
+| T.7.1.4 | Forward facing edges that could contact a pedestrian: minimum radius 5 mm on horizontal edges, 3 mm on vertical edges | Leading-edge shape (end plates: 3D stage) | Yes, horizontal edges: the wing's leading edge, by the NACA formula (see "Known gaps") |
+| T.7.1.5 | Other edges a person may touch must not be sharp | Trailing-edge shape | Yes, with a project threshold: 1 mm radius, so a TE at least 2 mm thick |
+| T.7.3.1 | Limits are measured with the wheels straight ahead, without a driver | Every configuration | (the convention used) |
+| T.7.3.2 / T.7.3.3 | Head Restraint Plane; Rear Aerodynamic Zone = rearward of it and inboard of the rear tyres' inner faces | Where the rear limits apply | The section is assumed inside the zone |
+| T.7.4 | Every Aerodynamic Device must meet V.1.1 (wheel keep-out) and V.1.4.1 | Placement | V.1.4.1 only |
+| T.7.5 | No more than 700 mm ahead of the front tyres; no more than 250 mm behind the rear tyres | Overhangs | Yes, the rear (b) |
+| T.7.6 | Width: inboard of the tyres; rearward of the rear axle, inside the Rear Aerodynamic Zone | Span | No (3D stage) |
+| T.7.7.1 | No higher than 1200 mm in the Rear Aerodynamic Zone (a), 500 mm outside it (b), 250 mm ahead of the front axle outboard of the front tyres' inner faces (c) | Wing height and position | Yes, (a) and (b) |
+| V.1.4.1 | Ground clearance must prevent anything but the tyres touching the ground | Ride height | Yes (no fixed number: lowest point above 0 mm) |
 
 Consequences for the parameters:
 
-- **Trailing edge ≥ ~2 mm thick** (1 mm radius). On a 300 mm chord that is ~0.7% c, which is why `naca4` now defaults to `te_thick=0.007`.
-- **Leading-edge radius ≥ 3 mm.** For NACA 4-digit sections r_LE ≈ 1.1019 t²c. On 300 mm, t = 12% gives ~4.8 mm (passes) but t = 8% gives ~2.1 mm (fails); a 100 mm flap at 10% gives ~1.1 mm (fails if its edge counts as reachable). Applied conservatively, this is a per-element thickness floor.
-- **The rule box.** Every element, at every angle, must fit inside the side-view box. It depends on the car, hence `ReferenceCar` in the spec.
-- **Movable devices.** FS 2026 T8 is silent on them; the FSAE 2027 draft states its aero rules do not ban DRS-type devices. Confirm with the event before relying on either (relevant to the dual-mode stretch goal).
+- **Leading-edge radius ≥ 5 mm.** For NACA 4-digit sections r_LE ≈ 1.1019 t²c, so on the 300 mm chord the main
+  element needs **thickness ≥ 0.123** (`min_thickness_for_le_radius`). Both presets start at 0.13; the Optuna
+  inner loop starts its thickness range at this floor, and `random_start` redraws until a start passes.
+- **Trailing edge ≥ ~2 mm thick.** On a 300 mm chord that is ~0.7% c, which is why `naca4` defaults to
+  `te_thick=0.007`.
+- **The rule box.** Every element, at every angle, must fit inside the side-view box. It depends on the car, hence
+  `ReferenceCar` in the spec. The car is still `PLACEHOLDER_CAR`, so the height and overhang checks are only as real
+  as its made-up mount point.
+- **Movable devices.** T.7.1.3 asks for rigid mounts that do not oscillate or move excessively; nothing in T.7 names
+  DRS-type devices. Confirm with the event before relying on one (relevant to the dual-mode stretch goal).
 
-```python
-# swarm/cad/regulations.py
-FS2026 = {  # Formula Student Rules 2026 v1.1
-    "T8.2.1_rear_max_height_mm": 1100,
-    "T8.2.1_forward_max_height_mm": 500,
-    "T8.2.3_max_behind_rear_tire_mm": 250,
-    "T2.4.1_min_radius_forward_mm": 3.0,
-    "T2.4.1_min_radius_other_mm": 1.0,
-}
+**How the check works.** `check_regulations` takes the outlines scaled to mm and placed in the car frame (x
+rearward, z up from the ground) and returns one violation string per broken limit, each naming its rule, for
+example `T.7.1.4: main-plane LE radius 3.3 mm < 5 mm (...); increase main_thickness to at least 0.1230`. The CAD
+node returns these to the CAD agent verbatim (`pending_violation`) and routes back to it: a shape with any
+violation is never solved. Each rulebook is a `Rulebook` of `Limit(value, rule, text)` entries, so adding one with
+the same kinds of limits is data, not code.
 
-def check_regulations(elements: dict[str, np.ndarray], params, car: ReferenceCar) -> list[str]:
-    """elements: outlines placed in the car frame (mm). Returns violations, each naming its rule."""
-    pts = np.vstack(list(elements.values()))
-    v = []
-    if pts[:, 1].max() >= FS2026["T8.2.1_rear_max_height_mm"]:
-        v.append("T8.2.1: rear wing must be lower than 1100 mm")
-    if pts[:, 0].max() > car.rear_tire_rear_x + FS2026["T8.2.3_max_behind_rear_tire_mm"]:
-        v.append("T8.2.3: wing extends more than 250 mm behind the rear tires")
-    fwd = pts[pts[:, 0] < car.head_restraint_x]
-    if len(fwd) and fwd[:, 1].max() >= FS2026["T8.2.1_forward_max_height_mm"]:
-        v.append("T8.2.1: parts forward of the head-restraint plane must be below 500 mm")
-    r_le = 1.1019 * params.main_thickness**2 * car.chord_mm * (1 - params.flap_chord_ratio)
-    if r_le < FS2026["T2.4.1_min_radius_forward_mm"]:
-        v.append(f"T2.4.1: main-plane LE radius {r_le:.1f} mm < 3 mm; increase thickness")
-    return v   # appended to pending_violation, returned to the CAD agent verbatim
-```
+**Formula Student 2026 v1.1 (still selectable: `DesignSpec.rulebook = "FS2026_v1.1"`).** The project's first
+rulebook; the committed example run (`runs/examples/hard_llm_20261001-201455-faf6a3`, 1 Oct 2026) was checked
+against it. Its numbers come from search excerpts of the FS Rules 2026 v1.1; the official PDF could not be reached
+(formulastudent.de is blocked by the environment's network policy), so T8.2.3 and T2.2.1 are unconfirmed.
 
-Formula Student cars run slower than the 50 m/s reference case, so recompute `reynolds` from your target track speeds (for example, 20 m/s on 0.3 m gives Re ≈ 4×10⁵), and re-derive the validator bands at that Re.
+| Rule | Limit | FSAE 2027 equivalent |
+|---|---|---|
+| T8.2.1 | Rearward of the head-restraint plane lower than 1100 mm; forward of it lower than 500 mm | T.7.7.1: no higher than 1200 / 500 mm |
+| T8.2.3 | Max 250 mm behind the rear tires | T.7.5b: 250 mm |
+| T2.2.1 | Static ground clearance ≥ 30 mm | V.1.4.1: no ground contact, no number |
+| T2.4.1 | Edge radius ≥ 3 mm forward-facing, ≥ 1 mm elsewhere (thickness ≥ 0.0953 on 300 mm) | T.7.1.4 / T.7.1.5: 5 mm, "not sharp" |
+
+Re-checked with `check_regulations` under FSAE 2027, the example run's final wing (`abb9803ead`, thickness 0.13,
+formula LE radius 5.6 mm) passes the check, and 19 of its 23 evaluations, the start among them, fail it (formula
+radius 3.0–4.9 mm, T.7.1.4 only). Measured on the generated outline, though, none of the 23 reaches 5 mm: the
+final wing's tightest nose curve is 4.94 mm (next subsection).
+
+**Known gaps (audit of 20 Oct 2026, against the PDF; not fixed: FSAE code is frozen until the user decides).**
+
+- **T.7.1.4 is checked with the NACA formula, not on the shape.** `le_radius_mm` uses r ≈ 1.1019 t²c, the nominal
+  radius of the thickness distribution. Measured as the minimum radius of curvature over the nose (x < 0.05 c) of
+  the outline `naca4` actually builds, a symmetric section is about 1% tighter (4.96 mm at t = 0.123), and a
+  cambered one can be much tighter, because the thickness is laid perpendicular to a steep camber line at the nose
+  (slope 2m/p): the final wing (m 0.09, p 0.36, t 0.13) measures 4.94 mm against 5.59 mm by formula; the worst
+  corner of the bounds (m 0.09, p 0.20, t 0.123) 3.7 mm. Over a 1,260-point grid of formula-legal sections, 201
+  measure under 5 mm; thickness ≥ 0.144 keeps every camber legal, and the final wing would need t ≥ 0.131. Both
+  preset starts (m 0.06, p 0.40, t 0.13) measure 5.29 mm and are legal either way. New with this audit: session
+  12 verified the formula's coefficients, not the built outline, and its "all 7 XFoil winners are FSAE-legal (LE
+  radius 5.6–6.2 mm)" is by formula. Fix: check the measured minimum nose radius in `check_regulations` (and in
+  `min_thickness_for_le_radius`), on the main element and, for two-element wings, on any reachable flap leading
+  edge. What a fix touches: the hard target (−1.83 ± 0.03, Cd ≤ 0.025) was derived in session 12 from the gated
+  sweep's FSAE-legal levels (t 0.125–0.15). Measured, every t 0.125 sweep shape is under 5 mm, as are 13 of 49 at
+  t 0.13 (mostly p 0.25) and 2 of 49 at t 0.135; t ≥ 0.14 is unaffected, and the session-12 witness (m 0.085,
+  p 0.35, t 0.135) measures 5.35 mm. So the target box would need re-counting (the sweep data is not committed;
+  re-running it is XFoil only, no API cost), and `random_start`, the inner loop's thickness floor and benchmark
+  4's seeded starts would change.
+- **T.7.1.5 is checked by trailing-edge thickness only** (a deliberate project threshold since session 1, carried
+  over from Formula Student's 1 mm radius in session 12). The rule says "not sharp"; the code requires a TE at
+  least 2 mm thick (room for a 1 mm radius), but the section and the FreeCAD export end in a flat cut with two
+  square corners. Round or chamfer them when the part is made, or model a rounded TE.
+- **Not checked in 2D** (known since session 12; the user deferred them in session 14 until there is a span
+  parameter, end-plate geometry and wheel positions): width and the Rear Aerodynamic Zone's sides (T.7.3.3, T.7.6), end-plate vertical edges
+  (T.7.1.4, 3 mm), the wheel keep-out zone and side view (V.1.1, via T.7.4), ground contact *during dynamic
+  events* (V.1.4.1; only a static lowest point above 0 mm is checked, which matters for the planned diffuser, not
+  a wing at ~900 mm), and mount rigidity (T.7.1.3, outside the aero loop).
+- **The car is a placeholder** (known since session 1; replacing it with the team's numbers was deferred with the
+  2D gaps in session 14). Heights and overhang are checked on `PLACEHOLDER_CAR` (mount at 1760 / 950 mm).
+  The final wing sits at 917–995 mm high and 207 mm behind the tyres there, inside 1200 mm and 250 mm, but those
+  margins mean nothing until a real car's numbers replace the placeholder.
+- **The Optuna baseline does not rule-check its first design.** `baselines.search` builds the start and
+  solves it without looking at its violations (later proposals are checked). The presets and `random_start` give
+  legal starts, so this only matters for a hand-made start.
+
+Student race cars run slower than the 50 m/s reference case, so recompute `reynolds` from your target track speeds (for example, 20 m/s on 0.3 m gives Re ≈ 4×10⁵), and re-derive the validator bands at that Re.
 
 **Escape hatch (optional, off by default):** a `generate_custom_feature(code: str)` tool that executes LLM-written CadQuery in a subprocess sandbox with no network, a timeout, and an import allowlist. It must return a solid that passes the same validators. Include it as a clearly labeled experimental mode, and measure its failure rate against the parametric mode. That comparison is a compelling ablation.
 
@@ -859,7 +901,7 @@ There are three layers, each for a different audience.
 
 - Cp(x/c) overlaid on the previous best.
 - Log-scale residual history.
-- Side-view profile with the Formula Student rule box drawn around it.
+- Side-view profile with the rulebook's box drawn around it.
 - For OpenFOAM runs: surface pressure, streamlines through the slot, and a velocity slice showing the wake, rendered with PyVista (or ParaView for publication-quality images) from fixed camera positions.
 
 **2. A live run dashboard** (Streamlit is quickest) that tails `runs/<id>/ledger.jsonl` and `events.jsonl`:
@@ -1112,7 +1154,8 @@ Each number in this document falls into one of five classes. Treat anything mark
 | Relaxation U 0.7, p 0.3 | Sourced | OpenFOAM `airFoil2D` simpleFoam tutorial |
 | XFoil Ncrit = 9 is an "average wind tunnel" | Sourced | XFoil documentation [S3] |
 | RANS (SST) drag above XFoil and experiment | Sourced (direction only) | [S2]; magnitude depends on setup, so calibrate it |
-| Formula Student limits (heights, overhangs, radii, clearance) | Sourced | FS Rules 2026 v1.1 |
+| Formula SAE limits (heights, overhangs, edge radii, ground contact) | Sourced | FSAE Rules 2027 v1.0 (`docs/FSAE_Rules_2027_V1.pdf`), T.7 and V.1.4 |
+| Formula Student limits (the example run) | Sourced (search excerpts) | FS Rules 2026 v1.1 |
 | F1 2026 wing layout and modes | Sourced | F1 sources below |
 | Target Cl 1.5 ± 0.03, Cd ≤ 0.018 | Convention | Chosen for the demo; derive yours from a NeuralFoil/XFoil sweep (≈85% of Cl,max) |
 | Validator ceilings (Cl 2.2 / 4, L/D 200, Cd floor 0.005, fidelity gap 0.1) | Convention | Loose margins around the sourced values above |
@@ -1135,6 +1178,7 @@ Each number in this document falls into one of five classes. Treat anything mark
 - [S9] [Gurney flap (Wikipedia)](https://en.wikipedia.org/wiki/Gurney_flap)
 - [S10] LangGraph 1.2.12 source: `DEFAULT_RECURSION_LIMIT = 10007`
 - [Formula Student Rules 2026 v1.1](https://www.formulastudent.de/fileadmin/user_upload/all/2026/rules/FS-Rules_2026_v1.1.pdf)
-- [Formula SAE Rules 2027 draft](https://spark.docs.iitmotorsports.org/assets/resources/rulebooks/FSAE_Rules_2027_V0_DRAFT_public_comments.pdf)
+- Formula SAE Rules 2027 v1.0, SAE International, 1 Sept 2026: [docs/FSAE_Rules_2027_V1.pdf](FSAE_Rules_2027_V1.pdf) (the rulebook in force)
+- [Formula SAE Rules 2027 draft](https://spark.docs.iitmotorsports.org/assets/resources/rulebooks/FSAE_Rules_2027_V0_DRAFT_public_comments.pdf) (superseded by v1.0)
 - [Red Bull Racing: Guide to the 2026 technical regulations](https://www.redbullracing.com/int-en/projects/bulls-guide-to-the-f1-2026-regulations/technical-regulations)
 - [F1 Briefing: F1 rear wing rules and downforce](https://f1briefing.com/rear-wing-rules-impact-on-f1-downforce/)
